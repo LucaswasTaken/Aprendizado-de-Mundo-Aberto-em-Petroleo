@@ -126,7 +126,8 @@ agrupáveis em esferas.
 \caption{Projeção t-SNE do espaço latente do codificador. À esquerda, os pontos coloridos
 pelos oito rótulos originais do 3W; à direita, pelos agrupamentos obtidos com $K$-médias
 sobre a mesma representação. A correspondência entre as duas partições é parcial: alguns
-rótulos ocupam regiões bem definidas, outros se dispersam por vários agrupamentos.}
+rótulos ocupam regiões bem definidas, outros se dispersam por vários agrupamentos.
+Adaptado de \citet{Lopes2025EAAI}.}
 \label{fig:aberto-agrupamento-latente}
 \end{figure}
 
@@ -292,7 +293,8 @@ dados são de poços reais.
 a janelas da anomalia de ICV --- uma classe que nenhum deles conhece. Seis dos nove
 (1, 3, 4, 6, 8 e 9) produzem escore identicamente nulo. O classificador da classe 2
 concentra-se em torno do limiar $0{,}5$, sem decidir. Os classificadores das classes 5 e
-7 distribuem massa acima do limiar. A linha tracejada indica o limiar de decisão.}
+7 distribuem massa acima do limiar. A linha tracejada indica o limiar de decisão.
+Adaptado de \citet{Lopes2025EAAI}.}
 \label{fig:aberto-icv-classificadores}
 \end{figure}
 
@@ -394,7 +396,7 @@ dados, e retêm-se as amostras em que os dois concordam.
 identificado pelo K-means sobre as classes conhecidas; os círculos vermelhos são as
 janelas de ICV rejeitadas, e a região sombreada é o envoltório convexo que elas ocupam.
 Note que as janelas de ICV não formam um grupo compacto: elas se distribuem em subgrupos
-separados, no limite entre agrupamentos existentes.}
+separados, no limite entre agrupamentos existentes. Adaptado de \citet{Lopes2025EAAI}.}
 \label{fig:aberto-latente}
 \end{figure}
 
@@ -404,7 +406,7 @@ separados, no limite entre agrupamentos existentes.}
 \caption{Agrupamento das janelas de ICV rejeitadas por MeanShift, projetado por t-SNE.
 O algoritmo identifica dois grupos e marca como ruído as amostras que não pertencem a
 nenhum deles --- comportamento desejável, já que a rejeição inevitavelmente arrasta
-janelas de transição.}
+janelas de transição. Adaptado de \citet{Lopes2025EAAI}.}
 \label{fig:aberto-meanshift}
 \end{figure}
 
@@ -414,7 +416,8 @@ janelas de transição.}
 \caption{Agrupamento das mesmas janelas por DBSCAN. O algoritmo não exige que se declare
 o número de grupos, mas transfere a dificuldade para os parâmetros $\varepsilon$ e
 $\mathit{minPts}$: com a densidade heterogênea do espaço latente, ele ou funde os
-subgrupos ou classifica a maior parte das amostras como ruído.}
+subgrupos ou classifica a maior parte das amostras como ruído. Adaptado de
+\citet{Lopes2025EAAI}.}
 \label{fig:aberto-dbscan}
 \end{figure}
 
@@ -485,7 +488,8 @@ as condições lhe são proprícias.
 \end{minipage}
 \caption{Ocultando as classes 3, 6 e 8 e tratando-as como desconhecidas. À esquerda, a
 distribuição original dos dados, colorida pelos rótulos verdadeiros; à direita, os três
-agrupamentos recuperados por $K$-médias sem acesso a esses rótulos.}
+agrupamentos recuperados por $K$-médias sem acesso a esses rótulos. Adaptado de
+\citet{Lopes2025EAAI}.}
 \label{fig:aberto-melhor-caso}
 \end{figure}
 
@@ -500,7 +504,8 @@ foi estimado corretamente.
 \includegraphics[width=0.78\textwidth]{confusion_matrix_kmeans.png}
 \caption{Matriz de confusão normalizada do agrupamento por $K$-médias, agregada sobre as
 $\binom{9}{3} = 168$ combinações possíveis de três classes ocultas. A diagonal domina,
-mas os erros não estão distribuídos de modo uniforme.}
+mas os erros não estão distribuídos de modo uniforme. Adaptado de
+\citet{Lopes2025EAAI}.}
 \label{fig:aberto-matriz-kmeans}
 \end{figure}
 
@@ -530,7 +535,7 @@ treina-se um novo classificador binário, e nenhum dos existentes é tocado.
 \caption{O mesmo cenário da \cref{fig:aberto-icv-classificadores}, agora com dez
 classificadores. O décimo foi treinado exclusivamente sobre as janelas antes rejeitadas
 e reivindica a maior parte delas; as reivindicações espúrias das classes 2 e 5
-retrocedem.}
+retrocedem. Adaptado de \citet{Lopes2025EAAI}.}
 \label{fig:aberto-dez-classes}
 \end{figure}
 
@@ -645,6 +650,8 @@ amostra. Os grupos validados tornam-se classes virtuais --- que ainda não têm 
 \begin{leituras}
 \item \citet{LopesTese2025} --- a tese que originou este capítulo, com detalhamento
       completo do ciclo.
+\item \citet{Lopes2025EAAI} --- o artigo em que o ciclo foi publicado, origem das
+      figuras deste capítulo.
 \item \citet{openworld1}, \citet{openworld2} e \citet{openworld3} --- os fundamentos do
       aprendizado de mundo aberto.
 \item \citet{Pimentel2014review} --- revisão abrangente de detecção de novidade.

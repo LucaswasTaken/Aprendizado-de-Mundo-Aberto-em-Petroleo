@@ -61,7 +61,8 @@ relação que produz o ganho de desempenho reportado na \cref{sec:dual-resultado
 \caption{Fluxo geral do sistema dual. Os dados do poço alimentam simultaneamente o
 diagrama de decisão e o módulo de detecção de anomalias por inteligência artificial. O
 diagrama de decisão encaminha ao módulo de aprendizado apenas os trechos que classifica
-como normais. Qualquer um dos dois componentes pode disparar o alerta ao operador.}
+como normais. Qualquer um dos dois componentes pode disparar o alerta ao operador.
+Adaptado de \citet{aranha2023system}.}
 \label{fig:dual-visaogeral}
 \end{figure}
 
@@ -149,7 +150,8 @@ manobra, é tratado como um poço novo. O custo é o período de reaprendizado; 
 três estados possíveis: antes do treinamento, o sistema apenas acumula dados normais
 selecionados pelo diagrama de decisão; após o treinamento, ele prediz, compara com a
 tolerância e informa o estado do poço; uma mudança de válvula reinicia o ciclo. Dados
-julgados anômalos nunca retornam ao conjunto de treinamento.}
+julgados anômalos nunca retornam ao conjunto de treinamento. Adaptado de
+\citet{aranha2023system}.}
 \label{fig:dual-fluxo-ia}
 \end{figure}
 
@@ -290,7 +292,7 @@ máquina, e é frequentemente o que separa um sistema usado de um sistema deslig
 cinco sensores monitorados; ao centro, os registros de pressão e temperatura; à
 direita, os erros relativos de reconstrução por sensor e o erro agregado. O painel
 inferior direito mostra o escore de anomalia cruzando o limiar, indicado pela linha
-horizontal.}
+horizontal. Adaptado de \citet{aranha2023system}.}
 \label{fig:dual-interface}
 \end{figure}
 

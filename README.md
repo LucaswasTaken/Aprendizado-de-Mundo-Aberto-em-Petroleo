@@ -106,9 +106,10 @@ correspondente.
 Texto, figuras originais e fonte LaTeX sob [CC BY 4.0](LICENSE.md).
 
 > **Atenção:** parte das figuras deriva de artigos publicados em periódicos e
-> conferências com regimes de direito autoral distintos (Elsevier, OTC/SPE). A licença
-> CC BY 4.0 não se estende a esse material. Consulte [`LICENSE.md`](LICENSE.md) antes de
-> redistribuir figuras específicas.
+> conferências com regimes de direito autoral distintos (SPE, Elsevier, Taylor & Francis,
+> OTC). A licença CC BY 4.0 não se estende a esse material. O inventário figura a figura
+> está em [`CREDITOS_FIGURAS.md`](CREDITOS_FIGURAS.md); consulte-o antes de redistribuir
+> figuras específicas.
 
 Os dados proprietários de poços usados em parte dos estudos de caso não são distribuídos
 com a obra. O conjunto 3W é público e distribuído pela Petrobras.

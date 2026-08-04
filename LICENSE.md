@@ -42,12 +42,15 @@ periodicos e conferencias com regimes de direito autoral distintos:
 |---|---|
 | Tese de doutorado (UFAL) | Dos autores |
 | *Scientific Data* (3W Dataset 2.0.0) | CC BY 4.0 |
+| *SPE Journal* (Society of Petroleum Engineers) | Direitos do editor; reuso sujeito a autorizacao |
 | *Engineering Applications of Artificial Intelligence* (Elsevier) | Direitos do editor; reuso pelo autor sujeito ao acordo de publicacao |
+| *Petroleum Science and Technology* (Taylor & Francis) | Direitos do editor; reuso sujeito a autorizacao |
 | *Offshore Technology Conference* (OTC/SPE) | Direitos da OTC; reuso sujeito a autorizacao |
 
-A licenca CC BY 4.0 declarada acima **nao se estende** ao material de terceiros. Antes de
-redistribuir ou adaptar figuras especificas, verifique a origem indicada na legenda e os
-termos do detentor dos direitos.
+A licenca CC BY 4.0 declarada acima **nao se estende** ao material de terceiros. O
+inventario figura a figura, com a origem e o regime aplicavel a cada uma, esta em
+[`CREDITOS_FIGURAS.md`](CREDITOS_FIGURAS.md). Consulte-o antes de redistribuir ou adaptar
+figuras especificas.
 
 ## Dados
 
