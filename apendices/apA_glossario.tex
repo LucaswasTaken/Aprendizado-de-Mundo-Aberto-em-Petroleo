@@ -1,0 +1,239 @@
+\chapter{Glossário}
+\label{cap:glossario}
+
+Este apêndice reúne os termos técnicos empregados no livro, com a definição usada aqui e
+o original em inglês. A lista de siglas encontra-se nas páginas pré-textuais.
+
+\section{Operação de poços e escoamento}
+
+\begin{description}[leftmargin=0pt,style=nextline,itemsep=0.35em]
+
+\item[Anomalia] Comportamento do poço que se desvia do regime operacional esperado. Não
+é sinônimo de falha: uma anomalia pode ser benigna, e uma falha pode ocorrer sem
+anomalia detectável nos sensores disponíveis.
+
+\item[Árvore de natal molhada (\ing{wet christmas tree})] Conjunto de válvulas instalado
+na cabeça do poço submarino, que controla o fluxo entre o poço e as linhas de produção.
+
+\item[Completação inteligente (\ing{intelligent completion})] Arranjo de poço com
+válvulas de controle de intervalo operáveis remotamente, que permite regular a
+contribuição de cada zona produtora sem intervenção física.
+
+\item[Curva de formação de hidrato] Fronteira no plano pressão--temperatura que separa a
+região onde hidratos de gás são termodinamicamente estáveis da região onde não são.
+
+\item[Elevação por gás (\ing{gas lift})] Técnica de elevação artificial em que gás é
+injetado na coluna de produção para reduzir a densidade da mistura e restabelecer o
+fluxo.
+
+\item[Golfada (\ing{slugging})] Regime de escoamento intermitente em que bolsões de gás
+e de líquido alternam-se, produzindo oscilações de pressão e vazão.
+
+\item[Hidrato de gás] Sólido cristalino formado por moléculas de gás aprisionadas em uma
+estrutura de água, estável a alta pressão e baixa temperatura. Pode obstruir linhas de
+produção.
+
+\item[Incrustação (\ing{scaling})] Deposição progressiva de sais ou parafinas nas
+paredes da tubulação ou na válvula reguladora, que restringe o fluxo ao longo de semanas
+ou meses.
+
+\item[Intervenção] Operação física sobre o poço, geralmente com embarcação dedicada, de
+custo elevado. Reduzir intervenções não programadas é um dos objetivos do monitoramento.
+
+\item[Linha de serviço] Linha secundária, distinta da linha de produção, usada para
+injeção de químicos, gás de elevação ou operações auxiliares.
+
+\item[Perda de produtividade] Redução sustentada da vazão produzida sob condições
+operacionais equivalentes.
+
+\item[Poço injetor] Poço destinado a injetar fluido no reservatório, para manutenção de
+pressão ou varrido, em oposição ao poço produtor.
+
+\item[Pré-sal] Província petrolífera brasileira situada abaixo de uma camada de sal, em
+lâminas d'água tipicamente superiores a dois mil metros.
+
+\item[Regime permanente (\ing{steady state})] Condição em que as variáveis do processo
+permanecem aproximadamente constantes, em oposição ao transiente.
+
+\item[Tempo não produtivo] Período em que o poço não produz por razão não programada.
+
+\item[Transiente] Período de variação rápida das variáveis do processo, tipicamente após
+uma manobra deliberada, durante o qual os modelos de regime permanente não se aplicam.
+
+\item[Válvula de controle de intervalo] Válvula de fundo que regula a contribuição de
+uma zona produtora específica.
+
+\item[Válvula de segurança de subsuperfície] Válvula de fundo que fecha automaticamente
+em condição de emergência, isolando o poço.
+
+\item[Válvula reguladora de produção (\ing{production choke})] Válvula que controla a
+vazão do poço para a linha de produção.
+
+\end{description}
+
+\section{Aprendizado de máquina}
+
+\begin{description}[leftmargin=0pt,style=nextline,itemsep=0.35em]
+
+\item[Acurácia balanceada] Média das revocações por classe. Usada quando as classes são
+desbalanceadas, situação em que a acurácia simples é enganosa.
+
+\item[Agrupamento (\ing{clustering})] Tarefa não supervisionada de particionar um
+conjunto de dados em grupos de elementos semelhantes.
+
+\item[Aprendizado de mundo aberto (\ing{open-world learning})] Paradigma em que o modelo
+deve reconhecer que uma amostra não pertence a nenhuma classe conhecida, organizar as
+amostras rejeitadas e incorporá-las como novas classes.
+
+\item[Aprendizado de mundo fechado (\ing{closed-world learning})] Paradigma que pressupõe
+que todas as classes que ocorrerão em operação estavam presentes no treinamento.
+
+\item[Atenção (\ing{attention})] Mecanismo que pondera dinamicamente a contribuição de
+cada posição de uma sequência, permitindo caminho de comprimento constante entre
+posições distantes.
+
+\item[Autoencoder] Rede treinada para reconstruir a própria entrada através de um
+gargalo, aprendendo uma representação comprimida sem supervisão.
+
+\item[Classe virtual] Agrupamento de amostras rejeitadas que satisfaz critérios de
+coesão e é tratado provisoriamente como classe, até validação por especialista.
+
+\item[Classe sintomática] Classe definida pelo sintoma observável e não pelo mecanismo
+físico subjacente. Instâncias de uma mesma classe sintomática podem ter causas distintas,
+o que compromete a coerência interna do rótulo.
+
+\item[Deriva (\ing{drift})] Mudança, ao longo do tempo, da distribuição dos dados
+(deriva de dados) ou da relação entre entrada e rótulo (deriva de conceito).
+
+\item[Detecção de novidade (\ing{novelty detection})] Tarefa de identificar amostras que
+não pertencem a nenhuma classe conhecida.
+
+\item[Distância de Mahalanobis] Distância entre um ponto e uma distribuição, normalizada
+pela covariância. É invariante a escala e sensível à correlação entre variáveis.
+
+\item[Ensemble] Conjunto de modelos cujas saídas são combinadas. Neste livro, designa
+sobretudo o conjunto de classificadores binários um-contra-todos.
+
+\item[Época (\ing{epoch})] Uma passagem completa pelo conjunto de treinamento.
+
+\item[Escore-$z$ (\ing{z-score})] Padronização que subtrai a média e divide pelo desvio
+padrão.
+
+\item[Espaço latente] Espaço de representação intermediária aprendido por um modelo. Sua
+geometria determina o que métodos baseados em distância conseguem detectar.
+
+\item[Índice de Calinski-Harabasz] Razão entre dispersão entre grupos e dispersão dentro
+dos grupos. Valores maiores indicam melhor separação.
+
+\item[Índice de Davies-Bouldin] Média da similaridade de cada grupo com seu vizinho mais
+próximo. Valores menores indicam melhor separação.
+
+\item[Interseção sobre união] Razão entre a interseção e a união de duas regiões. Usada
+para avaliar a qualidade de segmentações.
+
+\item[Janela deslizante (\ing{sliding window})] Recorte de comprimento fixo que avança
+sobre a série temporal com passo definido.
+
+\item[Mistura de especialistas] Arquitetura em que apenas um subconjunto dos parâmetros
+é ativado por entrada, permitindo modelos de grande capacidade com custo de inferência
+reduzido.
+
+\item[Parada antecipada (\ing{early stopping})] Interrupção do treinamento quando a
+métrica de validação deixa de melhorar por um número definido de épocas.
+
+\item[Perceptron de múltiplas camadas] Rede neural composta por camadas densas
+sucessivas com não linearidades.
+
+\item[Rede recorrente] Rede que processa sequências mantendo um estado interno atualizado
+a cada passo.
+
+\item[Regularização por abandono (\ing{dropout})] Técnica que desativa aleatoriamente
+unidades durante o treinamento, reduzindo sobreajuste.
+
+\item[Reconhecimento em conjunto aberto (\ing{open-set recognition})] Formulação em que o
+modelo pode recusar-se a atribuir uma classe, mas não organiza nem incorpora as amostras
+recusadas.
+
+\item[Risco de espaço aberto] Formalização do risco de classificar como conhecida uma
+região do espaço de características arbitrariamente distante dos dados de treinamento.
+
+\item[Segmentação de séries temporais] Tarefa de atribuir um rótulo a cada instante da
+série, em oposição a atribuir um rótulo a uma janela inteira.
+
+\item[Silhueta] Medida, por amostra, de quão bem ela se ajusta ao próprio grupo em
+comparação ao grupo mais próximo. Varia em $[-1,1]$.
+
+\item[Sobreajuste (\ing{overfitting})] Ajuste excessivo aos dados de treinamento, com
+perda de desempenho em dados novos.
+
+\item[Um-contra-todos (\ing{one-vs-all})] Estratégia que decompõe um problema
+multiclasse em vários problemas binários independentes.
+
+\item[Validação cruzada estratificada] Partição em dobras que preserva a proporção das
+classes em cada dobra.
+
+\end{description}
+
+\section{Modelos de linguagem}
+
+\begin{description}[leftmargin=0pt,style=nextline,itemsep=0.35em]
+
+\item[Alucinação (\ing{hallucination})] Produção de afirmação fluente e plausível que
+não é sustentada pela entrada nem por fato verificável.
+
+\item[Cadeia de raciocínio (\ing{chain-of-thought})] Texto intermediário produzido antes
+da resposta final. Não deve ser confundido com explicação do processo computacional
+efetivo.
+
+\item[Calibração] Grau de correspondência entre a confiança declarada por um modelo e a
+frequência empírica de acerto.
+
+\item[Contaminação de dados] Presença, no corpus de pré-treinamento, de dados usados na
+avaliação, o que invalida a interpretação dos resultados como generalização.
+
+\item[Instrução de sistema (\ing{system prompt})] Instrução que define papel, restrições
+e formato de saída, aplicada antes da entrada específica.
+
+\item[Prompt] Entrada textual fornecida ao modelo de linguagem, incluindo instrução,
+contexto e dados.
+
+\item[Saída estruturada] Resposta em formato especificado, tipicamente JSON, que pode ser
+validada programaticamente.
+
+\item[Temperatura] Parâmetro que controla a aleatoriedade da amostragem. Valores baixos
+tornam a saída mais determinística.
+
+\item[Transformador (\ing{transformer})] Arquitetura baseada em atenção, sem recorrência,
+que permite paralelização do processamento da sequência.
+
+\end{description}
+
+\section{Métricas e avaliação}
+
+\begin{description}[leftmargin=0pt,style=nextline,itemsep=0.35em]
+
+\item[Detecção antecipada] Fração de eventos detectados antes do instante anotado pelo
+especialista. Métrica da família SoftED.
+
+\item[Erro percentual absoluto médio simétrico] Métrica de erro de reconstrução limitada
+e simétrica em relação a sobre e subestimação.
+
+\item[Especificidade] Fração de negativos corretamente identificados.
+
+\item[Intervalo de Wilson] Intervalo de confiança para proporção binomial, adequado a
+amostras pequenas e a proporções próximas de zero ou um.
+
+\item[Medida $F_1$] Média harmônica entre precisão e revocação.
+
+\item[Precisão] Fração de predições positivas que estão corretas.
+
+\item[Revocação] Fração de positivos reais que foram detectados. Também chamada de
+sensibilidade.
+
+\item[SoftED] Família de métricas de detecção de eventos com tolerância temporal, que
+credita parcialmente detecções próximas ao instante anotado.
+
+\item[Top-$k$] Métrica que considera acerto se a resposta correta está entre as $k$
+primeiras posições de uma lista ordenada.
+
+\end{description}

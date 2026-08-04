@@ -1,0 +1,424 @@
+\chapter{Aprendizado profundo para séries temporais}
+\label{cap:profundo}
+
+\begin{objetivos}
+Ao final deste capítulo, você será capaz de:
+\begin{itemize}[leftmargin=*,itemsep=0.2em]
+  \item descrever a estrutura e o mecanismo de treinamento de um perceptron de múltiplas
+        camadas e explicar por que ele é inadequado a séries temporais longas;
+  \item explicar o funcionamento das células LSTM e GRU e o problema do gradiente
+        evanescente que elas resolvem;
+  \item aplicar convoluções unidimensionais a sinais e calcular o campo receptivo de uma
+        pilha convolucional;
+  \item construir um autoencoder, interpretar seu espaço latente e usar o erro de
+        reconstrução como escore de anomalia;
+  \item distinguir autoencoder, autoencoder variacional e rede de agrupamento profundo
+        quanto ao que cada um otimiza;
+  \item descrever a arquitetura U-Net e justificar por que suas conexões de atalho
+        importam para segmentação;
+  \item enunciar o mecanismo de atenção e situar o Transformer no contexto deste livro.
+\end{itemize}
+\end{objetivos}
+
+\section{Da regressão à rede profunda}
+
+\subsection{O perceptron de múltiplas camadas}
+
+Uma camada densa aplica uma transformação afim seguida de não linearidade:
+\begin{equation}
+  \vect{h}^{(\ell)} = \sigma\big( \mat{W}^{(\ell)} \vect{h}^{(\ell-1)} + \vect{b}^{(\ell)} \big),
+  \label{eq:camada-densa}
+\end{equation}
+com $\vect{h}^{(0)} = \vect{x}$. Empilhando $L$ camadas obtém-se o \termo{perceptron de
+múltiplas camadas}{multilayer perceptron} (MLP). As não linearidades usadas neste livro
+são a ReLU, $\sigma(z) = \max(0, z)$, nas camadas ocultas, e a sigmoide,
+$\sigma(z) = 1/(1 + e^{-z})$, nas saídas binárias.
+
+Aplicar um MLP a uma série temporal exige achatá-la em um vetor de dimensão $T \cdot S$.
+Para $T = 200$ e $S = 4$, isso resulta em \num{800} entradas --- exatamente a
+representação ``bruta'' usada como linha de base no \cref{cap:mahalanobis}. O
+procedimento funciona, mas descarta duas propriedades essenciais do sinal: a
+\emph{ordem} (permutar os instantes produziria a mesma representação para uma rede sem
+estrutura) e a \emph{invariância a translação} (o mesmo padrão em posição diferente
+ativa pesos diferentes).
+
+\begin{destaque}[Por que a linha de base bruta ainda aparece]
+O \cref{cap:mahalanobis} reporta que classificadores binários sobre a representação
+bruta de \num{800} dimensões atingem $0{,}691 \pm 0{,}162$ de acurácia, contra
+$0{,}755 \pm 0{,}171$ sobre a representação latente de um classificador multiclasse. A
+diferença é real, mas modesta --- e o fato de a representação bruta chegar tão perto é
+informativo: as assinaturas dessas anomalias são, em boa medida, capturáveis por
+estatísticas de primeira ordem.
+\end{destaque}
+
+\subsection{Regularização}
+
+Três mecanismos são usados de forma recorrente:
+
+\begin{itemize}[leftmargin=*,itemsep=0.3em]
+  \item \textbf{\ing{Dropout}} \citep{srivastava14a}: durante o treinamento, cada
+        unidade é zerada com probabilidade $p$. Nas arquiteturas deste livro, $p$ varia
+        de $0{,}1$ a $0{,}5$, tipicamente decrescendo em direção à saída.
+  \item \textbf{Normalização em lote} (\ing{batch normalization}): normaliza as ativações
+        de cada camada pela média e variância do lote, acelerando a convergência e
+        atuando como regularizador leve. Presente em todos os blocos da U-Net do
+        \cref{cap:segmentacao}.
+  \item \textbf{Parada antecipada} (\ing{early stopping}): interrompe o treinamento
+        quando a perda de validação deixa de melhorar por um número fixo de épocas.
+        O \cref{cap:closedworld} usa paciência de cinco épocas.
+\end{itemize}
+
+\section{Redes recorrentes}
+
+\subsection{O problema}
+
+Uma rede recorrente processa a sequência mantendo um estado oculto:
+\begin{equation}
+  \vect{h}_t = \sigma\big( \mat{W}_{hh}\vect{h}_{t-1} + \mat{W}_{xh}\vect{x}_t + \vect{b} \big).
+  \label{eq:rnn}
+\end{equation}
+A retropropagação através do tempo desdobra essa recorrência em $T$ passos, e o
+gradiente em relação a $\vect{h}_1$ envolve o produto de $T$ jacobianas. Se os autovalores
+dominantes dessas matrizes forem menores que um, o gradiente decai exponencialmente e a
+rede não aprende dependências longas; se forem maiores, ele explode. É o
+\termo{problema do gradiente evanescente}{vanishing gradient problem}
+\citep{SCHMIDHUBER201585}.
+
+Para $T = 500$, como no \cref{cap:dual}, uma RNN simples é inviável.
+
+\subsection{A célula LSTM}
+
+A \termo{memória de curto prazo longa}{long short-term memory} (LSTM)
+\citep{Hochreiter1997} introduz um estado de célula $\vect{c}_t$ que se propaga por
+soma, não por produto matricial, e três portas que regulam o fluxo de informação:
+
+\begin{align}
+\vect{f}_t &= \sigma\big(\mat{W}_f [\vect{h}_{t-1}, \vect{x}_t] + \vect{b}_f\big)
+  && \text{(esquecimento)} \label{eq:lstm-f}\\
+\vect{i}_t &= \sigma\big(\mat{W}_i [\vect{h}_{t-1}, \vect{x}_t] + \vect{b}_i\big)
+  && \text{(entrada)} \label{eq:lstm-i}\\
+\tilde{\vect{c}}_t &= \tanh\big(\mat{W}_c [\vect{h}_{t-1}, \vect{x}_t] + \vect{b}_c\big)
+  && \text{(candidato)} \label{eq:lstm-c}\\
+\vect{c}_t &= \vect{f}_t \odot \vect{c}_{t-1} + \vect{i}_t \odot \tilde{\vect{c}}_t
+  && \text{(estado de célula)} \label{eq:lstm-cell}\\
+\vect{o}_t &= \sigma\big(\mat{W}_o [\vect{h}_{t-1}, \vect{x}_t] + \vect{b}_o\big)
+  && \text{(saída)} \label{eq:lstm-o}\\
+\vect{h}_t &= \vect{o}_t \odot \tanh(\vect{c}_t)
+  && \text{(estado oculto)} \label{eq:lstm-h}
+\end{align}
+
+onde $\odot$ denota produto elemento a elemento. A \cref{eq:lstm-cell} é o coração do
+mecanismo: quando $\vect{f}_t \approx \vect{1}$ e $\vect{i}_t \approx \vect{0}$, o
+estado de célula é copiado inalterado, e o gradiente flui sem atenuação.
+
+\begin{destaque}[LSTM em todos os capítulos da Parte II e III]
+O \cref{cap:dual} usa uma pilha LSTM(16)--LSTM(4) como codificador e o espelho como
+decodificador. O \cref{cap:mundoaberto} usa LSTM(32)--LSTM(8) com camada densa latente
+de dimensão 16. O \cref{cap:mahalanobis} usa LSTM(256)--LSTM(128) com latente de
+dimensão 128. A tendência de crescimento não é acidental: reflete o aumento da
+quantidade de dados e a mudança de objetivo, de reconstrução para representação
+discriminativa.
+\end{destaque}
+
+\subsection{GRU}
+
+A \termo{unidade recorrente com portas}{gated recurrent unit} funde as portas de
+esquecimento e entrada em uma única porta de atualização, eliminando o estado de célula
+separado. Tem cerca de um quarto a menos de parâmetros e desempenho comparável na
+maioria das tarefas. Não é usada nos experimentos deste livro, mas é a primeira
+alternativa a considerar quando o custo computacional importa.
+
+\section{Convoluções unidimensionais}
+
+Uma convolução unidimensional com núcleo de tamanho $\kappa$ aplica
+\begin{equation}
+  h_t^{(j)} = \sigma\left( \sum_{s=1}^{S} \sum_{u=0}^{\kappa-1}
+  w^{(j)}_{s,u}\, x_{t+u}^{(s)} + b^{(j)} \right),
+  \label{eq:conv1d}
+\end{equation}
+compartilhando os pesos $w^{(j)}$ ao longo de todo o eixo temporal. Duas consequências
+seguem imediatamente: o número de parâmetros independe de $T$, e a resposta é
+equivariante a translações --- o mesmo padrão detectado em posições diferentes produz a
+mesma ativação, deslocada.
+
+\begin{definicao}{Campo receptivo}
+O campo receptivo de uma unidade é o número de amostras da entrada que influenciam seu
+valor. Para uma pilha de $L$ camadas convolucionais de núcleo $\kappa$, sem
+subamostragem, o campo receptivo é $L(\kappa - 1) + 1$. Com subamostragem por fator 2
+após cada camada, ele cresce aproximadamente como $2^{L}$.
+\end{definicao}
+
+\begin{exemplo}{O campo receptivo da U-Net do \cref{cap:segmentacao}}
+A arquitetura tem dois blocos de codificação com duas convoluções de núcleo 5 cada,
+seguidos de subamostragem por 2, e um gargalo com mais duas convoluções de núcleo 5.
+Sem subamostragem, seriam $6 \times 4 + 1 = 25$ amostras. Com as duas subamostragens,
+o campo receptivo efetivo no gargalo ultrapassa oitenta amostras, cobrindo boa parte da
+janela de duzentas.
+
+O cálculo importa: se o campo receptivo fosse menor que a duração característica do
+evento, a rede não poderia, em princípio, reconhecê-lo.
+\end{exemplo}
+
+\subsection{Convolução \emph{versus} recorrência}
+
+\begin{center}
+\small
+\begin{tabular}{p{3.2cm} p{4.7cm} p{4.7cm}}
+\toprule
+& \textbf{Recorrente (LSTM)} & \textbf{Convolucional 1D} \\
+\midrule
+Paralelização & Sequencial; lenta em $T$ grande. & Totalmente paralelizável. \\
+Dependência longa & Ilimitada em princípio. & Limitada pelo campo receptivo. \\
+Parâmetros & Independem de $T$. & Independem de $T$. \\
+Adequação & Dinâmica com memória de estado. & Padrões locais e invariantes a
+translação. \\
+Uso neste livro & \cref{cap:dual}, \cref{cap:mundoaberto},
+\cref{cap:mahalanobis}. & \cref{cap:segmentacao}. \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Autoencoders}
+
+\begin{definicao}{Autoencoder}
+Um \termo{autoencoder}{autoencoder} é um par de funções
+$g_{\phi}: \R^{T \times S} \to \R^{d}$ (codificador) e
+$h_{\psi}: \R^{d} \to \R^{T \times S}$ (decodificador), treinado para minimizar o erro
+de reconstrução
+\begin{equation}
+  \mathcal{L}(\phi, \psi) = \frac{1}{n}\sum_{i=1}^{n}
+  \mathcal{D}\big( \mat{X}_i,\; h_{\psi}(g_{\phi}(\mat{X}_i)) \big),
+  \label{eq:ae}
+\end{equation}
+com $d \ll T \cdot S$. O vetor $\vect{z} = g_{\phi}(\mat{X})$ é a
+\termo{representação latente}{latent representation}.
+\end{definicao}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.85\textwidth]{autoencoder.png}
+\caption{Estrutura de um autoencoder: o codificador comprime a entrada até uma
+representação latente de baixa dimensão e o decodificador tenta reconstruí-la. A
+restrição $d \ll T\cdot S$ força a rede a reter apenas os fatores de variação mais
+relevantes.}
+\label{fig:profundo-ae}
+\end{figure}
+
+A restrição dimensional é o que dá poder ao mecanismo. Como $\vect{z}$ não tem
+capacidade para armazenar a entrada integralmente, o treinamento força a retenção dos
+fatores de variação mais frequentes. Se o treinamento usa apenas dados normais, esses
+fatores são os da normalidade, e a reconstrução de uma entrada anômala é ruim por
+construção.
+
+\begin{definicao}{Escore de anomalia por reconstrução}
+Dado um autoencoder treinado sobre dados normais,
+\begin{equation}
+  a(\mat{X}) = \mathcal{D}\big( \mat{X},\; h_{\psi}(g_{\phi}(\mat{X})) \big),
+  \label{eq:score-recon}
+\end{equation}
+e declara-se anomalia quando $a(\mat{X}) > \tau$. O limiar é tipicamente estimado a
+partir da distribuição de $a$ sobre dados normais, na forma $\tau = \mu_a + k\sigma_a$.
+\end{definicao}
+
+O \cref{cap:dual} usa $\mathcal{D} = \text{SMAPE}$ e $k = 3$. O \cref{cap:mahalanobis}
+abandona esse escore em favor da distância no espaço latente, e o motivo será
+desenvolvido lá: um autoencoder treinado para reconstruir pode reconstruir bem demais,
+inclusive anomalias, quando sua capacidade é suficiente.
+
+\subsection{Autoencoder variacional}
+
+O \termo{autoencoder variacional}{variational autoencoder} (VAE) \citep{VAE,Kingma2014}
+substitui o vetor latente determinístico por uma distribuição. O codificador produz
+$\vect{\mu}(\mat{X})$ e $\vect{\sigma}(\mat{X})$, amostra-se
+$\vect{z} \sim \mathcal{N}(\vect{\mu}, \operatorname{diag}(\vect{\sigma}^2))$ pelo
+truque de reparametrização, e acrescenta-se à perda um termo de divergência de
+Kullback-Leibler que puxa a posterior aproximada para uma normal padrão:
+\begin{equation}
+  \mathcal{L}_{\text{VAE}} = \underbrace{\E_{q}\big[ -\log p(\mat{X} \mid \vect{z}) \big]}_{\text{reconstrução}}
+  + \beta\, \underbrace{D_{\mathrm{KL}}\big( q(\vect{z}\mid\mat{X}) \,\|\, \mathcal{N}(\vect{0}, \mat{I}) \big)}_{\text{regularização}}.
+  \label{eq:vae}
+\end{equation}
+
+O efeito é um espaço latente contínuo e suave. A expectativa natural seria que isso
+melhorasse o agrupamento subsequente; o \cref{cap:mundoaberto} mostra que não melhorou:
+$0{,}727$ contra $0{,}730$ do autoencoder determinístico, diferença sem significância.
+
+\subsection{Rede de agrupamento profundo}
+
+A \termo{rede de agrupamento profundo}{deep clustering network} (DCN) \citep{DCN} otimiza
+simultaneamente reconstrução e uma perda de agrupamento no espaço latente:
+\begin{equation}
+  \mathcal{L}_{\text{DCN}} = \mathcal{L}_{\text{recon}} +
+  \lambda \sum_{i} \big\| \vect{z}_i - \vect{c}_{\pi(i)} \big\|^2,
+  \label{eq:dcn}
+\end{equation}
+onde $\vect{c}_{\pi(i)}$ é o centroide atribuído a $\vect{z}_i$. A intenção é produzir
+um espaço latente com agrupamentos bem separados. No \cref{cap:mundoaberto}, obteve
+$0{,}725$ --- também sem ganho.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.72\textwidth]{DCN_latent.png}
+\caption{Projeção t-SNE do espaço latente produzido por uma DCN. Cada cor é uma classe
+conhecida; o polígono destaca a região ocupada pelas janelas da falha de ICV, uma classe
+que a rede nunca viu. Os pontos novos são absorvidos pelos agrupamentos existentes em vez
+de formar um agrupamento próprio.}
+\label{fig:profundo-dcn}
+\end{figure}
+
+A \cref{fig:profundo-dcn} mostra por que o ganho não aparece --- e o motivo é mais
+interessante que a ausência de ganho. A perda de agrupamento da \cref{eq:dcn} pune
+explicitamente pontos distantes de qualquer centroide. Diante de uma classe nunca vista,
+a rede faz exatamente o que foi instruída a fazer: puxa os pontos novos para dentro dos
+agrupamentos que já conhece.
+
+\begin{destaque}[Regularizar o latente pode ser contraproducente]
+Autoencoder, VAE e DCN diferem justamente em quanto impõem estrutura ao espaço latente ---
+nenhuma, gaussiana e por agrupamentos, respectivamente. Para reconstruir, mais estrutura
+ajuda. Para \emph{detectar o desconhecido}, ela atrapalha.
+
+O autoencoder simples reconstrói mal o que nunca viu, e essa incompetência é útil: joga
+os pontos novos para as bordas do latente, onde são fáceis de isolar. O VAE os
+regulariza para junto dos conhecidos; a DCN os absorve nos agrupamentos. Ambos apagam o
+sinal que se queria capturar.
+
+É um caso raro em que a propriedade desejável de um modelo é a sua fragilidade.
+\end{destaque}
+
+\begin{destaque}[Um resultado negativo instrutivo]
+Três variantes de autoencoder, três resultados indistinguíveis: $0{,}730$, $0{,}727$ e
+$0{,}725$. A conclusão do \cref{cap:mundoaberto} é que a escolha da variante não era o
+gargalo. O gargalo estava no \emph{objetivo}: todas as três otimizam reconstrução, e
+reconstrução não é discriminação.
+
+O \cref{cap:mahalanobis} testa a hipótese oposta --- extrair a representação da camada
+penúltima de um classificador multiclasse, treinado com objetivo discriminativo --- e
+obtém uma melhora de outra ordem de grandeza: índice de silhueta de $0{,}2299$ contra
+$-0{,}0149$, e razão de separação de até 186,5 vezes contra menos de 2,5.
+\end{destaque}
+
+\section{A U-Net unidimensional}
+
+A U-Net \citep{Ronneberger2015} foi proposta para segmentação de imagens biomédicas e
+adaptada aqui para segmentação de séries temporais. Sua estrutura tem três partes.
+
+\begin{description}[leftmargin=0pt,style=nextline,itemsep=0.4em]
+
+\item[Caminho de contração.] Blocos de convolução seguidos de subamostragem. A cada
+bloco, a resolução temporal cai pela metade e o número de canais dobra. Captura contexto
+progressivamente mais amplo.
+
+\item[Caminho de expansão.] Blocos de superamostragem seguidos de convolução, que
+restauram a resolução original.
+
+\item[Conexões de atalho.] Cada nível do caminho de expansão recebe, por concatenação, o
+mapa de ativação do nível correspondente do caminho de contração.
+
+\end{description}
+
+\begin{destaque}[Por que as conexões de atalho são o ponto principal]
+Sem elas, a informação de localização precisa seria destruída pelas subamostragens
+sucessivas: a rede saberia \emph{que} há uma anomalia na janela, mas não \emph{onde} ela
+começa. As conexões de atalho reinjetam, em alta resolução, exatamente essa informação.
+
+Para segmentação temporal de eventos de poço, isso é a diferença entre ``esta janela de
+duzentos segundos contém um evento'' e ``o evento começa no segundo 137''. A segunda
+resposta é a que o operador precisa.
+\end{destaque}
+
+A instanciação concreta, com dois níveis, núcleos de tamanho 5 e 32, 64 e 128 canais, é
+detalhada no \cref{cap:segmentacao}.
+
+\section{Atenção e Transformers}
+
+O mecanismo de \termo{atenção}{attention} \citep{Vaswani2017} calcula, para cada
+posição, uma combinação ponderada de todas as posições da sequência:
+\begin{equation}
+  \text{Atenção}(\mat{Q}, \mat{K}, \mat{V}) =
+  \operatorname{softmax}\!\left( \frac{\mat{Q}\mat{K}^{\top}}{\sqrt{d_k}} \right) \mat{V},
+  \label{eq:atencao}
+\end{equation}
+onde $\mat{Q}$, $\mat{K}$ e $\mat{V}$ --- consultas, chaves e valores --- são projeções
+lineares da entrada. Ao contrário da recorrência, o caminho entre duas posições
+quaisquer tem comprimento constante, o que elimina o problema do gradiente evanescente
+por outra via. O custo é quadrático em $T$.
+
+Nenhum dos modelos treinados neste livro é um Transformer. Ele aparece, contudo, de
+forma decisiva: o modelo de linguagem da \cref{parte:explicabilidade} é um Transformer
+com centenas de bilhões de parâmetros, e compreender a \cref{eq:atencao} é pré-requisito
+para entender o que ele faz e o que ele não faz. Essa discussão é o objeto do
+\cref{cap:llm}.
+
+\begin{destaque}[Prática]
+O caderno \texttt{3\_introduction\_to\_unsupervised\_learning}, descrito no
+\cref{cap:pratica}, treina um autoencoder LSTM sobre janelas do 3W e usa o erro de
+reconstrução como escore de anomalia \citep{Lopes2026Intro3W}. Suas escolhas de
+estabilidade numérica --- ativação \texttt{tanh}, inicialização ortogonal e recorte de
+gradiente --- tornam concreto por que treinar recorrentes sobre sequências longas exige
+cuidados que redes densas dispensam.
+\end{destaque}
+
+\resumocapitulo{%
+As arquiteturas empregadas neste livro formam um repertório pequeno e bem delimitado.
+Camadas densas fornecem os classificadores binários. Células LSTM, com seu estado de
+célula propagado por soma, tornam viável o processamento de janelas de centenas de
+amostras e sustentam os autoencoders recorrentes dos
+\cref{cap:dual,cap:mundoaberto,cap:mahalanobis}. Convoluções unidimensionais, com pesos
+compartilhados no tempo e campo receptivo controlado pela profundidade e pela
+subamostragem, sustentam a U-Net de segmentação do \cref{cap:segmentacao}, cujas
+conexões de atalho preservam a informação de localização temporal. Autoencoders
+comprimem a entrada em uma representação latente e permitem detectar anomalias por erro
+de reconstrução; suas variantes variacional e de agrupamento profundo não produziram
+ganho mensurável, o que indica que o gargalo estava no objetivo de reconstrução e não na
+arquitetura. O mecanismo de atenção, embora não treinado aqui, é a base dos modelos de
+linguagem da Parte IV.}
+
+\begin{exercicios}
+\item Calcule o número de parâmetros de uma camada LSTM com $n_h$ unidades recebendo
+      entrada de dimensão $n_x$. Aplique ao codificador do \cref{cap:mahalanobis}
+      (LSTM(256) seguido de LSTM(128), entrada de 4 canais) e compare com o número de
+      parâmetros de um MLP de mesma capacidade de saída sobre a entrada achatada de
+      \num{800} dimensões.
+
+\item Mostre, a partir da \cref{eq:lstm-cell}, que quando $\vect{f}_t = \vect{1}$ e
+      $\vect{i}_t = \vect{0}$ para todo $t$ em um intervalo, o gradiente de
+      $\vect{c}_{t_2}$ em relação a $\vect{c}_{t_1}$ é a identidade. Explique por que
+      esse é o mecanismo que resolve o gradiente evanescente.
+
+\item Calcule o campo receptivo de uma pilha de quatro convoluções unidimensionais com
+      núcleo 3 e dilatação $1, 2, 4, 8$. Compare com quatro convoluções de núcleo 3 sem
+      dilatação. Discuta quando convoluções dilatadas seriam preferíveis à subamostragem
+      da U-Net.
+
+\item Um autoencoder com $d = T \cdot S$ pode aprender a função identidade e ter erro de
+      reconstrução nulo para qualquer entrada, inclusive anômala. Discuta três formas de
+      impedir isso além da redução de $d$, e relacione cada uma a um mecanismo de
+      regularização apresentado neste capítulo.
+
+\item Derive a \cref{eq:vae} a partir do limite inferior da evidência (ELBO). Explique
+      qual o papel do coeficiente $\beta$ e o que acontece nos limites $\beta \to 0$ e
+      $\beta \to \infty$.
+
+\item Implemente uma U-Net unidimensional com dois níveis e treine-a para segmentar
+      regiões anômalas em uma instância sintética. Em seguida, remova as conexões de
+      atalho, retreine e compare o IOU. Quantifique a degradação.
+
+\item A complexidade da atenção é $O(T^2 d)$. Para $T = \num{86400}$ (um dia a
+      \SI{1}{\hertz}) e $d = 128$, estime o número de operações de uma única camada de
+      atenção. Discuta por que isso inviabiliza a aplicação direta de Transformers a
+      séries temporais brutas de poço e cite duas estratégias da literatura para
+      contornar o problema.
+\end{exercicios}
+
+\begin{leituras}
+\item \citet{Hochreiter1997} --- artigo original da LSTM. Denso, mas a
+      \cref{eq:lstm-cell} fica muito mais clara depois de lê-lo.
+\item \citet{SCHMIDHUBER201585} --- panorama histórico do aprendizado profundo, útil
+      para situar cada arquitetura em sua motivação original.
+\item \citet{Ronneberger2015} --- a U-Net. A figura em forma de U do artigo é uma das
+      mais reproduzidas da área, e por bons motivos.
+\item \citet{Vaswani2017} --- o Transformer.
+\item \citet{Kingma2014} e \citet{VAE} --- autoencoders variacionais.
+\item \citet{srivastava14a} --- \ing{dropout}, com a análise que justifica sua
+      interpretação como \ing{ensemble} implícito.
+\end{leituras}

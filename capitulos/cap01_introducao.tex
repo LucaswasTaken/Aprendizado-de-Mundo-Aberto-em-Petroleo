@@ -1,0 +1,314 @@
+\chapter{Por que vigiar um poço de petróleo}
+\label{cap:introducao}
+
+\begin{objetivos}
+Ao final deste capítulo, você será capaz de:
+\begin{itemize}[leftmargin=*,itemsep=0.2em]
+  \item explicar por que a operação de poços submarinos exige monitoramento contínuo e
+        automatizado, em termos de segurança, integridade e economia;
+  \item quantificar o impacto do tempo não produtivo (NPT) e relacioná-lo à detecção
+        precoce de anomalias;
+  \item distinguir os três problemas computacionais envolvidos --- detecção,
+        classificação e explicação --- e enunciar por que eles não são o mesmo problema;
+  \item enunciar a hipótese de mundo fechado e reconhecer suas manifestações práticas;
+  \item descrever o percurso argumentativo do livro e escolher a trilha de leitura
+        adequada ao seu objetivo.
+\end{itemize}
+\end{objetivos}
+
+\section{Um poço é um sistema que você não pode ver}
+
+A engenharia costuma lidar com sistemas que podem ser inspecionados. Uma ponte pode
+ser percorrida a pé; um vaso de pressão pode ser ensaiado por ultrassom; uma turbina
+pode ser aberta. Um poço submarino de petróleo em lâmina d'água de dois mil metros não
+pode ser nada disso. Entre o operador na sala de controle e o reservatório a seis mil
+metros abaixo da linha d'água existem, no melhor dos casos, algumas dezenas de canais
+de telemetria --- pressões, temperaturas, vazões --- amostrados a cada poucos segundos.
+
+Tudo o que se sabe sobre o estado do poço vem desses canais. Se um deles congela, se
+um transdutor deriva, se um evento se manifesta em uma escala temporal mais lenta do
+que a janela de observação do operador, o conhecimento simplesmente não existe. A
+consequência é direta: \emph{o monitoramento de poços é, antes de tudo, um problema de
+inferência a partir de observação parcial}, e essa é exatamente a classe de problema
+para a qual o aprendizado de máquina foi construído.
+
+\subsection{A escala do problema}
+
+Uma única unidade flutuante de produção, armazenamento e transferência (FPSO) pode
+estar conectada a algumas dezenas de poços produtores e injetores. Uma operadora de
+porte médio opera dezenas de FPSOs. O sistema descrito no \cref{cap:dual} deste livro
+foi implantado, à época de sua avaliação, em mais de vinte unidades e mais de duzentos
+e cinquenta poços submarinos nas bacias de Santos e de Campos.
+
+Multiplique: se cada poço fornece cinco sinais amostrados a cada segundo, duzentos e
+cinquenta poços produzem mais de cem milhões de leituras por dia. Nenhuma equipe de
+operação lê cem milhões de números por dia. O que se lê, na prática, são alarmes --- e
+alarmes são decisões automatizadas. A qualidade do monitoramento é, portanto, a
+qualidade dos algoritmos que decidem quando tocar um alarme.
+
+\subsection{O que dá errado}
+\label{sec:introducao-oquedaerrado}
+
+Os eventos indesejáveis que acometem poços de petróleo formam uma taxonomia razoavelmente
+estável, detalhada no \cref{cap:dominio}. Por ora, quatro exemplos bastam para dar
+concretude ao problema:
+
+\begin{itemize}[leftmargin=*,itemsep=0.4em]
+  \item \textbf{Formação de hidratos.} Em águas profundas, a combinação de alta pressão
+        e baixa temperatura leva moléculas de água e gás leve a formar um sólido
+        cristalino semelhante a gelo. Um tampão de hidrato pode obstruir completamente
+        uma linha de produção. A remoção exige despressurização controlada, injeção de
+        inibidor ou intervenção submarina, com custo que se mede em milhões de dólares e
+        prazo que se mede em semanas.
+  \item \textbf{Fechamento espúrio da válvula de segurança de subsuperfície (DHSV).}
+        A DHSV é o dispositivo que fecha o poço em situação de emergência. Quando ela
+        fecha sem que haja emergência --- por perda de pressão hidráulica na linha de
+        controle, por exemplo --- a produção é interrompida. Não é um evento perigoso;
+        é um evento caro, e sua reabertura exige diagnóstico correto.
+  \item \textbf{Golfadas severas.} O escoamento multifásico em um \ing{riser} vertical
+        pode entrar em regime oscilatório de grande amplitude, em que golfadas de
+        líquido e bolhas de gás se alternam. O resultado são oscilações de pressão que
+        castigam equipamentos de superfície e degradam a eficiência de separação.
+  \item \textbf{Incrustação na válvula reguladora de produção (PCK).} Depósitos
+        minerais reduzem gradualmente a área de passagem. O sintoma é lento, cumulativo
+        e facilmente confundido com declínio natural do reservatório.
+\end{itemize}
+
+Observe a heterogeneidade. O hidrato é um evento de horas; a incrustação, de meses. O
+fechamento de DHSV é uma transição quase instantânea; a golfada é um regime
+estacionário oscilatório. Um método que detecte bem um deles não detectará
+necessariamente bem os outros --- e essa observação, que parece trivial aqui, será a
+justificativa técnica para praticamente todas as escolhas de arquitetura discutidas
+neste livro.
+
+\section{O custo de não saber}
+
+\begin{definicao}{Tempo não produtivo}
+Chama-se \termo{tempo não produtivo}{non-productive time} (NPT) o intervalo em que um
+poço, sonda ou instalação está indisponível para sua função por causa não planejada.
+O NPT é contabilizado em horas ou dias e convertido em custo pela soma do custo de
+oportunidade da produção perdida com o custo direto da intervenção corretiva.
+\end{definicao}
+
+O NPT é a métrica econômica que conecta a estatística de detecção à decisão de
+investimento. Um sistema de monitoramento que antecipa a identificação de um evento em
+algumas horas pode transformar uma intervenção submarina em um ajuste de \ing{choke}
+feito da sala de controle.
+
+\begin{exemplo}{Da janela de detecção ao valor}
+Considere o caso do hidrato, discutido em profundidade no \cref{cap:closedworld}.
+A literatura de referência sobre o conjunto de dados 3W reporta que o tempo típico
+entre o início da formação de hidrato e sua manifestação inequívoca nos indicadores de
+superfície varia de trinta minutos a cinco horas \citep{VARGAS2019}. Um método que
+identifique a assinatura do evento a partir de uma janela de quinze minutos de
+histórico opera dentro da menor dessas escalas; um método que exija duas horas de
+histórico opera fora dela na maior parte dos casos.
+
+Esse é o motivo pelo qual, no \cref{cap:closedworld}, dedicamos uma tabela inteira ao
+efeito do comprimento da janela sobre a acurácia. Não se trata de ajuste fino de
+hiperparâmetro: trata-se de decidir se o sistema serve ou não serve.
+\end{exemplo}
+
+Há ainda um custo que não aparece em planilha: o \termo{custo de credibilidade}{alarm
+fatigue}. Um sistema que gera falsos alarmes em excesso é desligado --- não
+formalmente, mas na prática, quando o operador aprende a ignorá-lo. Esse é o motivo
+pelo qual, ao longo do livro, a taxa de falsos positivos recebe tanta atenção quanto a
+acurácia, e por que a acurácia balanceada (\cref{cap:aprendizado}) é preferida à
+acurácia simples.
+
+\section{Três problemas, não um}
+\label{sec:introducao-tresproblemas}
+
+É comum ouvir que ``monitoramento de poços é um problema de classificação''. Não é.
+São três problemas, com requisitos diferentes e, como veremos, soluções diferentes.
+
+\begin{description}[leftmargin=0pt,style=nextline,itemsep=0.6em]
+
+\item[Detecção.] \emph{Alguma coisa mudou?} É uma decisão binária sobre uma janela ou
+sobre cada amostra de um sinal. Não requer conhecimento de classes; requer apenas um
+modelo de normalidade. É o problema atacado por autoencoders com limiar de erro de
+reconstrução (\cref{cap:dual}) e, mais tarde, por segmentação supervisionada
+(\cref{cap:segmentacao}).
+
+\item[Classificação.] \emph{O que mudou?} Requer um catálogo de classes e, se feita de
+forma ingênua, requer que o catálogo seja completo. É o problema atacado pelo ensemble
+de classificadores binários (\cref{cap:binarios}) e pela classificação por distância no
+espaço latente (\cref{cap:mahalanobis}).
+
+\item[Explicação.] \emph{Por que o sistema acha isso?} Requer que a decisão seja
+apresentada em termos que um engenheiro de produção reconheça: qual sensor mudou, em
+que direção, com que magnitude, e por que essa combinação é compatível com a hipótese
+proposta. É o problema atacado pela camada de agente de linguagem
+(\cref{cap:agente,cap:resultados-agente}).
+
+\end{description}
+
+A tese central deste livro é que \textbf{esses três problemas exigem componentes
+distintos e que a tentativa de resolvê-los com um único modelo monolítico é a origem
+da maior parte das falhas observadas na prática}. Um classificador multiclasse bem
+treinado é excelente no segundo problema, péssimo no primeiro quando a anomalia é
+inédita, e simplesmente incapaz do terceiro.
+
+\section{A hipótese de mundo fechado}
+
+\begin{definicao}{Hipótese de mundo fechado}
+Diz-se que um sistema de classificação opera sob a \termo{hipótese de mundo
+fechado}{closed-world assumption} quando pressupõe que toda instância a ser
+classificada pertence a uma das classes vistas durante o treinamento. Formalmente, se
+$\mathcal{K}$ é o conjunto de classes conhecidas, o sistema modela
+$\prob(y \mid \mat{X})$ com suporte restrito a $\mathcal{K}$ e satisfazendo
+$\sum_{k \in \mathcal{K}} \prob(y = k \mid \mat{X}) = 1$ para toda entrada $\mat{X}$.
+\end{definicao}
+
+A definição parece inocente. A consequência não é. A restrição
+$\sum_k \prob(y=k \mid \mat{X}) = 1$ é imposta pela função \ing{softmax} na camada de
+saída de praticamente toda rede neural de classificação, e ela significa que \emph{não
+existe massa de probabilidade disponível para a hipótese ``nenhuma das anteriores''}.
+Quando uma instância de uma classe inédita é apresentada, o modelo é obrigado, por
+construção, a distribuir a probabilidade entre as classes que conhece. Pior: não há
+nada que force essa distribuição a ser uniforme. É rotineiro observar uma rede
+atribuir noventa e cinco por cento de confiança a uma classe errada diante de uma
+entrada que ela nunca viu.
+
+\begin{destaque}[A confiança não é a probabilidade]
+A saída de uma \ing{softmax} é frequentemente lida como ``a probabilidade de a classe
+ser $k$''. Ela não é. Ela é ``a probabilidade de a classe ser $k$, \emph{dado que a
+classe está entre as que eu conheço}''. O condicionamento é omitido na leitura
+informal, e é exatamente onde mora o erro.
+\end{destaque}
+
+O contraponto formal da hipótese de mundo fechado é o \termo{reconhecimento em conjunto
+aberto}{open-set recognition}, formulado por \citet{Scheirer2013}, e sua extensão
+dinâmica, o \termo{aprendizado de mundo aberto}{open-world learning}, que não apenas
+rejeita o desconhecido como o incorpora ao catálogo. Esses conceitos são desenvolvidos
+no \cref{cap:novidades} e constituem o eixo da \cref{parte:base}.
+
+\begin{exemplo}{O experimento que dá nome ao livro}
+No \cref{cap:closedworld} reproduzimos um experimento simples e decisivo. Treina-se um
+sistema de classificação com seis das nove classes de anomalia do conjunto 3W,
+escondendo deliberadamente a classe 8 (hidrato na linha de produção). Em seguida,
+apresentam-se instâncias dessa classe oculta.
+
+Um classificador multiclasse convencional distribui essas instâncias entre as seis
+classes que conhece, com confiança alta e sem qualquer sinal de alerta. O ensemble de
+classificadores binários, ao contrário, sinaliza \textbf{89\%} das instâncias como
+``nenhuma das classes treinadas''.
+
+A diferença não está na capacidade de representação --- as arquiteturas são
+essencialmente as mesmas. Está na estrutura da decisão.
+\end{exemplo}
+
+\section{O percurso deste livro}
+
+A narrativa se desenvolve em cinco movimentos.
+
+\paragraph{Parte I --- Fundamentos (\cref{cap:introducao} a \cref{cap:novidades}).}
+Construímos o vocabulário. O \cref{cap:dominio} apresenta a arquitetura física de um
+poço submarino, seus sensores e a taxonomia de eventos. O \cref{cap:dados} disseca o
+conjunto de dados 3W e suas armadilhas. O \cref{cap:aprendizado} estabelece o
+arcabouço de avaliação, com ênfase em métricas robustas a desbalanceamento. O
+\cref{cap:profundo} percorre as arquiteturas de aprendizado profundo empregadas no
+livro. O \cref{cap:novidades} formaliza o problema de mundo aberto e as ferramentas
+para atacá-lo.
+
+\paragraph{Parte II --- A base (\cref{cap:dual} a \cref{cap:mundoaberto}).}
+Apresentamos o sistema completo desenvolvido na tese de doutorado que originou esta
+linha de pesquisa \citep{LopesTese2025}. O \cref{cap:dual} descreve o sistema dual ---
+diagrama de decisão mais autoencoder recorrente --- efetivamente implantado em campo.
+O \cref{cap:binarios} introduz o ensemble de classificadores binários um-contra-todos e
+o valida analiticamente no caso do hidrato. O \cref{cap:mundoaberto} fecha o ciclo com
+o pipeline de seis estágios de aprendizado de mundo aberto.
+
+\paragraph{Parte III --- A evolução (\cref{cap:closedworld} a \cref{cap:mahalanobis}).}
+Três limitações da base são atacadas. O \cref{cap:closedworld} aprofunda e valida o
+ensemble binário \citep{Lopes2026PST}, incluindo a comparação com um modelo
+termodinâmico analítico de formação de hidrato. O \cref{cap:segmentacao} substitui a
+detecção por erro de reconstrução pela segmentação temporal supervisionada com uma
+U-Net unidimensional. O \cref{cap:mahalanobis} substitui a detecção de novidade por
+ensemble pela distância de Mahalanobis calculada no espaço latente de um classificador
+multiclasse \citep{Lopes2026OTC}.
+
+\paragraph{Parte IV --- A explicação (\cref{cap:llm} a \cref{cap:resultados-agente}).}
+Acrescentamos a camada que nenhum dos sistemas anteriores possuía. O \cref{cap:llm}
+introduz modelos de linguagem de grande porte com o rigor necessário. O
+\cref{cap:agente} descreve a engenharia da camada de agente: extração de descritores
+numéricos, construção de perfis de classe e formulação do \ing{prompt}. O
+\cref{cap:resultados-agente} apresenta os três estudos que delimitam, com números, o
+que o agente sabe e o que ele não sabe fazer.
+
+\paragraph{Parte V --- Síntese (\cref{cap:sintese} a \cref{cap:futuro}).}
+O \cref{cap:sintese} consolida todos os resultados em uma tabela única e propõe uma
+arquitetura de referência integrada, com divisão de trabalho por classe. O
+\cref{cap:operacao} trata de implantação, interface com o operador, deriva de dados e
+governança. O \cref{cap:futuro} expõe as limitações remanescentes e as questões em
+aberto.
+
+\begin{destaque}[Um livro que mostra as falhas]
+Uma advertência de método. Este livro reporta resultados ruins com o mesmo destaque
+que reporta resultados bons. A classe 4 (instabilidade de fluxo) atravessa todos os
+capítulos com desempenho medíocre; a classe 9 (hidrato na linha de serviço) idem; a
+detecção precoce medida por SoftED fica em 0,22 no \cref{cap:segmentacao}; o agente de
+linguagem acerta apenas 35,1\% na primeira tentativa no \cref{cap:resultados-agente}.
+Esses números estão aqui porque são informativos: eles delimitam a fronteira do que a
+metodologia atual alcança, e é nessa fronteira que o trabalho futuro tem valor.
+\end{destaque}
+
+\resumocapitulo{%
+O monitoramento de poços submarinos é um problema de inferência a partir de telemetria
+esparsa, com consequências econômicas mensuráveis em tempo não produtivo. Os eventos
+indesejáveis são heterogêneos em escala temporal e em assinatura, o que torna
+improvável que um único modelo os cubra bem. Três problemas distintos convivem sob o
+rótulo de ``monitoramento'': detectar que algo mudou, classificar o que mudou e
+explicar por que o sistema chegou a essa conclusão. A hipótese de mundo fechado ---
+pressupor que toda instância pertence a uma classe conhecida --- é uma consequência
+estrutural da formulação usual da classificação e produz falhas silenciosas diante de
+eventos inéditos. Superá-la é o fio condutor deste livro, que percorre cinco
+movimentos: fundamentos, a base metodológica original, sua evolução, a camada de
+explicação e a síntese.}
+
+\begin{exercicios}
+\item Explique, com suas palavras, por que a restrição
+      $\sum_{k \in \mathcal{K}} \prob(y=k \mid \mat{X}) = 1$ imposta pela \ing{softmax}
+      impede que um classificador expresse a hipótese ``nenhuma das anteriores''.
+      Proponha duas modificações da camada de saída que removeriam essa restrição e
+      discuta o que cada uma custaria em termos de treinamento.
+
+\item Um poço produz \num{20000} barris de óleo por dia. Considere um preço de
+      \num{70} dólares por barril e um custo diário de intervenção com sonda de
+      \num{500000} dólares. Estime o custo total de um evento de hidrato que causa
+      \num{12} dias de NPT, dos quais \num{4} exigem sonda. Em seguida, estime a
+      economia obtida por um sistema que reduza esse NPT em \SI{30}{\percent}. Discuta
+      quais hipóteses do seu cálculo são as mais frágeis.
+
+\item Classifique cada um dos quatro eventos citados na \cref{sec:introducao-oquedaerrado}
+      quanto à escala temporal característica (segundos, minutos, horas, meses) e
+      quanto ao tipo de assinatura (degrau, rampa, oscilação, perda de sinal).
+      Argumente qual tipo de modelo --- recorrente, convolucional ou baseado em regras
+      --- você esperaria que funcionasse melhor em cada caso, e registre sua previsão.
+      Ao terminar a \cref{parte:evolucao}, confronte-a com os resultados reportados.
+
+\item Discuta a seguinte afirmação: ``um sistema de monitoramento com 99\,\% de acurácia
+      é bom o suficiente''. Considere um poço monitorado a cada segundo e uma taxa de
+      eventos reais de um por mês. Quantos falsos alarmes por dia esse sistema
+      produziria se os 1\,\% de erro se distribuíssem uniformemente? O que isso implica
+      sobre a escolha da métrica de avaliação?
+
+\item Considere os três problemas da \cref{sec:introducao-tresproblemas}. Para cada um,
+      identifique qual seria a consequência operacional de uma falha: o que acontece se
+      a detecção falha? E se a classificação falha, mas a detecção funciona? E se ambas
+      funcionam, mas não há explicação?
+\end{exercicios}
+
+\begin{leituras}
+\item \citet{VARGAS2019} apresentam o conjunto de dados 3W e, mais importante para este
+      capítulo, o contexto operacional que motivou sua construção. É a leitura
+      obrigatória para quem quiser entender a taxonomia de eventos a partir da prática
+      de campo.
+\item \citet{Scheirer2013} formalizam o reconhecimento em conjunto aberto. O artigo é
+      anterior à popularização do aprendizado profundo e, por isso mesmo, expõe o
+      problema com clareza incomum.
+\item \citet{Pimentel2014review} oferecem uma revisão ampla de detecção de novidade,
+      útil para situar as abordagens deste livro em um panorama maior.
+\item \citet{LopesTese2025} é a tese que originou a \cref{parte:base}; os capítulos
+      introdutórios contêm um levantamento detalhado do contexto industrial brasileiro.
+\end{leituras}

@@ -1,0 +1,515 @@
+\chapter{O que o agente acerta e o que não acerta}
+\label{cap:resultados-agente}
+
+\begin{objetivos}
+Ao final deste capítulo, você será capaz de:
+\begin{itemize}[leftmargin=*,itemsep=0.2em]
+  \item interpretar acurácia em três níveis de ordenação e explicar por que a diferença
+        entre elas é informativa;
+  \item avaliar um sistema no papel de validador, distinguindo precisão de revocação
+        nesse contexto;
+  \item analisar convergência de nomes gerados em linguagem natural;
+  \item identificar artefatos de conjunto de dados a partir de padrões nas descrições
+        produzidas;
+  \item derivar uma divisão de trabalho entre modelos numéricos e camada de linguagem a
+        partir de evidência empírica.
+\end{itemize}
+\end{objetivos}
+
+\section{Três estudos, três perguntas}
+
+O \cref{cap:agente} descreveu como o agente é construído. Este capítulo mede o que ele
+faz, por meio de três estudos independentes que respondem a três perguntas distintas.
+
+\begin{enumerate}[leftmargin=*,itemsep=0.3em]
+  \item \textbf{Estudo 0 --- classificação.} O agente consegue nomear a classe correta a
+        partir apenas das estatísticas?
+  \item \textbf{Estudo 1 --- validação.} O agente consegue julgar se a decisão de um
+        classificador numérico está correta?
+  \item \textbf{Estudo 2 --- novidade.} O agente consegue reconhecer que um segmento não
+        corresponde a nenhuma classe conhecida?
+\end{enumerate}
+
+Adianta-se a conclusão, porque ela organiza a leitura: \textbf{o agente é ruim na
+primeira tarefa, razoável na segunda e bom na terceira}. E essa ordenação, longe de ser
+um resultado decepcionante, é o que define seu papel correto no sistema.
+
+\section{Estudo 0: classificação}
+
+\subsection{Protocolo}
+
+O agente recebe as métricas de um segmento e os perfis das nove classes, e produz três
+candidatas ordenadas. Avaliam-se 191 segmentos de poços reais.
+
+Reportam-se três níveis de acurácia: \emph{top-1} (a primeira candidata está correta),
+\emph{top-2} (a correta está entre as duas primeiras) e \emph{top-3}. Intervalos de
+confiança de $95\,\%$ são de Wilson (\cref{eq:wilson}).
+
+\subsection{Resultados globais}
+
+\begin{table}[htbp]
+\centering
+\caption{Acurácia global do agente na tarefa de classificação, com intervalos de
+confiança de Wilson a $95\,\%$. As linhas de acaso correspondem a escolha aleatória
+entre nove classes.}
+\label{tab:ag-global}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Nível} & \textbf{Acurácia} & \textbf{IC $95\,\%$} & \textbf{Acaso} \\
+\midrule
+Top-1 & $35{,}1\,\%$ & $[28{,}7;\ 42{,}1]$ & $11{,}1\,\%$ \\
+Top-2 & $53{,}4\,\%$ & $[46{,}3;\ 60{,}3]$ & $22{,}2\,\%$ \\
+Top-3 & $63{,}9\,\%$ & $[56{,}9;\ 70{,}4]$ & $33{,}3\,\%$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{resultadochave}
+O agente acerta a classe na primeira tentativa em $35{,}1\,\%$ dos casos --- três vezes o
+acaso --- e a inclui entre as três primeiras em $63{,}9\,\%$, quase o dobro do acaso.
+Nenhum desses números é competitivo com os classificadores numéricos, que atingem
+$0{,}87$ de acurácia (\cref{cap:binarios}).
+\end{resultadochave}
+
+\subsection{Como não ler estes números}
+
+Duas leituras erradas são tentadoras, e ambas devem ser afastadas.
+
+\textbf{``O agente é inútil.''} Ele opera em condições incomparavelmente mais duras:
+recebe treze métricas por sensor em vez de duzentas amostras por sensor, nunca foi
+treinado nesta tarefa, e não viu um único exemplo rotulado. Três vezes o acaso, sob essas
+condições, indica que a linguagem intermediária do \cref{cap:agente} de fato carrega
+informação diagnóstica.
+
+\textbf{``O agente vai substituir os classificadores.''} $35{,}1\,\%$ contra $87\,\%$
+encerra o assunto.
+
+\begin{destaque}[A informação está na diferença entre os níveis]
+De top-1 para top-3, a acurácia quase dobra: $35{,}1\,\%$ para $63{,}9\,\%$.
+
+Isso significa que, em cerca de $29\,\%$ dos casos, o agente \emph{tem} a resposta certa
+em mãos e a coloca em segundo ou terceiro lugar. Ele identifica o conjunto plausível de
+hipóteses e falha em ordená-lo.
+
+É exatamente o perfil de um sistema que deve ser usado como \textbf{gerador de
+hipóteses}, e não como decisor. E é a justificativa empírica da decisão de projeto ---
+tomada antes de conhecer estes resultados --- de exigir três candidatas em vez de uma.
+\end{destaque}
+
+\subsection{Por classe}
+
+\begin{table}[htbp]
+\centering
+\caption{Acurácia do agente por classe na tarefa de classificação (\%).}
+\label{tab:ag-porclasse}
+\small
+\begin{tabular}{llrccc}
+\toprule
+\textbf{Cl.} & \textbf{Evento} & $\bm{n}$ & \textbf{Top-1} & \textbf{Top-2} & \textbf{Top-3} \\
+\midrule
+1 & Aumento de BSW            & 15 & $26{,}7$ & $40{,}0$ & $53{,}3$ \\
+2 & Fechamento de DHSV        & 22 & $\bm{86{,}4}$ & $\bm{90{,}9}$ & $\bm{100{,}0}$ \\
+3 & Golfadas severas          & 32 & $18{,}8$ & $53{,}1$ & $53{,}1$ \\
+4 & Instabilidade de fluxo    & 27 & $18{,}5$ & $25{,}9$ & $37{,}0$ \\
+5 & Perda de produtividade    & 15 & $26{,}7$ & $53{,}3$ & $66{,}7$ \\
+6 & Restrição rápida no PCK   & 15 & $66{,}7$ & $66{,}7$ & $66{,}7$ \\
+7 & Incrustação no PCK        & 36 & $38{,}9$ & $66{,}7$ & $83{,}3$ \\
+8 & Hidrato na produção       & 15 & $26{,}7$ & $53{,}3$ & $60{,}0$ \\
+9 & Hidrato no serviço        & 14 & $\bm{7{,}1}$ & $\bm{14{,}3}$ & $42{,}9$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+A dispersão é enorme --- de $7{,}1\,\%$ a $86{,}4\,\%$ na primeira escolha --- e os
+extremos são instrutivos.
+
+\paragraph{Classe 2, o melhor caso.} $86{,}4\,\%$ na primeira escolha e $100\,\%$ nas
+três primeiras. O fechamento de DHSV tem assinatura inequívoca: queda abrupta e
+simultânea de pressão a montante e a jusante, com direção e magnitude que nenhuma outra
+classe reproduz. Quando a assinatura é distintiva, treze métricas bastam.
+
+\paragraph{Classe 6, o caso rígido.} $66{,}7\,\%$ nos três níveis --- valor idêntico. O
+agente ou acerta de primeira, ou não considera a classe correta em lugar algum. Não há
+hesitação nem gradação. É o comportamento de um critério determinístico embutido no
+perfil da classe, que ou é satisfeito ou não é.
+
+\paragraph{Classe 9, o pior caso.} $7{,}1\,\%$ na primeira escolha, $42{,}9\,\%$ nas três
+primeiras. Hidrato na linha de serviço é sistematicamente confundido com hidrato na linha
+de produção (classe 8) --- e não poderia ser diferente: o mecanismo físico é o mesmo,
+apenas a localização difere, e nenhuma das treze métricas codifica localização.
+
+\begin{destaque}[Um erro que não é do modelo]
+A confusão entre as classes 8 e 9 não é uma falha de raciocínio. É uma consequência
+direta da escolha de métricas do \cref{cap:agente}, que foi apresentada lá como ``a
+decisão de projeto mais consequente desta parte do livro''.
+
+O que as métricas não capturam, o modelo não pode inferir. Distinguir 8 de 9 exigiria
+informação de qual conjunto de sensores está afetado --- informação disponível, mas não
+codificada.
+
+\emph{Este é um problema corrigível.} Vários dos números baixos desta tabela podem estar
+medindo a linguagem intermediária, não o agente.
+\end{destaque}
+
+\paragraph{Classes 4 e 5.} $18{,}5\,\%$ e $26{,}7\,\%$. Pela quarta vez neste livro, as
+classes sintomáticas aparecem no fundo da tabela. A consistência do padrão --- em
+métodos completamente distintos, de ensembles binários a modelos de linguagem --- é a
+evidência mais forte de que o problema está na taxonomia.
+
+Por essa razão, \textbf{as classes 4 e 5 foram excluídas dos Estudos 1 e 2}. Avaliar
+capacidade de validação sobre rótulos internamente incoerentes mediria a incoerência,
+não a capacidade.
+
+\section{Estudo 1: validação}
+
+\subsection{Uma tarefa diferente}
+
+Aqui o agente não classifica. Ele recebe a decisão de um classificador numérico e julga
+se ela é válida, dadas as estatísticas.
+
+A tarefa é intrinsecamente mais fácil --- verificar é mais fácil que gerar --- e
+operacionalmente mais valiosa: um sistema que sinaliza quando o classificador
+provavelmente errou permite ao operador calibrar sua confiança caso a caso.
+
+O conjunto tem 187 casos, sendo 149 decisões corretas e 38 incorretas, distribuídos
+pelas sete classes não sintomáticas (1, 2, 3, 6, 7, 8 e 9).
+
+\subsection{Resultados}
+
+\begin{table}[htbp]
+\centering
+\caption{Desempenho do agente na tarefa de validação.}
+\label{tab:ag-validacao}
+\small
+\begin{tabular}{lcc}
+\toprule
+\textbf{Métrica} & \textbf{Valor} & \textbf{IC $95\,\%$} \\
+\midrule
+Acurácia top-2 global                & $71{,}7\,\%$ ($134/187$) & $[64{,}8;\ 77{,}6]$ \\
+\quad confirmação de decisões corretas & $71{,}8\,\%$ ($107/149$) & --- \\
+\quad rejeição de decisões incorretas  & $71{,}1\,\%$ ($27/38$)   & --- \\
+\midrule
+Corretas julgadas VÁLIDAS            & $67{,}1\,\%$ ($100/149$) & --- \\
+Incorretas julgadas INVÁLIDAS        & $73{,}7\,\%$ ($28/38$)   & --- \\
+\midrule
+\textbf{Precisão}                    & $\bm{0{,}909}$ ($100/110$) & $[0{,}841;\ 0{,}950]$ \\
+Revocação                            & $0{,}671$ & --- \\
+Medida $F_1$                         & $0{,}772$ & --- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{resultadochave}
+Quando o agente declara uma classificação VÁLIDA, ele está certo em $\bm{90{,}9\,\%}$ dos
+casos. E ele rejeita $73{,}7\,\%$ das classificações efetivamente erradas.
+\end{resultadochave}
+
+\subsection{Por que a precisão é o número que importa}
+
+A assimetria entre precisão ($0{,}909$) e revocação ($0{,}671$) define o uso operacional
+correto.
+
+\begin{description}[leftmargin=0pt,style=nextline,itemsep=0.4em]
+
+\item[Um selo de VÁLIDO é confiável.] Nove em cada dez são corretos. O operador pode
+tratá-lo como forte evidência a favor da classificação.
+
+\item[A ausência do selo não é evidência contra.] Cerca de um terço das classificações
+corretas não recebe confirmação. Um caso não confirmado exige exame; não deve ser
+descartado.
+
+\end{description}
+
+\begin{destaque}[O uso correto]
+Este perfil sustenta uma política concreta de triagem. Segmentos com selo de VÁLIDO
+podem ser processados com menor escrutínio; segmentos sem selo entram na fila de revisão
+humana.
+
+Como o agente confirma cerca de $59\,\%$ do total ($110$ de $187$), essa política reduz
+em mais da metade o volume que exige atenção detalhada, com risco controlado de
+aproximadamente $9\,\%$ de confirmações incorretas. É uma proposta de valor mensurável,
+e é diferente --- e mais defensável --- de ``a IA classifica os eventos''.
+\end{destaque}
+
+\subsection{Por classe}
+
+\begin{table}[htbp]
+\centering
+\caption{Desempenho do agente na validação, por classe (\%). ``Val.\ OK'' é a fração de
+decisões corretas julgadas válidas; ``Val.\ Rej.'' é a fração de decisões incorretas
+julgadas inválidas.}
+\label{tab:ag-validacao-classe}
+\small
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Cl.} & \textbf{Conf.\ top-1} & \textbf{Conf.\ top-2} &
+\textbf{Erradas rejeitadas} & \textbf{Val.\ OK} & \textbf{Val.\ Rej.} \\
+\midrule
+1 & $40$ & $53$ & $60$ & $53$ & $60$ \\
+2 & $95$ & $95$ & $80$ & $95$ & $80$ \\
+3 & $62$ & $62$ & $40$ & $59$ & $60$ \\
+6 & $73$ & $73$ & $80$ & $73$ & $80$ \\
+7 & $86$ & $89$ & $\bm{100}$ & $81$ & $\bm{100}$ \\
+8 & $47$ & $60$ & $40$ & $53$ & $60$ \\
+9 & $29$ & $43$ & $88$ & $29$ & $75$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Duas linhas merecem comentário.
+
+\paragraph{Classe 7.} Rejeita $100\,\%$ das classificações erradas e confirma $81\,\%$
+das corretas. É o melhor validador da tabela --- notavelmente, para uma classe cuja
+detecção de novidade atingia apenas $52{,}3\,\%$ no \cref{cap:mahalanobis}. As
+competências não são as mesmas.
+
+\paragraph{Classe 9.} Confirma apenas $29\,\%$ das corretas, mas rejeita $88\,\%$ das
+erradas. O agente é um péssimo confirmador e um excelente cético para essa classe.
+
+\begin{destaque}[Especialização por classe, medida e não postulada]
+As \cref{tab:ag-porclasse,tab:ag-validacao-classe} juntas permitem atribuir a cada classe
+o papel em que o agente é efetivamente bom:
+
+classes 2 e 7 --- confirmar, justificar e validar;
+
+classes 1, 3, 6 e 8 --- segunda opinião e nomeação de novidades;
+
+classe 9 --- cético, acionado apenas para rejeitar;
+
+classes 4 e 5 --- sinalizador sintomático, com reordenação das três candidatas para o
+operador.
+
+Essa atribuição não foi decidida a priori. Ela foi extraída dos dados, e o
+\cref{cap:sintese} a incorporará à arquitetura de referência.
+\end{destaque}
+
+\section{Estudo 2: detecção de novidade}
+
+\subsection{Protocolo}
+
+Para cada classe, o agente recebe os perfis das \emph{demais} classes --- nunca o da
+classe do segmento --- e deve reconhecer que nenhuma delas se aplica, além de propor um
+nome e uma descrição. São 611 segmentos.
+
+\subsection{Resultados}
+
+\begin{table}[htbp]
+\centering
+\caption{Taxa de reconhecimento de novidade pelo agente, por classe.}
+\label{tab:ag-novidade}
+\small
+\begin{tabular}{lrc}
+\toprule
+\textbf{Classe ocultada} & \textbf{Acertos} & \textbf{Taxa} \\
+\midrule
+1 & $51/72$   & $70{,}8\,\%$ \\
+2 & $99/99$   & $\bm{100{,}0\,\%}$ \\
+3 & $103/123$ & $83{,}7\,\%$ \\
+6 & $67/70$   & $95{,}7\,\%$ \\
+7 & $166/175$ & $94{,}9\,\%$ \\
+8 & $56/61$   & $91{,}8\,\%$ \\
+9 & $6/11$    & $54{,}5\,\%$ \\
+\midrule
+\textbf{Global} & $\bm{548/611}$ & $\bm{89{,}7\,\%}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Intervalo de confiança de Wilson a $95\,\%$: $[87{,}0;\ 91{,}9]$.
+
+\begin{resultadochave}
+O agente reconhece corretamente que um segmento não pertence a nenhuma das classes
+apresentadas em $\bm{89{,}7\,\%}$ dos casos --- contra $35{,}1\,\%$ de acerto quando
+precisa nomear a classe correta.
+\end{resultadochave}
+
+\begin{destaque}[A assimetria central deste livro]
+$35{,}1\,\%$ para dizer o que algo é. $89{,}7\,\%$ para dizer que não é nada conhecido.
+
+A mesma assimetria apareceu no \cref{cap:mundoaberto}, quando o peso ótimo da OCSVM na
+decisão de rejeição ($0{,}74$) inverteu-se em relação às decisões de reconhecimento. Ela
+reaparece aqui, em um sistema de natureza completamente diferente.
+
+Isso sugere que se trata de uma propriedade do \emph{problema}, não dos métodos:
+reconhecer incompatibilidade é estruturalmente mais fácil que estabelecer identidade.
+Basta que uma evidência contradiga cada classe conhecida; para afirmar identidade, é
+preciso que todas as evidências convirjam.
+\end{destaque}
+
+\section{Os nomes gerados}
+
+Ao rejeitar, o agente propõe um nome. A \cref{tab:ag-nomes} apresenta os nomes
+consolidados por classe.
+
+\begin{table}[htbp]
+\centering
+\caption{Nomes consolidados propostos pelo agente para cada classe apresentada como
+desconhecida.}
+\label{tab:ag-nomes}
+\small
+\begin{tabular}{lp{8.2cm}}
+\toprule
+\textbf{Cl.} & \textbf{Nome consolidado} \\
+\midrule
+1 & \emph{Wellhead Thermal-Pressure Surge} (sem convergência) \\
+2 & \emph{Downhole Isolation Event with Wellhead Depressurization} \\
+3 & \emph{Production Rate Surge with Cyclic Pressure Decline} \\
+6 & \emph{Downhole Telemetry Loss with Dual Pressure Surge} \\
+7 & \emph{Downhole Telemetry Loss with Wellhead Pressure Buildup} \\
+8 & \emph{Flow Restriction with Thermal Cooling and Telemetry Loss} \\
+9 & Sem convergência (seis nomes distintos) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{O acerto notável}
+
+Para a classe 2, o agente --- que nunca viu o rótulo ``fechamento espúrio de DHSV'' ---
+produziu \emph{Downhole Isolation Event with Wellhead Depressurization}.
+
+Traduzindo: ``evento de isolamento de fundo com despressurização na cabeça''. É uma
+descrição fisicamente correta do fechamento espúrio da DHSV. O agente não recuperou o
+nome; ele o \emph{reconstruiu} a partir do comportamento dos sensores.
+
+\begin{destaque}[Por que isso importa mais que a taxa de acerto]
+Um sistema que rejeita produz um balde de segmentos sem nome --- foi a limitação com que
+o \cref{cap:mundoaberto} terminou. Um sistema que rejeita \emph{e propõe uma descrição
+fisicamente plausível} produz uma hipótese que o especialista pode confirmar ou corrigir
+em minutos, em vez de horas de análise.
+
+É a diferença entre ``grupo 11, $n = 340$'' e ``possível evento de isolamento de fundo
+com despressurização na cabeça''. A segunda saída é acionável.
+\end{destaque}
+
+\subsection{A não convergência}
+
+A classe 1 produziu \textbf{51 nomes únicos} em suas 51 rejeições. A análise dos termos
+mostra dispersão: \emph{thermal} aparece 16 vezes, \emph{pressure} 13, \emph{wellhead}
+10, \emph{surge} 10. O nome consolidado da \cref{tab:ag-nomes} é uma síntese posterior,
+não um consenso do agente.
+
+A classe 9 produziu seis nomes distintos em seis rejeições.
+
+\begin{destaque}[A não convergência é um sinal útil]
+Quando o agente converge para um nome, há estrutura reconhecível. Quando cada segmento
+gera um nome diferente, o agente está confabulando --- e isso pode ser \textbf{medido}
+automaticamente, sem rótulos.
+
+Propõe-se, portanto, a taxa de convergência de nomes como \emph{métrica de confiança não
+supervisionada}: agrupar as descrições geradas e medir sua concentração. Alta
+concentração indica descoberta genuína; alta dispersão indica que a saída não deve ser
+apresentada ao operador como hipótese.
+\end{destaque}
+
+\subsection{O achado incômodo}
+
+Quatro das sete classes --- 2, 6, 7 e 8 --- receberam nomes contendo
+\emph{telemetry loss}, perda de telemetria.
+
+Isso não é uma característica física dos eventos. É um artefato do 3W: em muitas
+instâncias, o início da anomalia coincide com sensores de fundo reportando NaN ou zero.
+O agente descreveu corretamente o que \emph{está nos dados}, e o que está nos dados
+inclui uma correlação espúria entre anomalia e falha de telemetria.
+
+\begin{destaque}[Quando o modelo revela o conjunto de dados]
+O \cref{cap:dados} já havia alertado, na \cref{sec:dados-telemetria}, para essa
+correlação. O que este resultado acrescenta é que ela é \textbf{forte o bastante para
+dominar a descrição gerada} de quatro classes distintas.
+
+A implicação é séria: qualquer modelo treinado no 3W pode estar aprendendo, em parte, a
+detectar falha de telemetria em vez de detectar a anomalia. Os resultados de todos os
+capítulos anteriores deste livro devem ser lidos com essa ressalva.
+
+E há uma lição metodológica geral: um sistema que descreve o que vê em linguagem natural
+funciona como instrumento de auditoria do conjunto de dados. Nenhuma das matrizes de
+confusão dos capítulos anteriores tornou esse artefato visível.
+\end{destaque}
+
+\section{Limitações}
+
+\begin{enumerate}[leftmargin=*,itemsep=0.4em]
+  \item \textbf{Ausência de estudos de ablação.} Não se avaliou a contribuição individual
+        de cada métrica, nem se comparou com métodos de atribuição como SHAP ou
+        gradientes integrados.
+  \item \textbf{Ausência de ajuste fino.} Modelo de propósito geral, sem adaptação ao
+        domínio.
+  \item \textbf{Passagem única de inferência.} Sem agregação de múltiplas amostragens,
+        que tipicamente melhora consistência.
+  \item \textbf{Apenas dados públicos.} Somente o 3W, com todos os seus artefatos.
+  \item \textbf{Confundimento de telemetria.} Discutido acima; afeta quatro das sete
+        classes avaliadas.
+  \item \textbf{Amostras pequenas por classe.} A classe 9 tem $n = 11$ no Estudo 2. Os
+        intervalos de confiança correspondentes são largos.
+  \item \textbf{Possível contaminação.} O 3W é público desde 2019.
+\end{enumerate}
+
+\begin{destaque}[Por que os resultados ainda sustentam a conclusão]
+A objeção mais séria é a contaminação: o modelo poderia estar recuperando conhecimento
+memorizado sobre o 3W, e não raciocinando.
+
+Três observações argumentam contra essa explicação. Primeiro, se houvesse memorização, a
+acurácia de classificação seria \emph{alta}, não $35{,}1\,\%$. Segundo, os erros seguem
+padrões fisicamente coerentes --- a confusão entre as classes 8 e 9 corresponde a
+mecanismos idênticos, o que memorização de rótulos não produziria. Terceiro, os nomes
+gerados não reproduzem a nomenclatura do 3W; eles a reconstroem em vocabulário próprio.
+
+A contaminação provavelmente existe e provavelmente não explica os resultados.
+\end{destaque}
+
+\resumocapitulo{%
+Três estudos medem o agente. Na classificação, ele acerta $35{,}1\,\%$ na primeira
+escolha e $63{,}9\,\%$ nas três primeiras --- três vezes o acaso, e muito abaixo dos
+$87\,\%$ dos classificadores numéricos; a diferença entre os níveis mostra que ele
+identifica o conjunto plausível de hipóteses e falha em ordená-lo, o que o caracteriza
+como gerador de hipóteses. Na validação, obtém precisão de $0{,}909$ com revocação de
+$0{,}671$: um selo de VÁLIDO é confiável, sua ausência não é evidência contra, e isso
+sustenta uma política de triagem que reduz à metade o volume de revisão humana. Na
+detecção de novidade, atinge $89{,}7\,\%$ --- a assimetria entre $35{,}1\,\%$ para
+afirmar identidade e $89{,}7\,\%$ para reconhecer incompatibilidade reaparece aqui em um
+sistema completamente distinto daquele do \cref{cap:mundoaberto}, sugerindo tratar-se de
+propriedade do problema. Os nomes gerados convergem para descrições fisicamente corretas
+em cinco das sete classes, com destaque para a classe 2 --- \emph{Downhole Isolation
+Event with Wellhead Depressurization} ---, e a taxa de convergência é proposta como
+métrica de confiança não supervisionada. Quatro classes receberam nomes contendo
+``perda de telemetria'', revelando um artefato do 3W forte o bastante para dominar a
+descrição e exigir ressalva sobre todos os resultados do livro.}
+
+\begin{exercicios}
+\item Calcule os intervalos de confiança de Wilson para todas as taxas da
+      \cref{tab:ag-novidade}. Para quais classes o intervalo é largo o bastante para
+      tornar a comparação entre elas inconclusiva?
+
+\item O agente acerta $35{,}1\,\%$ em top-1 e $63{,}9\,\%$ em top-3. Modele o processo
+      como ordenação de nove candidatas e estime a distribuição da posição da resposta
+      correta. Que fração da massa está além da terceira posição?
+
+\item A precisão de $0{,}909$ com revocação de $0{,}671$ sustenta uma política de
+      triagem. Formalize essa política, estime a redução de carga de revisão em função do
+      volume diário de segmentos e calcule o risco residual.
+
+\item Implemente a métrica de convergência de nomes proposta no capítulo: agrupe
+      descrições geradas por similaridade semântica e meça a concentração. Valide-a
+      verificando se ela distingue as classes 2 e 9.
+
+\item A confusão entre as classes 8 e 9 é atribuída à ausência de informação de
+      localização nas métricas. Proponha duas métricas adicionais que a codifiquem e
+      preveja o efeito sobre a acurácia top-1 da classe 9.
+
+\item Projete um experimento que quantifique o efeito do confundimento de telemetria:
+      por exemplo, remover instâncias em que a anomalia coincide com valores ausentes e
+      repetir a avaliação. Quanta acurácia você espera perder, e por quê?
+
+\item Argumente a favor e contra a afirmação: ``a contaminação do conjunto de dados de
+      treinamento invalida estes resultados''. Proponha um conjunto de avaliação que
+      resolveria definitivamente a questão e discuta a viabilidade de construí-lo.
+\end{exercicios}
+
+\begin{leituras}
+\item \citet{Lopes2026LLM} --- o trabalho que originou este capítulo, com os três estudos
+      completos.
+\item \citet{Wilson1927} --- o intervalo de confiança usado em todas as taxas.
+\item \citet{VazVargas2026_3w2} --- a versão 2.0 do 3W, com discussão sobre qualidade dos
+      dados relevante ao artefato de telemetria.
+\item \citet{Sharma2025xaiagents} e \citet{Belay2026agenticAD} --- trabalhos
+      contemporâneos sobre agentes e explicabilidade em detecção de anomalias.
+\end{leituras}

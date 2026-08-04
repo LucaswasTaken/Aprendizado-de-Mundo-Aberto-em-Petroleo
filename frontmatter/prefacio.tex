@@ -1,0 +1,92 @@
+\chapter*{Prefácio}
+\addcontentsline{toc}{chapter}{Prefácio}
+\markboth{Prefácio}{Prefácio}
+
+Este livro conta a história de uma ideia.
+
+A ideia é simples de enunciar e difícil de realizar: \emph{um sistema de monitoramento
+industrial não deveria fingir que já viu tudo}. Quando um poço de petróleo a dois mil
+metros de lâmina d'água começa a se comportar de forma estranha, o classificador que
+o vigia tem duas escolhas honestas --- dizer ``isto é um fechamento espúrio da válvula
+de segurança'' ou dizer ``isto eu nunca vi''. O que ele não deveria fazer, e no entanto
+é exatamente o que a maioria dos classificadores faz, é forçar o evento desconhecido
+para dentro da categoria conhecida mais próxima e reportar alta confiança.
+
+Essa patologia tem nome. Chama-se \termo{hipótese de mundo fechado}{closed-world
+assumption}, e é uma consequência direta da forma como treinamos modelos de
+classificação: apresentamos um conjunto finito de classes, otimizamos uma função de
+perda que exige que a soma das probabilidades seja igual a um, e obtemos um modelo
+que, por construção, é incapaz de responder ``nenhuma das anteriores''. Em um
+laboratório isso é uma curiosidade metodológica. Em uma plataforma de produção, é um
+alarme que não toca.
+
+\section*{De onde vem este livro}
+
+O material aqui reunido nasceu de uma linha de pesquisa desenvolvida no Laboratório de
+Computação Científica e Visualização da Universidade Federal de Alagoas, em cooperação
+com a Petrobras, e se organiza em cinco trabalhos encadeados:
+
+\begin{enumerate}[leftmargin=*,itemsep=0.4em]
+  \item Um \textbf{sistema dual} que combina um diagrama de decisão baseado em regras
+        com um autoencoder recorrente, implantado em mais de vinte unidades flutuantes
+        de produção e mais de duzentos e cinquenta poços submarinos. É a prova de que
+        o problema é real e de que uma solução híbrida funciona em campo.
+  \item Um \textbf{ensemble de classificadores binários} um-contra-todos, que troca a
+        pergunta ``qual das nove classes é esta?'' pela pergunta ``esta é a classe
+        $k$, sim ou não?'', repetida nove vezes. A mudança parece cosmética; não é.
+        É o que permite a resposta ``nenhuma das classes treinadas''.
+  \item Uma \textbf{estratégia completa de aprendizado de mundo aberto}, que fecha o
+        ciclo: detectar, classificar o que é conhecido, agrupar o que não é, submeter
+        os agrupamentos a um especialista e reincorporar as novas classes ao sistema.
+  \item Uma \textbf{evolução metodológica} em duas frentes --- da detecção por erro de
+        reconstrução para a segmentação temporal supervisionada, e da detecção de
+        novidade por ensemble para a detecção por distância de Mahalanobis no espaço
+        latente.
+  \item Uma \textbf{camada de agente de linguagem}, colocada a jusante de todo o
+        restante, cuja função não é classificar melhor, mas explicar, questionar e
+        nomear.
+\end{enumerate}
+
+Cada um desses trabalhos existe como tese ou artigo. O que faltava era o fio que os
+liga --- a narrativa que mostra por que cada passo foi dado, o que exatamente estava
+quebrado antes dele e o que continuou quebrado depois. Este livro é esse fio.
+
+\section*{Para quem foi escrito}
+
+Escrevemos para estudantes de pós-graduação e engenheiros que precisam construir --- e
+não apenas usar --- sistemas de monitoramento inteligente. Isso impõe duas obrigações.
+
+A primeira é \textbf{não pressupor conhecimento prévio}. Os \cref{cap:introducao} a
+\cref{cap:novidades} constroem, do zero, tudo o que é necessário: o vocabulário de
+poços e completação, a estrutura dos dados de séries temporais, as métricas de
+avaliação em cenários desbalanceados, as arquiteturas de redes recorrentes e
+convolucionais, os autoencoders e o conceito de espaço latente, os algoritmos de
+agrupamento e os fundamentos de reconhecimento em conjunto aberto. Quem já domina
+esse material pode saltar diretamente para a \cref{parte:base}; quem não domina não
+ficará para trás.
+
+A segunda obrigação é \textbf{mostrar os números}. Um livro sobre métodos aplicados
+que não apresenta resultados não é um livro sobre métodos aplicados. Todas as tabelas
+de desempenho dos trabalhos originais são reproduzidas aqui, com discussão crítica ---
+inclusive, e sobretudo, dos casos em que o método falhou. A classe \emph{Instabilidade
+de Fluxo} atravessa este livro inteiro como um problema não resolvido; a classe
+\emph{Hidrato na Linha de Serviço} idem. Preferimos expor essas fronteiras a
+escondê-las.
+
+\section*{Uma observação sobre linguagem}
+
+O livro é escrito em português. A terminologia técnica da área, contudo, é
+majoritariamente anglófona, e traduzir siglas consagradas seria um desserviço a quem
+precisa ler a literatura primária ou conversar com um fornecedor. Adotamos a seguinte
+convenção: conceitos são traduzidos, com o termo original em itálico entre parênteses
+na primeira ocorrência; siglas operacionais (PDG, TPT, DHSV, ICV, BSW) e nomes de
+arquiteturas (LSTM, U-Net) permanecem em inglês, expandidos na primeira ocorrência e
+listados na \hyperref[cap:siglas]{lista de siglas}.
+
+Números decimais usam vírgula, conforme a norma brasileira. Quando reproduzimos uma
+tabela de um trabalho original em inglês, os valores são convertidos, mas jamais
+alterados.
+
+\vspace{1.5em}
+\noindent\hfill\emph{Os autores}\\
+\noindent\hfill\emph{Maceió, 2026}

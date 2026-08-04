@@ -1,0 +1,378 @@
+\chapter{Aprendizado de máquina e avaliação}
+\label{cap:aprendizado}
+
+\begin{objetivos}
+Ao final deste capítulo, você será capaz de:
+\begin{itemize}[leftmargin=*,itemsep=0.2em]
+  \item formular detecção e classificação de anomalias como problemas de aprendizado
+        supervisionado e não supervisionado;
+  \item calcular e interpretar acurácia, acurácia balanceada, precisão, revocação,
+        especificidade, medida $F_1$ e SMAPE;
+  \item justificar por que a acurácia simples é enganosa em cenários desbalanceados e
+        escolher a métrica adequada ao objetivo operacional;
+  \item construir intervalos de confiança de Wilson para proporções e usá-los para
+        decidir se uma diferença entre métodos é significativa;
+  \item distinguir avaliação por amostra, por instância e por evento, e reconhecer
+        quando cada uma responde à pergunta certa.
+\end{itemize}
+\end{objetivos}
+
+\section{As duas formulações}
+
+\subsection{Supervisionada}
+
+Dispõe-se de pares $(\mat{X}_i, y_i)$ com $y_i \in \mathcal{K}$, e busca-se
+$f_{\theta} : \R^{T \times S} \to \mathcal{K}$ que minimize o risco empírico
+\[
+  \hat{R}(\theta) = \frac{1}{n} \sum_{i=1}^{n} \mathcal{L}\big(f_{\theta}(\mat{X}_i), y_i\big).
+\]
+Para classificação binária, $\mathcal{L}$ é a entropia cruzada binária
+\[
+  \mathcal{L}(\hat{y}, y) = -\big[\, y \log \hat{y} + (1-y)\log(1-\hat{y}) \,\big],
+\]
+e para classificação multiclasse, a entropia cruzada categórica. Essa é a formulação do
+ensemble binário (\cref{cap:binarios,cap:closedworld}) e da U-Net de segmentação
+(\cref{cap:segmentacao}).
+
+\subsection{Não supervisionada}
+
+Dispõe-se apenas de $\mat{X}_i$. Duas subformulações interessam aqui:
+
+\begin{itemize}[leftmargin=*,itemsep=0.35em]
+  \item \textbf{Modelagem de normalidade.} Ajusta-se um modelo à classe normal e
+        declara-se anômalo aquilo que se afasta dele. É o princípio do autoencoder com
+        limiar de erro de reconstrução (\cref{cap:dual}) e da distância de Mahalanobis
+        (\cref{cap:mahalanobis}).
+  \item \textbf{Agrupamento.} Particiona-se um conjunto sem rótulos em grupos
+        coerentes. É o mecanismo pelo qual instâncias rejeitadas como desconhecidas se
+        tornam classes candidatas (\cref{cap:mundoaberto}).
+\end{itemize}
+
+\begin{destaque}[Uma terceira formulação, implícita]
+Os \cref{cap:llm,cap:agente,cap:resultados-agente} usam um modelo de linguagem
+\emph{sem qualquer treinamento sobre os dados de poço}. Não é aprendizado
+supervisionado nem não supervisionado: é inferência com conhecimento prévio, guiada por
+descritores numéricos. A avaliação, contudo, usa as mesmas métricas --- e é
+precisamente por isso que este capítulo antecede aquela discussão.
+\end{destaque}
+
+\section{A matriz de confusão e o que se extrai dela}
+
+Para um problema binário, com a convenção de que ``positivo'' significa ``anomalia
+presente'':
+
+\begin{center}
+\small
+\begin{tabular}{ll cc}
+\toprule
+& & \multicolumn{2}{c}{\textbf{Predito}} \\
+\cmidrule(l){3-4}
+& & Positivo & Negativo \\
+\midrule
+\multirow{2}{*}{\textbf{Real}}
+& Positivo & VP & FN \\
+& Negativo & FP & VN \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{definicao}{Métricas fundamentais}
+\begin{align}
+\text{ACC} &= \frac{\text{VP} + \text{VN}}{\text{VP} + \text{VN} + \text{FP} + \text{FN}}
+  \label{eq:acc}\\[0.4em]
+\text{REC} &= \frac{\text{VP}}{\text{VP} + \text{FN}}
+  \qquad \text{(revocação, \ing{recall}, sensibilidade)} \label{eq:rec}\\[0.4em]
+\text{SP} &= \frac{\text{VN}}{\text{VN} + \text{FP}}
+  \qquad \text{(especificidade)} \label{eq:sp}\\[0.4em]
+\text{PR} &= \frac{\text{VP}}{\text{VP} + \text{FP}}
+  \qquad \text{(precisão)} \label{eq:pr}\\[0.4em]
+F_1 &= \frac{2 \cdot \text{PR} \cdot \text{REC}}{\text{PR} + \text{REC}}
+  \label{eq:f1}
+\end{align}
+\end{definicao}
+
+\begin{definicao}{Acurácia balanceada}
+\begin{equation}
+  \text{ACC}_b = \frac{\text{REC} + \text{SP}}{2}.
+  \label{eq:accb}
+\end{equation}
+Equivale à média das acurácias por classe e, portanto, atribui o mesmo peso à classe
+positiva e à negativa independentemente de sua frequência. Um classificador que sempre
+prediz a classe majoritária tem $\text{ACC}_b = 0{,}5$, qualquer que seja o
+desbalanceamento.
+\end{definicao}
+
+\begin{exemplo}{Por que a acurácia simples engana}
+Considere um poço monitorado a \SI{1}{\hertz} durante trinta dias, com um único evento
+de anomalia que dura duas horas. O número de amostras anômalas é
+$2 \times 3600 = \num{7200}$; o de amostras normais, $30 \times 86400 - 7200 =
+\num{2584800}$. A prevalência da anomalia é de aproximadamente $0{,}28\,\%$.
+
+Um classificador que responda ``normal'' para toda amostra obtém
+\[
+  \text{ACC} = \frac{\num{2584800}}{\num{2592000}} \approx 0{,}9972,
+\]
+ou seja, $99{,}72\,\%$ de acurácia. Sua acurácia balanceada, contudo, é
+$\text{ACC}_b = (0 + 1)/2 = 0{,}5$, sua revocação é zero e sua medida $F_1$ é
+indefinida (ou zero, por convenção). O sistema é inútil e a acurácia simples não diz.
+\end{exemplo}
+
+\begin{destaque}[Qual métrica escolher]
+A escolha deve seguir a consequência operacional do erro.
+\begin{itemize}[leftmargin=*,itemsep=0.2em]
+  \item Se o custo de \emph{perder} um evento domina (hidrato, integridade), priorize
+        \textbf{revocação}.
+  \item Se o custo de \emph{alarme falso} domina (fadiga de alarme, parada
+        desnecessária), priorize \textbf{precisão}.
+  \item Se ambos importam e não há razão para privilegiar um, use $F_1$.
+  \item Se as classes são fortemente desbalanceadas e você quer uma leitura única,
+        use $\text{ACC}_b$.
+\end{itemize}
+Este livro reporta, em geral, o conjunto completo, porque a escolha depende do leitor.
+\end{destaque}
+
+\section{Métricas de regressão e reconstrução}
+
+Modelos que reconstroem um sinal, como os autoencoders dos
+\cref{cap:dual,cap:mundoaberto,cap:mahalanobis}, precisam de uma medida de erro de
+reconstrução. A escolha feita no \cref{cap:dual} é o SMAPE.
+
+\begin{definicao}{Erro percentual absoluto médio simétrico}
+\begin{equation}
+  \text{SMAPE} = \frac{100\,\%}{n} \sum_{t=1}^{n}
+  \frac{\left| \hat{x}_t - x_t \right|}
+       {\big(\left| x_t \right| + \left| \hat{x}_t \right|\big)/2}.
+  \label{eq:smape}
+\end{equation}
+\end{definicao}
+
+O SMAPE tem três propriedades que o tornam adequado ao problema. É \emph{relativo},
+logo comparável entre sensores de escalas diferentes --- pressão em bar e temperatura
+em graus Celsius. É \emph{simétrico}, penalizando igualmente superestimação e
+subestimação, ao contrário do erro percentual absoluto usual. E é \emph{limitado} a
+$200\,\%$, o que impede que um único ponto próximo de zero domine a média, patologia
+que compromete o erro percentual convencional.
+
+\begin{destaque}[A armadilha do SMAPE]
+O denominador anula-se quando $x_t = \hat{x}_t = 0$. Em séries normalizadas para
+$[0,1]$, isso não é hipotético. A implementação deve adicionar um termo de
+regularização $\epsilon$ ou tratar explicitamente o caso.
+\end{destaque}
+
+\section{Avaliação de detecção de eventos}
+
+Há uma incompatibilidade estrutural entre as métricas apresentadas até aqui e a
+pergunta operacional. As métricas por amostra tratam cada instante como um item
+independente; a operação pergunta ``o evento foi detectado, e com que antecedência?''.
+
+\begin{exemplo}{O problema do deslocamento}
+Suponha que um evento comece no instante $t = \num{1000}$ e que um detector o sinalize
+em $t = \num{1005}$. Do ponto de vista operacional, cinco segundos de atraso é uma
+detecção essencialmente perfeita. Do ponto de vista de uma métrica por amostra, foram
+cinco falsos negativos seguidos de acertos --- e se o detector tivesse sinalizado em
+$t = \num{995}$, seriam cinco falsos positivos.
+
+Uma métrica que penaliza igualmente ``cinco segundos adiantado'' e ``nunca detectou''
+não está medindo o que interessa.
+\end{exemplo}
+
+A família SoftED \citep{Salles2024softed} resolve isso introduzindo uma tolerância
+temporal $k$: uma detecção é creditada como verdadeiro positivo se ocorrer dentro de
+$k$ amostras do evento real, com peso decrescente conforme a distância. O
+\cref{cap:segmentacao} avalia a U-Net com $k = \num{1000}$ --- aproximadamente dezesseis
+minutos --- e reporta separadamente a taxa de \emph{detecção precoce}, isto é, a fração
+de eventos sinalizados antes do instante rotulado.
+
+\begin{destaque}[Três níveis de avaliação]
+Ao ler qualquer tabela deste livro, verifique primeiro o nível:
+\begin{enumerate}[leftmargin=*,itemsep=0.15em]
+  \item \textbf{Por amostra} --- cada instante conta. Domina o \cref{cap:dual} e o
+        \cref{cap:segmentacao} (acurácia e IOU).
+  \item \textbf{Por janela ou segmento} --- cada janela conta. Domina o
+        \cref{cap:closedworld} e o \cref{cap:resultados-agente}.
+  \item \textbf{Por evento} --- cada evento conta, com tolerância temporal. É o SoftED,
+        no \cref{cap:segmentacao}.
+\end{enumerate}
+Números de níveis diferentes não são comparáveis, ainda que ambos se chamem
+``acurácia''.
+\end{destaque}
+
+\subsection{A métrica de sobreposição para segmentação}
+
+\begin{definicao}{Razão entre interseção e união}
+Para uma região predita $\hat{A}$ e uma região real $A$, ambas subconjuntos do eixo
+temporal,
+\begin{equation}
+  \text{IOU}(\hat{A}, A) = \frac{|\hat{A} \cap A|}{|\hat{A} \cup A|}.
+  \label{eq:iou}
+\end{equation}
+\end{definicao}
+
+O IOU é mais exigente que a acurácia por amostra porque não é inflado pela classe
+majoritária: regiões corretamente identificadas como normais não entram no cálculo. É
+por isso que, na tabela de segmentação do \cref{cap:segmentacao}, a acurácia global é
+$94{,}00\,\%$ enquanto o IOU global é $85\,\%$.
+
+\section{Métricas para \ing{ranking}: acurácia top-$k$}
+
+Quando um sistema devolve uma lista ordenada de hipóteses em vez de uma única resposta,
+a métrica natural é a acurácia top-$k$.
+
+\begin{definicao}{Acurácia top-$k$}
+Seja $R_i = (r_i^{(1)}, \dots, r_i^{(m)})$ a lista ordenada de classes candidatas
+produzida para a instância $i$, e $y_i$ o rótulo verdadeiro. A acurácia top-$k$ é
+\begin{equation}
+  \text{ACC}@k = \frac{1}{n} \sum_{i=1}^{n}
+  \mathbb{1}\!\left[\, y_i \in \{ r_i^{(1)}, \dots, r_i^{(k)} \} \,\right].
+  \label{eq:topk}
+\end{equation}
+\end{definicao}
+
+Essa métrica é central no \cref{cap:resultados-agente}, onde o agente de linguagem
+devolve as três hipóteses mais prováveis com justificativa individual. A leitura
+correta desses números exige contexto: para nove classes, um sistema aleatório obteria
+$\text{ACC}@1 = 11{,}1\,\%$, $\text{ACC}@2 = 22{,}2\,\%$ e
+$\text{ACC}@3 = 33{,}3\,\%$. Os valores observados --- $35{,}1\,\%$, $53{,}4\,\%$ e
+$63{,}9\,\%$ --- são portanto cerca de três, duas e meia e duas vezes o acaso,
+respectivamente.
+
+\begin{destaque}[Top-$k$ não é uma métrica ``mais fácil'']
+É comum descartar a acurácia top-3 como ``inflada''. Isso ignora o uso pretendido.
+Quando o sistema é um \emph{assistente} que apresenta hipóteses a um especialista, a
+pergunta certa é ``a resposta correta está entre as opções que ele considerou?''.
+A acurácia top-1 é a métrica de um sistema autônomo; a top-$k$ é a métrica de um
+sistema de apoio à decisão. O \cref{cap:agente} argumenta que a segunda é a arquitetura
+apropriada para este domínio.
+\end{destaque}
+
+\section{Incerteza: intervalos de confiança para proporções}
+
+Toda métrica reportada neste livro é uma estimativa a partir de amostra finita, e várias
+delas vêm de amostras pequenas --- catorze instâncias na classe 9 do
+\cref{cap:resultados-agente}, por exemplo. Reportar ``$7{,}1\,\%$'' sem intervalo é
+irresponsável.
+
+\begin{definicao}{Intervalo de Wilson}
+Para $x$ sucessos em $n$ ensaios, com $\hat{p} = x/n$ e nível de confiança
+correspondente a $z$ (com $z = 1{,}96$ para $95\,\%$), o intervalo de Wilson
+\citep{Wilson1927} é
+\begin{equation}
+  \frac{\hat{p} + \dfrac{z^{2}}{2n} \;\pm\; z\sqrt{\dfrac{\hat{p}(1-\hat{p})}{n}
+  + \dfrac{z^{2}}{4n^{2}}}}{1 + \dfrac{z^{2}}{n}}.
+  \label{eq:wilson}
+\end{equation}
+\end{definicao}
+
+O intervalo de Wilson é preferível ao intervalo normal (de Wald)
+$\hat{p} \pm z\sqrt{\hat{p}(1-\hat{p})/n}$ por duas razões decisivas neste contexto:
+ele nunca ultrapassa $[0,1]$, e continua bem definido quando $\hat{p} = 0$ ou
+$\hat{p} = 1$ --- casos que ocorrem repetidamente nas tabelas por classe deste livro.
+
+\begin{exemplo}{Uma diferença que não é diferença}
+No \cref{cap:resultados-agente}, o agente atinge $\text{ACC}@1 = 35{,}1\,\%$ sobre
+$n = 191$ segmentos, com intervalo de Wilson $[28{,}7\,\%;\ 42{,}1\,\%]$. Suponha que
+um método alternativo obtenha $40{,}0\,\%$ sobre a mesma amostra. O intervalo do
+segundo método seria aproximadamente $[33{,}3\,\%;\ 47{,}1\,\%]$, com sobreposição
+substancial. Concluir que o segundo método é melhor seria injustificado.
+
+O mesmo raciocínio aplicado às classes individuais é ainda mais severo: com $n = 15$,
+o intervalo de Wilson para $\hat{p} = 0{,}267$ vai de aproximadamente $0{,}107$ a
+$0{,}522$. Praticamente nenhuma comparação entre classes com essa amostra é
+estatisticamente conclusiva --- o que não impede que os padrões qualitativos sejam
+informativos.
+\end{exemplo}
+
+\begin{destaque}[Regra prática deste livro]
+Toda proporção reportada com $n < 200$ vem acompanhada de intervalo de $95\,\%$. Toda
+média sobre poços ou dobras vem acompanhada de desvio-padrão. Quando o desvio-padrão é
+grande em relação à média --- como o $0{,}34 \pm 0{,}42$ do \cref{cap:mundoaberto} ---
+o texto discute explicitamente o que isso significa.
+\end{destaque}
+
+\section{Validação}
+
+\subsection{Validação cruzada estratificada}
+
+Os \cref{cap:segmentacao,cap:mahalanobis} usam validação cruzada estratificada em cinco
+dobras: o conjunto é particionado em cinco partes preservando a proporção de classes,
+e cada parte serve uma vez como conjunto de teste. A estratificação é indispensável
+sob desbalanceamento severo.
+
+\subsection{Divisão temporal}
+
+O \cref{cap:closedworld} usa divisão temporal $80/20$ dentro de cada instância, pelo
+motivo exposto na \cref{cap:dados}: janelas sobrepostas distribuídas aleatoriamente
+produzem vazamento.
+
+\subsection{Avaliação por poço}
+
+O protocolo mais rigoroso, adotado no \cref{cap:segmentacao}, avalia poço a poço e
+reporta a tabela completa. Ele revela a variabilidade entre poços --- o desvio-padrão
+de $0{,}187$ na acurácia do detector baseado em autoencoder --- que uma média
+esconderia.
+
+\begin{destaque}[Prática]
+O caderno \texttt{4\_introduction\_to\_supervised\_learning}, descrito no
+\cref{cap:pratica}, treina árvores, florestas, SVM e redes densas sobre o 3W e reporta as
+métricas discutidas aqui \citep{Lopes2026Intro3W}. É o caminho mais curto para ver, em
+dados reais, por que a acurácia simples engana sob desbalanceamento.
+\end{destaque}
+
+\resumocapitulo{%
+A avaliação é a parte do método em que os erros são mais fáceis e mais caros. Sob o
+desbalanceamento característico de dados de poço, a acurácia simples é sistematicamente
+enganosa: um detector inútil atinge $99{,}7\,\%$. A acurácia balanceada, definida como a
+média de revocação e especificidade, corrige o problema. A escolha entre precisão e
+revocação deve seguir a consequência operacional do erro, não a conveniência do número.
+Erros de reconstrução são medidos por SMAPE, relativo, simétrico e limitado. A avaliação
+de detecção de eventos exige tolerância temporal, formalizada pela família SoftED, e a
+avaliação de segmentação exige IOU além de acurácia. Sistemas que devolvem
+\ing{rankings} são avaliados por acurácia top-$k$, que deve sempre ser lida contra a
+linha de base do acaso. Toda proporção estimada de amostra pequena deve vir acompanhada
+de intervalo de confiança de Wilson.}
+
+\begin{exercicios}
+\item Demonstre que, para um classificador que sempre prediz a classe majoritária,
+      $\text{ACC}_b = 0{,}5$ independentemente da prevalência. Em seguida, mostre que
+      $\text{ACC}_b$ é a média das acurácias condicionais a cada classe.
+
+\item Um detector apresenta $\text{VP} = 45$, $\text{FN} = 15$, $\text{FP} = 90$ e
+      $\text{VN} = \num{9850}$. Calcule ACC, $\text{ACC}_b$, PR, REC, SP e $F_1$.
+      Comente a discrepância entre ACC e $F_1$ e diga qual você reportaria a um gerente
+      de operação e por quê.
+
+\item Mostre que o SMAPE é limitado superiormente por $200\,\%$. Construa em seguida uma
+      série de dez pontos em que o erro percentual absoluto médio convencional diverge
+      mas o SMAPE permanece finito.
+
+\item Calcule o intervalo de Wilson de $95\,\%$ para $x = 1$ sucesso em $n = 14$ ensaios
+      (o caso da classe 9 no \cref{cap:resultados-agente}). Compare com o intervalo de
+      Wald e explique por que o segundo é inadequado.
+
+\item Implemente a métrica SoftED com tolerância $k$ e aplique-a a um detector simples
+      sobre uma instância do 3W. Trace a curva de $F_1$ em função de $k$ para
+      $k \in \{10, 100, 500, 1000, 5000\}$ e discuta como escolher $k$ a partir de
+      requisitos operacionais.
+
+\item Um sistema devolve três hipóteses ordenadas para um problema de nove classes.
+      Calcule a acurácia top-1, top-2 e top-3 esperadas sob escolha aleatória
+      \emph{sem} repetição. Em seguida, calcule quantas vezes acima do acaso estão os
+      valores $35{,}1\,\%$, $53{,}4\,\%$ e $63{,}9\,\%$ reportados no
+      \cref{cap:resultados-agente}.
+
+\item Discuta a seguinte proposta: ``para evitar a discussão sobre qual métrica usar,
+      basta reportar todas''. Considere o problema de comparação múltipla e o risco de
+      seleção da métrica mais favorável após ver os resultados.
+\end{exercicios}
+
+\begin{leituras}
+\item \citet{Salles2024softed} introduzem a família SoftED e discutem em profundidade a
+      inadequação das métricas por amostra para detecção de eventos.
+\item \citet{Wilson1927} é o artigo original do intervalo que leva seu nome; curto e
+      surpreendentemente legível.
+\item \citet{Pimentel2014review} discutem, em sua revisão de detecção de novidade, os
+      problemas específicos de avaliação quando a classe positiva é rara por
+      construção.
+\item \citet{Chollet2015} e \citet{scipy} documentam as implementações de referência das
+      métricas discutidas aqui.
+\end{leituras}

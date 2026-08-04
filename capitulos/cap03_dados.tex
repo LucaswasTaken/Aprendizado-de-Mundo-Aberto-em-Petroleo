@@ -1,0 +1,423 @@
+\chapter{Os dados: séries temporais de poços e o conjunto 3W}
+\label{cap:dados}
+
+\begin{objetivos}
+Ao final deste capítulo, você será capaz de:
+\begin{itemize}[leftmargin=*,itemsep=0.2em]
+  \item formalizar uma série temporal multivariada de poço e definir janela, passo e
+        rótulo;
+  \item descrever a estrutura do conjunto 3W nas versões 1.0 e 2.0, incluindo a
+        distinção entre instâncias reais, simuladas e desenhadas à mão;
+  \item explicar a rotulação em três estados --- normal, transiente e anômalo --- e
+        distinguir rótulo por amostra de rótulo por instância;
+  \item identificar as principais armadilhas do conjunto: desbalanceamento, valores
+        ausentes, sensores congelados, vazamento temporal e correlação espúria entre
+        anomalia e perda de telemetria;
+  \item projetar um protocolo de particionamento que evite vazamento entre treino e
+        teste.
+\end{itemize}
+\end{objetivos}
+
+\section{Formalização}
+
+\begin{definicao}{Série temporal multivariada de poço}
+Uma série temporal multivariada de poço é uma função
+$\vect{x} : \mathcal{T} \to \R^{S}$, onde $\mathcal{T} \subset \mathbb{Z}$ é um
+conjunto de instantes amostrados a intervalo regular $\Delta t$ e $S$ é o número de
+sensores. Escrevemos $\vect{x}_t = (x_t^{(1)}, \dots, x_t^{(S)})^{\top}$ para a leitura
+conjunta no instante $t$, e $x_t^{(s)}$ para a leitura do sensor $s$.
+\end{definicao}
+
+No conjunto 3W, $\Delta t = \SI{1}{\second}$ e uma instância típica cobre de algumas
+horas a alguns dias. O subconjunto de sensores usado ao longo deste livro é, salvo
+menção em contrário, $S = 4$, com os canais P-PDG, T-PDG, P-TPT e T-TPT descritos na
+\cref{sec:dominio-sensores}.
+
+\begin{definicao}{Janela deslizante}
+Dada uma série $\vect{x}$, um comprimento de janela $T$ e um passo $h$, a
+\termo{janela deslizante}{sliding window} de índice $i$ é a matriz
+\[
+  \mat{X}_i = \big[\, \vect{x}_{t_0 + ih},\; \vect{x}_{t_0 + ih + 1},\;
+  \dots,\; \vect{x}_{t_0 + ih + T - 1} \,\big]^{\top} \in \R^{T \times S}.
+\]
+Quando $h < T$ as janelas se sobrepõem; quando $h = T$ elas são disjuntas.
+\end{definicao}
+
+A janela é a unidade de entrada de praticamente todos os modelos deste livro, e sua
+parametrização varia de forma significativa entre eles. A \cref{tab:dados-janelas}
+consolida as escolhas, o que é útil como referência ao longo da leitura.
+
+\begin{table}[htbp]
+\centering
+\caption{Parametrização de janela adotada em cada capítulo deste livro.}
+\label{tab:dados-janelas}
+\small
+\begin{tabular}{llll}
+\toprule
+\textbf{Capítulo} & \textbf{$T$ (amostras)} & \textbf{$S$} & \textbf{Passo $h$} \\
+\midrule
+\cref{cap:dual}         & 500                & 5 & contínuo (tempo real) \\
+\cref{cap:binarios,cap:closedworld} & 150 a 7500 (varrido) & 8 & sobreposto \\
+\cref{cap:mundoaberto}  & 200                & 4 & sobreposto \\
+\cref{cap:segmentacao,cap:mahalanobis} & 200 & 4 & 100 (\SI{5}{\second} de avanço) \\
+\cref{cap:agente}       & segmento variável  & 4 & --- (segmentos rotulados) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{destaque}[A escolha de $T$ não é livre]
+O comprimento da janela impõe um compromisso duplo. Janelas curtas permitem resposta
+rápida, mas não contêm informação suficiente para eventos lentos --- uma janela de
+\SI{150}{\second} não pode, em princípio, distinguir incrustação (classe 7) de
+restrição rápida (classe 6). Janelas longas capturam eventos lentos, mas atrasam a
+detecção e diluem transientes curtos na média. O \cref{cap:closedworld} quantifica
+esse compromisso com uma varredura de catorze valores de $T$.
+\end{destaque}
+
+\section{O conjunto 3W}
+
+\subsection{Origem e propósito}
+
+O 3W --- o nome vem de \ing{three W}: \ing{wells}, \ing{waves}, \ing{winds}, embora na
+prática designe eventos indesejáveis reais em poços --- foi publicado pela Petrobras
+com o objetivo explícito de dar à comunidade acadêmica um banco de dados realista para
+detecção e classificação de eventos \citep{VARGAS2019}. Antes dele, a literatura da
+área trabalhava quase exclusivamente com dados simulados ou proprietários, o que
+tornava impossível comparar métodos.
+
+\subsection{Versão 1.0}
+
+A versão original contém \num{1984} instâncias distribuídas entre a classe normal e
+oito classes de anomalia. Cada instância é um arquivo CSV com uma coluna de tempo,
+colunas de sensores e uma coluna de rótulo por amostra.
+
+\subsection{Versão 2.0}
+
+A versão 2.0 \citep{VazVargas2026_3w2} amplia o conjunto para \num{2228} instâncias e
+\num{10} classes (normal mais nove anomalias), revisa a rotulação de instâncias da
+versão anterior e acrescenta metadados de poço. Os trabalhos discutidos nos
+\cref{cap:dual,cap:binarios,cap:mundoaberto} foram desenvolvidos sobre a versão 1.0; os
+dos \cref{cap:segmentacao,cap:mahalanobis,cap:agente} incorporam a versão 2.0.
+
+\begin{destaque}[Comparabilidade entre versões]
+Números de acurácia obtidos em versões diferentes do 3W \emph{não são diretamente
+comparáveis}. A revisão de rótulos da versão 2.0 alterou a fronteira entre normal e
+transiente em várias instâncias, e a inclusão de novas instâncias mudou a distribuição
+de classes. Sempre que este livro compara resultados de capítulos distintos, a versão
+utilizada é declarada.
+\end{destaque}
+
+\subsection{Três procedências}
+
+Cada instância do 3W pertence a uma de três procedências, identificada pelo prefixo do
+nome do arquivo:
+
+\begin{description}[leftmargin=0pt,style=nextline,itemsep=0.5em]
+
+\item[Real (\texttt{WELL-\dots}).] Registro efetivo de um poço em operação, com todos
+os defeitos que isso implica: ruído, lacunas, deriva, comportamento idiossincrático.
+É a única procedência que sustenta conclusões sobre desempenho em campo.
+
+\item[Simulado (\texttt{SIMULATED-\dots}).] Gerado por simulador de escoamento
+multifásico. Tem a vantagem de cobrir condições raras e a desvantagem de refletir as
+hipóteses do simulador. Útil para aumentar a amostra de classes escassas.
+
+\item[Desenhado à mão (\texttt{DRAWN-\dots}).] Construído manualmente por especialistas
+para ilustrar a assinatura canônica de um evento. \emph{Não deve ser usado para
+avaliação}: são exemplos idealizados, e um modelo avaliado sobre eles reporta um
+desempenho que não se sustenta em campo.
+
+\end{description}
+
+\begin{destaque}[Uma decisão de projeto recorrente]
+O trabalho descrito no \cref{cap:agente} adota a seguinte política, que recomendamos:
+usar exclusivamente instâncias reais; recorrer a simuladas apenas quando a classe tem
+menos de trinta instâncias reais; e excluir integralmente as desenhadas à mão. Essa
+política reduz o tamanho do conjunto e piora os números publicados --- e é exatamente
+por isso que ela é correta.
+\end{destaque}
+
+\section{A rotulação}
+
+\subsection{Três estados por amostra}
+
+O 3W rotula \emph{cada amostra} de cada instância com um de três estados:
+
+\begin{center}
+\small
+\begin{tabular}{cll}
+\toprule
+\textbf{Código} & \textbf{Estado} & \textbf{Significado} \\
+\midrule
+$0$        & Normal    & Operação estável, anterior ao evento. \\
+$100 + k$  & Transiente& Transição em curso para a anomalia de classe $k$. \\
+$k$        & Anômalo   & Regime anômalo estabelecido da classe $k$. \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+O estado transiente é a contribuição mais original --- e mais problemática --- do
+esquema de rotulação. Ele reconhece que a passagem de normal para anômalo não é
+instantânea, e que existe um intervalo em que o evento já começou mas ainda não se
+manifestou plenamente. Do ponto de vista operacional, \emph{o transiente é exatamente
+onde a detecção tem valor}: detectar depois que o regime anômalo se estabeleceu é tarde
+demais.
+
+\begin{destaque}[O que fazer com o transiente]
+Três políticas convivem na literatura e neste livro:
+\begin{enumerate}[leftmargin=*,itemsep=0.2em]
+  \item \textbf{Descartar} as amostras transientes do treinamento. Produz classes mais
+        puras e números melhores, ao custo de tornar o modelo cego justamente à fase
+        que interessa.
+  \item \textbf{Tratar como anômalo}. Favorece detecção precoce e aumenta o falso
+        positivo.
+  \item \textbf{Tratar como classe própria}. Triplica o número de classes e agrava o
+        desbalanceamento.
+\end{enumerate}
+Os trabalhos deste livro adotam predominantemente a segunda política. A métrica SoftED
+do \cref{cap:segmentacao} foi introduzida precisamente para avaliar a detecção com
+tolerância temporal, tornando a questão menos binária.
+\end{destaque}
+
+\subsection{Rótulo por instância}
+
+Além do rótulo por amostra, cada instância possui um rótulo global --- a classe do
+evento que ela contém. Essa distinção gera duas famílias de métricas que \emph{não
+podem ser confundidas}:
+
+\begin{itemize}[leftmargin=*,itemsep=0.3em]
+  \item \textbf{Métrica por amostra}: fração de amostras corretamente rotuladas.
+        Dominada pelas instâncias mais longas e pela classe normal.
+  \item \textbf{Métrica por instância}: fração de instâncias em que o evento foi
+        corretamente identificado. É a que corresponde à pergunta operacional.
+\end{itemize}
+
+\begin{exemplo}{A diferença em números}
+No \cref{cap:mundoaberto}, o classificador binário da classe 6 apresenta acurácia média
+por amostra de $0{,}75 \pm 0{,}13$ e acurácia média por instância de
+$0{,}34 \pm 0{,}42$. O desvio-padrão enorme na segunda métrica revela o que a primeira
+esconde: o modelo acerta quase todas as amostras de algumas instâncias e erra quase
+todas as de outras. Uma média de $0{,}75$ por amostra é compatível com ``funciona bem
+em metade dos poços e não funciona na outra metade''.
+\end{exemplo}
+
+\section{As armadilhas}
+
+\subsection{O estado das válvulas muda a estrutura de correlação}
+
+Antes das armadilhas de rotulação, uma armadilha de estacionariedade. As variáveis
+observadas não guardam entre si uma relação fixa: a estrutura de correlação depende da
+configuração das válvulas no momento da medição.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.62\textwidth]{correlation.png}
+\caption{Matrizes de correlação entre os sinais de pressão e temperatura (PT, TPT e PDG),
+calculadas separadamente para dados do 3W e para dados de operação com a válvula M2
+aberta e fechada. Vermelho indica correlação positiva; azul, negativa. Adaptado de
+\citet{aranha2023system}.}
+\label{fig:dados-correlacao}
+\end{figure}
+
+A \cref{fig:dados-correlacao} mostra o efeito. Pares de sensores que se correlacionam
+positivamente com a M2 aberta podem correlacionar-se de forma fraca ou invertida com a
+M2 fechada, porque o caminho do fluido mudou. Um modelo treinado sobre a mistura dos dois
+regimes aprende uma correlação média que não descreve nenhum dos dois.
+
+\begin{destaque}[A consequência prática]
+É por isso que o sistema do \cref{cap:dual} suspende a análise durante manobras de
+válvula e retoma apenas após a estabilização, e é por isso que ele mantém modelos
+distintos por configuração. Não é excesso de zelo: sem essa segmentação, toda manobra
+programada vira um alarme.
+
+O mesmo cuidado não é possível no 3W, que não distribui o estado das válvulas. Essa
+ausência é uma limitação do conjunto, e não do método.
+\end{destaque}
+
+\subsection{Desbalanceamento}
+
+A classe normal domina o conjunto por ordens de magnitude ao nível de amostra, e as
+classes de anomalia são desbalanceadas entre si --- a classe 9 tem uma pequena fração
+das instâncias da classe 7. As consequências são conhecidas e as contramedidas também:
+métricas balanceadas (\cref{cap:aprendizado}), amostragem estratificada, ponderação de
+classe na função de perda e, no caso do ensemble binário do \cref{cap:binarios},
+subamostragem da classe negativa.
+
+\subsection{Valores ausentes e sensores congelados}
+
+Instâncias reais contêm lacunas. As estratégias usadas neste livro são:
+
+\begin{itemize}[leftmargin=*,itemsep=0.3em]
+  \item preenchimento com o último valor válido (\ing{forward fill}), adequado quando a
+        lacuna é curta;
+  \item preenchimento com o próximo valor válido (\ing{backward fill}), para lacunas no
+        início da série;
+  \item preenchimento pela média da janela, usado no \cref{cap:segmentacao};
+  \item descarte da instância, quando a fração ausente excede um limiar.
+\end{itemize}
+
+Um sensor congelado não gera valor ausente --- gera um valor constante, que passa por
+todos os filtros de qualidade baseados em nulos. Detectá-lo exige verificar
+explicitamente $\std(x^{(s)}_{t:t+T}) < \epsilon$.
+
+\subsection{A correlação espúria mais perigosa do 3W}
+\label{sec:dados-telemetria}
+
+Este é o achado mais desconfortável reportado neste livro, e ele aparece no
+\cref{cap:resultados-agente}. Em várias classes do 3W --- notadamente 2, 6, 7 e 8 ---
+o instante de início da anomalia coincide, com frequência muito acima do acaso, com a
+perda dos medidores de fundo: P-PDG e T-PDG tornam-se ausentes ou zerados.
+
+A explicação provável é banal e não tem nada a ver com física de poços. Muitos eventos
+indesejáveis são acompanhados de intervenção, e intervenção frequentemente implica
+reconfiguração da aquisição. O rótulo de anomalia e a interrupção da telemetria têm uma
+causa comum.
+
+\begin{destaque}[Por que isso importa]
+Um modelo treinado nesses dados pode aprender ``se os sensores de fundo sumiram, é
+anomalia''. Essa regra tem alto desempenho no conjunto de teste e valor operacional
+próximo de zero. Pior: ela é invisível às métricas usuais.
+
+Foi um modelo de linguagem, ao ser solicitado a \emph{descrever em texto} o que
+observava, que tornou o padrão explícito: em quatro das sete classes analisadas, a
+descrição gerada continha a expressão ``perda de telemetria de fundo''. O episódio é o
+argumento mais forte deste livro a favor da explicabilidade --- não porque o modelo de
+linguagem classifique melhor, mas porque ele \emph{fala}, e ao falar expõe o que o
+classificador silencioso teria escondido.
+\end{destaque}
+
+\subsection{Vazamento temporal e vazamento entre poços}
+
+Duas formas de vazamento comprometem avaliações neste domínio.
+
+\begin{description}[leftmargin=0pt,style=nextline,itemsep=0.4em]
+
+\item[Vazamento temporal.] Ocorre quando janelas sobrepostas de uma mesma instância
+são distribuídas entre treino e teste. Como janelas adjacentes compartilham a maior
+parte de suas amostras, o modelo essencialmente memoriza. A contramedida é a
+\emph{divisão temporal}: os primeiros 80\,\% de cada instância para treino, os últimos
+20\,\% para teste, sem sobreposição na fronteira. É o protocolo adotado no
+\cref{cap:closedworld}.
+
+\item[Vazamento entre poços.] Ocorre quando janelas de um mesmo poço aparecem em treino
+e teste. O modelo aprende as idiossincrasias daquele poço --- nível de pressão
+característico, ruído do sensor --- em vez da assinatura do evento. A contramedida é a
+\emph{divisão por poço}, mais rigorosa e mais realista. O \cref{cap:segmentacao} reporta
+resultados por poço individual justamente para expor a variabilidade que uma média
+global esconde.
+
+\end{description}
+
+\begin{exemplo}{Quanto custa fazer certo}
+No \cref{cap:segmentacao}, o desempenho da U-Net varia de $0{,}720$ de acurácia no poço
+F1 a $0{,}975$ no poço C2. A média global, $0{,}863 \pm 0{,}082$, só é informativa
+porque vem acompanhada do desvio-padrão e da tabela completa. Uma avaliação com
+divisão aleatória de janelas reportaria um número maior e menos honesto.
+\end{exemplo}
+
+\section{Pré-processamento}
+
+As etapas de pré-processamento empregadas no livro formam um repertório pequeno.
+
+\begin{enumerate}[leftmargin=*,itemsep=0.45em]
+
+\item \textbf{Tratamento de ausentes}, conforme descrito acima.
+
+\item \textbf{Normalização Min-Max} para o intervalo $[0,1]$:
+\[
+  \tilde{x} = \frac{x - \min(x)}{\max(x) - \min(x)}.
+\]
+Usada no \cref{cap:dual}, onde o autoencoder tem saída sigmoide. Sensível a
+\ing{outliers} e ao intervalo de calibração.
+
+\item \textbf{Padronização} (escore $z$):
+\[
+  \tilde{x} = \frac{x - \mu}{\sigma}.
+\]
+Usada nos \cref{cap:segmentacao,cap:mahalanobis}. Preferível quando o modelo assume
+distribuição aproximadamente gaussiana --- caso, notadamente, da distância de
+Mahalanobis.
+
+\item \textbf{Filtragem por transformada \ing{wavelet}.} Decomposição com \ing{wavelet}
+de Daubechies db4 em três níveis, aplicação de limiar suave aos coeficientes de detalhe
+e reconstrução. Remove ruído de alta frequência preservando descontinuidades --- o que
+um filtro passa-baixas convencional não faz. É particularmente relevante aqui, já que
+as assinaturas de interesse \emph{são} descontinuidades.
+
+\item \textbf{Injeção de ruído} de 0 a 0,5\,\% durante o treinamento, empregada no
+\cref{cap:dual} como regularização e para tornar o autoencoder robusto à variabilidade
+de instrumentação entre poços.
+
+\end{enumerate}
+
+\begin{destaque}[A ordem importa]
+Padronizar antes de normalizar para $[0,1]$, como faz o \cref{cap:agente}, não é
+redundante: o escore $z$ remove o nível e a escala específicos do poço, e a normalização
+posterior acomoda a saída ao intervalo esperado pelo modelo. Inverter a ordem
+reintroduziria a dependência do nível absoluto.
+\end{destaque}
+
+\begin{destaque}[Prática]
+Todo o percurso deste capítulo --- carga dos arquivos do 3W, comparação entre os quatro
+métodos de escalonamento, janelamento e partição por validação cruzada --- está
+implementado e executável no recurso descrito no \cref{cap:pratica}, no caderno
+\texttt{1\_data\_treatment} \citep{Lopes2026Intro3W}.
+\end{destaque}
+
+\resumocapitulo{%
+O conjunto 3W é a referência pública da área, com \num{1984} instâncias e oito classes
+de anomalia na versão 1.0 e \num{2228} instâncias e nove classes na versão 2.0. Suas
+instâncias têm três procedências --- real, simulada e desenhada à mão --- e apenas as
+reais sustentam conclusões operacionais. A rotulação por amostra em três estados
+(normal, transiente, anômalo) reconhece que eventos têm início gradual, e o tratamento
+dado ao estado transiente é uma decisão de projeto com efeito direto sobre a detecção
+precoce. As principais armadilhas são o desbalanceamento severo, os sensores congelados
+que passam por filtros de nulos, o vazamento temporal e entre poços em protocolos de
+avaliação descuidados e, sobretudo, a correlação espúria entre início de anomalia e
+perda de telemetria de fundo --- um artefato de coleta capaz de produzir modelos com
+alto desempenho e nenhum valor.}
+
+\begin{exercicios}
+\item Uma instância do 3W tem \num{86400} amostras (um dia a \SI{1}{\hertz}). Calcule
+      quantas janelas de $T = 200$ com passo $h = 100$ ela produz. Em seguida, calcule a
+      fração de amostras compartilhadas entre duas janelas consecutivas e discuta o
+      impacto disso sobre uma divisão aleatória treino/teste.
+
+\item Implemente um detector de sensor congelado: dado um sinal e uma janela, retorne
+      as regiões em que o desvio-padrão fica abaixo de $\epsilon$. Aplique-o a
+      instâncias reais do 3W e reporte a fração de amostras afetadas por classe.
+      Discuta se essa fração é uniforme entre classes e o que uma não uniformidade
+      implicaria.
+
+\item Compare experimentalmente três políticas de tratamento do estado transiente
+      (descartar, tratar como anômalo, classe própria) em um classificador binário
+      simples para a classe 2. Reporte acurácia balanceada e a distância temporal média
+      entre o início real do evento e a primeira detecção.
+
+\item Considere o achado da \cref{sec:dados-telemetria}. Proponha um experimento
+      controlado que quantifique a contribuição da perda de telemetria para o
+      desempenho de um classificador. Dica: pense em uma ablação em que a informação de
+      ``dado ausente'' é deliberadamente removida.
+
+\item Justifique matematicamente por que a normalização Min-Max é sensível a
+      \ing{outliers} e a padronização é sensível à hipótese de simetria. Para cada uma,
+      construa um exemplo numérico de dez pontos em que ela falha.
+
+\item Projete um protocolo de validação cruzada para o 3W que simultaneamente:
+      (a) evite vazamento entre poços; (b) mantenha a estratificação por classe;
+      (c) garanta que cada classe apareça em pelo menos três dobras. Discuta se as três
+      condições são sempre simultaneamente satisfazíveis dado o desbalanceamento do
+      conjunto.
+\end{exercicios}
+
+\begin{leituras}
+\item \citet{VARGAS2019} --- artigo original do 3W, com a descrição do processo de
+      rotulação.
+\item \citet{VazVargas2026_3w2} --- versão 2.0, com discussão explícita das limitações da
+      versão anterior.
+\item \citet{marins2020fault} e \citet{Marins2021} --- primeiros trabalhos de referência
+      sobre o 3W, úteis como linha de base e como ilustração das convenções de avaliação
+      que se consolidaram na área.
+\item \citet{carvalho2021flow} e \citet{bronstad2021data} --- perspectivas
+      complementares sobre qualidade de dados em séries temporais industriais.
+\end{leituras}

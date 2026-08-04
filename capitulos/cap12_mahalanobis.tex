@@ -1,0 +1,435 @@
+\chapter{Novidade no espaço latente}
+\label{cap:mahalanobis}
+
+\begin{objetivos}
+Ao final deste capítulo, você será capaz de:
+\begin{itemize}[leftmargin=*,itemsep=0.2em]
+  \item aplicar a distância de Mahalanobis como escore de novidade e calibrar seu limiar
+        por percentil;
+  \item comparar espaços de representação --- bruto, latente de autoencoder e penúltima
+        camada de classificador --- por índices internos de qualidade;
+  \item explicar por que uma representação treinada para discriminar supera uma
+        treinada para reconstruir, na tarefa de detectar o desconhecido;
+  \item interpretar razões de separação entre classes conhecidas e desconhecidas;
+  \item reconhecer as hipóteses estatísticas embutidas no método e as situações em que
+        elas falham.
+\end{itemize}
+\end{objetivos}
+
+\section{Retomando um resultado incômodo}
+
+O \cref{cap:mundoaberto} apresentou um achado que ficou sem explicação: autoencoder,
+VAE e DCN produziram acurácias de $0{,}730$, $0{,}727$ e $0{,}725$. Três arquiteturas de
+sofisticação crescente, desempenho indistinguível.
+
+A interpretação oferecida na ocasião foi que o gargalo estava em outro lugar. Este
+capítulo mostra que a interpretação estava certa e localiza o gargalo com precisão: o
+problema não é \emph{qual} autoencoder, mas o fato de usar um autoencoder.
+
+\begin{destaque}[A hipótese deste capítulo]
+Um autoencoder é treinado para minimizar erro de reconstrução. Nada em seu objetivo o
+incentiva a \emph{separar} classes; ao contrário, ele gasta capacidade representando
+fielmente aquilo que é comum a todas elas.
+
+Um classificador multiclasse é treinado justamente para separar. A representação
+implícita em sua penúltima camada --- o vetor que alimenta a camada de saída --- é,
+por construção, um espaço em que as classes são linearmente separáveis.
+
+A hipótese é que \textbf{esse espaço, construído para discriminar entre classes
+conhecidas, também é melhor para reconhecer o desconhecido} --- mesmo que nada em seu
+treinamento tenha visado a isso.
+\end{destaque}
+
+\section{A distância de Mahalanobis como escore}
+
+\subsection{Definição}
+
+Dado um conjunto de referência com média $\bm{\mu}$ e covariância $\mat{\Sigma}$, a
+distância de Mahalanobis (\cref{eq:mahalanobis}) de um ponto $\vect{z}$ é
+\[
+  d_M(\vect{z}) = \sqrt{(\vect{z} - \bm{\mu})^\top \mat{\Sigma}^{-1} (\vect{z} - \bm{\mu})}.
+\]
+
+Sua virtude sobre a distância euclidiana é ponderar cada direção pela variabilidade
+observada. Em um espaço latente onde algumas dimensões variam muito naturalmente e
+outras quase nada, essa correção é o que separa um escore útil de um escore dominado
+pelas direções de maior escala.
+
+\subsection{Calibração do limiar}
+
+O limiar é fixado no \textbf{percentil 95} da distribuição de $d_M$ sobre os dados
+conhecidos. A escolha é operacional, não estatística: aceita-se, por construção, uma
+taxa de falso alarme de aproximadamente $5\,\%$ em troca de sensibilidade.
+
+\begin{destaque}[Por que percentil e não $\chi^2$]
+Sob normalidade multivariada, $d_M^2$ segue distribuição $\chi^2$ com graus de liberdade
+iguais à dimensão, e o limiar poderia ser lido diretamente de uma tabela.
+
+Os dados não são normais. Calibrar por percentil empírico dispensa a hipótese e produz a
+taxa de falso alarme desejada \emph{por construção}, qualquer que seja a distribuição
+real. É um exemplo geral: quando a hipótese paramétrica é duvidosa e há dados
+suficientes, o quantil empírico é preferível ao valor teórico.
+\end{destaque}
+
+\section{Três espaços em competição}
+
+\begin{enumerate}[leftmargin=*,itemsep=0.4em]
+  \item \textbf{Espaço bruto}, com $200 \times 4 = 800$ dimensões. Nenhuma transformação.
+  \item \textbf{Latente de autoencoder LSTM}, com $128$ dimensões. Codificador:
+        entrada $\to$ LSTM(256) $\to$ LSTM(128) $\to$ Densa(128). Decodificador
+        simétrico. Treinado para reconstruir.
+  \item \textbf{Penúltima camada de classificador multiclasse}, com $64$ dimensões.
+        Treinada para discriminar entre as classes conhecidas.
+\end{enumerate}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{binary_classifiers.png}
+\caption{Cabeça classificadora aplicada sobre a representação latente: duas camadas
+densas com ativação ReLU seguidas da camada de saída. É a mesma cabeça para os três
+espaços comparados, o que isola o efeito da representação.}
+\label{fig:mahal-cabeca}
+\end{figure}
+
+O controle experimental importa: a arquitetura da cabeça classificadora é idêntica nos
+três casos. Qualquer diferença de desempenho é atribuível à representação, não ao
+classificador.
+
+\section{Resultados}
+
+\subsection{Detecção de novidade}
+
+A \cref{tab:mahal-deteccao} apresenta o resultado central. Cada linha corresponde a uma
+classe tratada como \emph{desconhecida} --- removida do treinamento --- e reporta a
+fração de suas amostras corretamente identificadas como novidade por três métodos.
+
+\begin{table}[htbp]
+\centering
+\caption{Acurácia de detecção de novidade (\%) por classe tratada como desconhecida,
+sob três abordagens.}
+\label{tab:mahal-deteccao}
+\small
+\begin{tabular}{lccc}
+\toprule
+\textbf{Classe tratada como desconhecida} & \textbf{Class.\ bin.} &
+\textbf{Mahal.\ bruto} & \textbf{Mahal.\ latente} \\
+\midrule
+1 --- Aumento de BSW           & $22{,}8$ & $41{,}5$ & $\bm{99{,}0}$ \\
+2 --- Fechamento de DHSV       & $76{,}9$ & $77{,}1$ & $\bm{96{,}5}$ \\
+3 --- Golfadas severas         & $48{,}1$ & $61{,}0$ & $\bm{99{,}0}$ \\
+4 --- Instabilidade de fluxo   & $44{,}7$ & $57{,}8$ & $\bm{96{,}0}$ \\
+5 --- Perda rápida de produtiv.& $\bm{0{,}1}$ & $62{,}3$ & $67{,}5$ \\
+6 --- Restrição rápida no PCK  & $47{,}6$ & $47{,}6$ & $\bm{99{,}0}$ \\
+7 --- Incrustação no PCK       & $36{,}5$ & $36{,}7$ & $52{,}3$ \\
+8 --- Hidrato na produção      & $50{,}5$ & $91{,}1$ & $\bm{99{,}0}$ \\
+9 --- Hidrato no serviço       & $51{,}9$ & $88{,}7$ & $\bm{99{,}0}$ \\
+Falha de ICV                   & $37{,}0$ & $67{,}5$ & $\bm{98{,}2}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{resultadochave}
+Aplicar a distância de Mahalanobis no espaço latente do classificador multiclasse eleva
+a detecção de novidade a $99\,\%$ em cinco das dez classes, e a mais de $96\,\%$ em sete
+delas. Sobre a anomalia de ICV --- a única genuinamente inédita --- o salto é de
+$52\,\%$ (\cref{cap:mundoaberto}) para $\bm{98{,}2\,\%}$.
+\end{resultadochave}
+
+\subsection{Três observações}
+
+\paragraph{A progressão é sistemática.} Em nove das dez linhas, o Mahalanobis no espaço
+bruto supera os classificadores binários, e o Mahalanobis latente supera o bruto. Não é
+um ganho concentrado em casos favoráveis: é uma melhoria uniforme, o que é a assinatura
+de uma mudança correta de método e não de ajuste ao conjunto de teste.
+
+\paragraph{A classe 5 e o valor de $0{,}1\,\%$.} Um detector que identifica um décimo de
+um por cento das novidades de uma classe está, para todos os efeitos, cego a ela. Ainda
+assim, o Mahalanobis latente eleva o número a $67{,}5\,\%$ --- o pior resultado da
+coluna, e um ganho de seiscentas vezes. A classe 5 continua sendo o ponto fraco do
+sistema em todos os capítulos deste livro.
+
+\paragraph{A classe 7 e o limite físico.} A incrustação no PCK atinge apenas $52{,}3\,\%$
+mesmo no melhor espaço. A explicação é a escala temporal: incrustação se desenvolve ao
+longo de semanas, e uma janela de duzentos passos não contém a evidência necessária.
+Nenhuma escolha de representação corrige um problema de janela.
+
+\subsection{Quanto o desconhecido se afasta}
+
+A acurácia diz se o limiar foi ultrapassado. A \cref{tab:mahal-separacao} diz por quanto.
+
+\begin{table}[htbp]
+\centering
+\caption{Razão de separação: distância de Mahalanobis média das amostras desconhecidas
+dividida pela das conhecidas, nos espaços bruto e latente.}
+\label{tab:mahal-separacao}
+\small
+\begin{tabular}{lcc}
+\toprule
+\textbf{Classe desconhecida} & \textbf{Espaço bruto} & \textbf{Espaço latente} \\
+\midrule
+1 & $2{,}1\times$ & $15{,}8\times$ \\
+2 & $1{,}8\times$ & $12{,}4\times$ \\
+3 & $2{,}3\times$ & $18{,}2\times$ \\
+4 & $2{,}0\times$ & $16{,}1\times$ \\
+5 & $1{,}9\times$ & $14{,}7\times$ \\
+6 & $2{,}4\times$ & $13{,}9\times$ \\
+8 & $<1{,}0\times$ & $\bm{186{,}5\times}$ \\
+9 & $2{,}2\times$ & $17{,}3\times$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{destaque}[A linha da classe 8]
+No espaço bruto, a razão de separação da classe 8 é \emph{menor que um}: as amostras de
+hidrato estão, em média, \textbf{mais próximas} do centro dos dados conhecidos do que as
+próprias amostras conhecidas. Qualquer detector de novidade baseado em distância
+falharia --- não por má calibração, mas porque no espaço bruto a informação simplesmente
+não está disponível de forma acessível a uma métrica de distância.
+
+No espaço latente, a mesma classe atinge $186{,}5\times$. É o maior valor da tabela por
+uma ordem de grandeza.
+
+A inversão é a demonstração mais forte da tese deste capítulo. Nenhum ajuste de limiar,
+nenhuma escolha de escore, nenhuma sofisticação algorítmica recuperaria o desempenho no
+espaço bruto. \textbf{A representação não é um detalhe de pré-processamento; ela
+determina o que é detectável.}
+\end{destaque}
+
+Vale ainda notar a uniformidade das demais linhas: entre $12{,}4\times$ e $18{,}2\times$
+no latente, contra $1{,}8\times$ a $2{,}4\times$ no bruto. O ganho é de aproximadamente
+uma ordem de grandeza, de forma consistente.
+
+\subsection{Por que o latente é melhor: a evidência direta}
+
+Até aqui o argumento foi indireto --- o desempenho é melhor, logo o espaço é melhor. A
+\cref{tab:mahal-qualidade} mede a qualidade dos espaços diretamente, pelos índices
+internos do \cref{cap:novidades}.
+
+\begin{table}[htbp]
+\centering
+\caption{Qualidade do espaço de representação segundo três índices internos. Para
+silhueta e Calinski-Harabasz, maior é melhor; para Davies-Bouldin, menor é melhor.}
+\label{tab:mahal-qualidade}
+\small
+\begin{tabular}{lcc}
+\toprule
+\textbf{Índice} & \textbf{Latente do autoencoder} & \textbf{Latente do multiclasse} \\
+\midrule
+Silhueta            & $-0{,}0149$   & $\bm{0{,}2299}$ \\
+Calinski-Harabasz   & $687{,}8008$  & $\bm{2818{,}231}$ \\
+Davies-Bouldin      & $4{,}5592$    & $\bm{1{,}746}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{resultadochave}
+A silhueta do latente do autoencoder é \textbf{negativa} ($-0{,}0149$): em média, as
+amostras estão mais próximas de um agrupamento vizinho do que do seu próprio. O latente
+do multiclasse atinge $0{,}2299$. O índice Calinski-Harabasz é quatro vezes maior e o
+Davies-Bouldin, dois pontos e meio menor.
+\end{resultadochave}
+
+\begin{destaque}[A explicação retroativa do \cref{cap:mundoaberto}]
+Silhueta negativa significa que \textbf{não há estrutura de classe} no latente do
+autoencoder. Isso explica, de uma vez, três observações anteriores:
+
+por que autoencoder, VAE e DCN produziram desempenho equivalente --- todos otimizavam
+reconstrução, e nenhum criava separação;
+
+por que o agrupamento sobre o material rejeitado alcançou apenas $80{,}8\,\%$ --- não há
+agrupamentos bem definidos para encontrar;
+
+e por que o refinamento por limiar adaptativo precisou de tanta engenharia --- ele estava
+compensando a ausência de estrutura no espaço subjacente.
+
+O esforço do \cref{cap:mundoaberto} foi, em boa medida, gasto tentando extrair estrutura
+de um espaço que não a tinha.
+\end{destaque}
+
+\subsection{Efeito sobre a classificação}
+
+O ganho não se restringe à detecção de novidade. A \cref{tab:mahal-classificacao} mostra
+o desempenho dos classificadores binários --- arquitetura idêntica --- sobre os três
+espaços.
+
+\begin{table}[htbp]
+\centering
+\caption{Desempenho dos classificadores binários em função do espaço de representação.
+Média e desvio padrão sobre as classes.}
+\label{tab:mahal-classificacao}
+\small
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Espaço} & \textbf{ACC} & \textbf{PR} & \textbf{REC} & $\bm{F_1}$ \\
+\midrule
+Latente do multiclasse & $\bm{0{,}755} \pm 0{,}171$ & $\bm{0{,}732} \pm 0{,}280$ &
+                          $\bm{0{,}685} \pm 0{,}384$ & $\bm{0{,}668} \pm 0{,}322$ \\
+Latente do autoencoder & $0{,}697 \pm 0{,}154$ & $0{,}697 \pm 0{,}277$ &
+                          $0{,}530 \pm 0{,}367$ & $0{,}559 \pm 0{,}318$ \\
+Espaço bruto           & $0{,}691 \pm 0{,}162$ & $0{,}642 \pm 0{,}329$ &
+                          $0{,}535 \pm 0{,}392$ & $0{,}543 \pm 0{,}349$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+A ordem se mantém, mas as diferenças são bem menores --- seis pontos percentuais de
+acurácia entre o melhor e o pior espaço, contra dezenas de pontos na detecção de
+novidade.
+
+\begin{destaque}[Uma assimetria reveladora]
+A qualidade do espaço importa muito mais para \emph{detectar o desconhecido} do que para
+\emph{classificar o conhecido}.
+
+A razão é que um classificador suficientemente expressivo pode compensar uma
+representação ruim: ele aprende a fronteira onde quer que ela esteja. Um escore de
+distância não pode --- ele depende inteiramente da geometria que lhe é dada.
+
+Corolário prático: se o objetivo é classificar bem o que se conhece, invista no
+classificador. Se o objetivo é reconhecer o que não se conhece, invista na
+representação.
+\end{destaque}
+
+Note também os desvios padrão elevados --- revocação de $0{,}685 \pm 0{,}384$. Um desvio
+maior que metade da média indica que o desempenho varia enormemente entre classes, o que
+as tabelas por classe dos capítulos anteriores já mostraram: excelente para as classes
+2, 3 e 9, ruim para as classes 4 e 5.
+
+\section{Balanço da evolução}
+
+\begin{resultadochave}
+No conjunto das classes avaliadas, a distância de Mahalanobis no espaço latente do
+classificador multiclasse detecta $\bm{95{,}4\,\%}$ das falhas não vistas com
+$\bm{4{,}5\,\%}$ de falsos alarmes --- uma melhoria média de $17\,\%$ sobre a melhor
+alternativa anterior.
+\end{resultadochave}
+
+A \cref{tab:mahal-evolucao} resume o percurso da \cref{parte:evolucao}.
+
+\begin{table}[htbp]
+\centering
+\caption{Evolução da detecção de novidade sobre a anomalia de ICV ao longo do livro.}
+\label{tab:mahal-evolucao}
+\small
+\begin{tabular}{lll}
+\toprule
+\textbf{Capítulo} & \textbf{Método} & \textbf{Detecção} \\
+\midrule
+\cref{cap:dual}         & Erro de reconstrução, limiar $\mu + 3\sigma$ & apenas binária \\
+\cref{cap:mundoaberto}  & Ensemble binário no latente do autoencoder   & $52{,}0\,\%$ \\
+\cref{cap:mahalanobis}  & Mahalanobis no espaço bruto                  & $67{,}5\,\%$ \\
+\cref{cap:mahalanobis}  & Mahalanobis no latente do multiclasse        & $\bm{98{,}2\,\%}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{destaque}[Uma lição sobre engenharia de sistemas de aprendizado]
+A progressão de $52\,\%$ a $98{,}2\,\%$ não veio de um modelo maior, de mais dados ou de
+uma arquitetura nova. Veio de duas mudanças conceituais: segmentar em vez de detectar
+(\cref{cap:segmentacao}) e representar com um classificador em vez de um autoencoder
+(este capítulo).
+
+Ambas custam pouco em implementação. Ambas exigiram identificar corretamente onde estava
+o gargalo --- e, no caso da representação, foi um resultado \emph{negativo} do
+\cref{cap:mundoaberto} que apontou o caminho. Resultados negativos, quando reportados,
+são informação.
+\end{destaque}
+
+\section{Limitações}
+
+\begin{enumerate}[leftmargin=*,itemsep=0.4em]
+
+\item \textbf{Hipótese elíptica.} A distância de Mahalanobis supõe distribuição
+aproximadamente elíptica, caracterizada por média e covariância. Se a classe conhecida é
+multimodal --- e várias são ---, a hipótese é violada e uma mistura de gaussianas ou uma
+estimativa por vizinhança seria mais adequada.
+
+\item \textbf{Ausência de tratamento de deriva.} $\bm{\mu}$ e $\mat{\Sigma}$ são
+estimados uma vez. Poços mudam ao longo de anos, e o método não prevê atualização.
+
+\item \textbf{Dependência da segmentação.} Todo o desempenho pressupõe segmentos bem
+delimitados. Nos poços em que a U-Net vai mal --- B1, com IoU de $56\,\%$ ---, o escore
+de novidade é calculado sobre um segmento contaminado.
+
+\item \textbf{Variabilidade entre poços.} Persistente, como os desvios padrão da
+\cref{tab:mahal-classificacao} mostram.
+
+\item \textbf{Revocação e antecedência.} SoftED de $0{,}678$ e antecedência de $0{,}222$
+permanecem inalteradas por este capítulo, que atua sobre a natureza da decisão e não
+sobre o instante em que ela é tomada.
+
+\item \textbf{Classes 5 e 7.} $67{,}5\,\%$ e $52{,}3\,\%$ mesmo no melhor espaço, por
+razões que são de rótulo e de escala temporal, respectivamente.
+
+\item \textbf{Ainda não há explicação.} O sistema agora detecta o desconhecido com
+$98{,}2\,\%$ de acerto e continua incapaz de dizer uma palavra sobre o que ele é.
+
+\end{enumerate}
+
+\begin{destaque}[O que a \cref{parte:evolucao} deixa para a seguinte]
+Ao final desta parte, o sistema sabe \emph{onde} está o evento, sabe \emph{que} ele é
+desconhecido, e sabe com alta confiança. A única pergunta do \cref{cap:introducao} que
+permanece inteiramente sem resposta é a terceira: \emph{por quê?}
+\end{destaque}
+
+\resumocapitulo{%
+A distância de Mahalanobis aplicada ao espaço latente extraído da penúltima camada de um
+classificador multiclasse detecta $95{,}4\,\%$ das falhas não vistas com $4{,}5\,\%$ de
+falsos alarmes, contra $67{,}5\,\%$ no espaço bruto e $52\,\%$ com o ensemble sobre o
+latente do autoencoder. Sobre a anomalia de ICV, a detecção salta de $52\,\%$ para
+$98{,}2\,\%$. A razão é geométrica e mensurável: a silhueta do latente do autoencoder é
+negativa ($-0{,}0149$), indicando ausência de estrutura de classe, enquanto a do
+multiclasse é $0{,}2299$, com Calinski-Harabasz quatro vezes maior e Davies-Bouldin dois
+pontos e meio menor. A razão de separação entre desconhecidos e conhecidos passa de
+cerca de $2\times$ no bruto para $12$ a $18\times$ no latente, e atinge $186{,}5\times$
+para a classe 8 --- que no espaço bruto tinha razão \emph{menor que um}. A qualidade da
+representação importa muito mais para detectar o desconhecido do que para classificar o
+conhecido: seis pontos percentuais de acurácia de classificação contra dezenas de pontos
+de detecção de novidade. Isso explica retroativamente por que autoencoder, VAE e DCN
+produziram desempenho indistinguível no \cref{cap:mundoaberto}. Permanecem em aberto as
+classes 5 e 7, a antecedência de detecção e --- sobretudo --- a explicação.}
+
+\begin{exercicios}
+\item Demonstre que a distância de Mahalanobis é invariante a transformações lineares
+      invertíveis do espaço, e que a distância euclidiana não é. Relacione esse fato à
+      superioridade observada da primeira em espaços latentes com escalas heterogêneas.
+
+\item A razão de separação da classe 8 é menor que $1{,}0$ no espaço bruto. Construa um
+      exemplo bidimensional em que amostras de uma classe ausente do treinamento fiquem,
+      em média, mais próximas do centroide dos dados de treinamento do que os próprios
+      dados de treinamento. Que geometria produz esse efeito?
+
+\item Implemente os três espaços e reproduza a \cref{tab:mahal-qualidade}. Em seguida,
+      calcule a silhueta do latente de um classificador multiclasse treinado com
+      diferentes números de classes ($3$, $5$, $7$, $9$). A qualidade do espaço melhora
+      monotonicamente com o número de classes?
+
+\item A hipótese elíptica é violada quando a classe conhecida é multimodal. Implemente
+      uma alternativa baseada em mistura de gaussianas e compare com o Mahalanobis
+      simples sobre as classes do 3W. Em quais classes o ganho é maior? Isso corresponde
+      à sua expectativa sobre quais classes são multimodais?
+
+\item O limiar é o percentil 95 dos dados conhecidos. Trace a curva de detecção de
+      novidade \emph{versus} taxa de falso alarme variando o percentil de 80 a 99{,}9,
+      para o espaço bruto e para o latente. Compare as áreas sob as curvas.
+
+\item Argumenta-se que a classe 7 falha por razão de escala temporal e não de
+      representação. Projete um experimento que teste essa hipótese --- por exemplo,
+      repetindo a avaliação com janelas progressivamente maiores --- e preveja o
+      resultado esperado sob a hipótese e sob sua negação.
+
+\item Proponha um mecanismo de atualização de $\bm{\mu}$ e $\mat{\Sigma}$ que acompanhe
+      a deriva lenta do poço sem absorver eventos anômalos. Discuta o compromisso entre
+      taxa de adaptação e risco de o modelo aprender a considerar normal uma degradação
+      progressiva.
+\end{exercicios}
+
+\begin{leituras}
+\item \citet{Lopes2026OTC} --- o artigo que originou este capítulo.
+\item \citet{Mahalanobis1936} --- o trabalho original que define a distância.
+\item \citet{Rousseeuw1987}, \citet{Calinski1974} --- os índices internos usados na
+      comparação de espaços.
+\item \citet{Pimentel2014review} --- revisão de detecção de novidade, útil para situar o
+      Mahalanobis entre as alternativas.
+\item \citet{maaten2008visualizing} --- para a visualização dos espaços latentes, com as
+      ressalvas já discutidas.
+\end{leituras}

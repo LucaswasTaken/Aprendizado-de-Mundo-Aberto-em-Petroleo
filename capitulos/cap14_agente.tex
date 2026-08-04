@@ -1,0 +1,389 @@
+\chapter{A camada de agente}
+\label{cap:agente}
+
+\begin{objetivos}
+Ao final deste capítulo, você será capaz de:
+\begin{itemize}[leftmargin=*,itemsep=0.2em]
+  \item projetar uma cadeia de pré-processamento que produza sinais comparáveis entre
+        poços;
+  \item calcular as treze métricas por sensor que traduzem um segmento anômalo em
+        descrição quantitativa;
+  \item construir perfis estatísticos de classe robustos a valores extremos;
+  \item montar o prompt de um agente de diagnóstico e validar sua saída;
+  \item explicar por que a tradução para linguagem intermediária é o que torna a camada
+        de linguagem viável.
+\end{itemize}
+\end{objetivos}
+
+\section{O problema de tradução}
+
+Um modelo de linguagem não recebe séries temporais. Ele recebe texto.
+
+A questão central deste capítulo é, portanto, uma questão de tradução: como converter um
+segmento anômalo --- centenas de amostras, quatro sensores --- em uma descrição textual
+que preserve a informação diagnóstica e seja compreensível pelo modelo.
+
+Duas abordagens ingênuas falham de imediato. Despejar os números brutos no prompt gasta
+milhares de \ing{tokens} em informação de baixíssima densidade, e o modelo não é bom em
+extrair padrões de listas longas de floats. Descrever qualitativamente --- ``a pressão
+subiu'' --- perde a magnitude, a velocidade e a relação entre sensores.
+
+\begin{destaque}[A solução: uma linguagem intermediária]
+Calcular deterministicamente um conjunto pequeno de métricas interpretáveis, e apresentar
+ao modelo essas métricas em vez dos dados.
+
+A escolha tem três consequências que valem ser explicitadas.
+
+\textbf{Auditabilidade.} As métricas são calculadas por código verificável. Qualquer
+afirmação do modelo pode ser confrontada com elas.
+
+\textbf{Economia.} Treze números por sensor, contra centenas de amostras.
+
+\textbf{Transferência de responsabilidade.} O trabalho de percepção fica com os métodos
+numéricos --- que são bons nisso --- e o de interpretação com o modelo de linguagem.
+
+O preço é que \emph{o que as métricas não capturam está perdido}. A escolha das métricas
+é, portanto, a decisão de projeto mais consequente desta parte do livro.
+\end{destaque}
+
+\section{Pré-processamento}
+
+A cadeia tem quatro etapas, nesta ordem.
+
+\begin{enumerate}[leftmargin=*,itemsep=0.4em]
+
+\item \textbf{Padronização por escore-$z$.} Cada sensor é centrado e escalado pela sua
+própria média e desvio padrão. Sem isso, pressões de centenas de bar dominariam
+temperaturas de dezenas de graus em qualquer comparação.
+
+\item \textbf{Normalização Min-Max para $[0,1]$.} Aplicada após a padronização, garante
+faixa comparável entre poços de níveis operacionais distintos.
+
+\item \textbf{Remoção de ruído por \ing{wavelet}.} Transformada de Daubechies db4, nível
+3, com limiarização suave.
+
+\item \textbf{Tratamento de valores ausentes.} Conforme o \cref{cap:dados}.
+
+\end{enumerate}
+
+\begin{destaque}[Por que db4, nível 3, limiar suave]
+A escolha não é arbitrária, e cada componente responde a uma exigência do problema.
+
+\textbf{Daubechies 4} tem suporte compacto e quatro momentos nulos --- suficiente para
+representar bem transições abruptas, como o fechamento de uma válvula, sem introduzir os
+artefatos oscilatórios que uma base mais suave produziria.
+
+\textbf{Nível 3} remove três oitavas de alta frequência. Em sinais amostrados a cada
+segundo, isso elimina ruído de instrumentação preservando dinâmicas de dezenas de
+segundos.
+
+\textbf{Limiarização suave} encolhe os coeficientes em vez de zerá-los, evitando as
+descontinuidades que a limiarização dura introduz --- descontinuidades que seriam
+interpretadas pelas métricas de \texttt{slope} e \texttt{rate} como eventos reais.
+\end{destaque}
+
+\subsection{Seleção de instâncias}
+
+Uma decisão metodológica com consequência direta sobre a interpretação dos resultados:
+
+\begin{itemize}[leftmargin=*,itemsep=0.3em]
+  \item usam-se \textbf{apenas instâncias de poços reais} (\texttt{WELL});
+  \item instâncias simuladas são acrescentadas somente quando uma classe tem menos de
+        trinta instâncias reais;
+  \item instâncias desenhadas à mão (\texttt{DRAWN}) são \textbf{sempre excluídas}.
+\end{itemize}
+
+A justificativa: o objetivo é avaliar a capacidade de interpretar fenômenos físicos
+reais. Uma instância desenhada à mão contém a assinatura que um especialista
+\emph{acredita} que o evento tem --- e um acerto sobre ela mediria concordância com a
+intuição do anotador, não com a física.
+
+\section{As treze métricas}
+
+Para cada sensor, comparam-se dois trechos: o \termo{regime de base}{baseline}, anterior
+ao evento, e o \termo{regime do evento}{event window}, delimitado pela segmentação do
+\cref{cap:segmentacao}. Sejam $\bar{b}$ e $\sigma_b$ a média e o desvio padrão do
+primeiro, e $\bar{e}$ e $\sigma_e$ os do segundo.
+
+\subsection{Métricas de deslocamento}
+
+\begin{align}
+  \delta &= \bar{e} - \bar{b}, \label{eq:ag-delta} \\
+  \text{variação percentual} &= 100 \, \frac{\delta}{|\bar{b}|}, \label{eq:ag-pct} \\
+  z &= \frac{|\delta|}{\max(\sigma_b, 10^{-6})}. \label{eq:ag-z}
+\end{align}
+
+\begin{destaque}[As três métricas dizem coisas diferentes]
+Uma pressão que sobe \SI{5}{\bar} sobre uma base de \SI{200}{\bar} com desvio padrão de
+\SI{0,5}{\bar} tem $\delta = 5$, variação percentual de $2{,}5\,\%$ e $z = 10$.
+
+O deslocamento absoluto é pequeno. A variação percentual é desprezível. E o escore-$z$
+de $10$ indica um evento estatisticamente extraordinário.
+
+É por isso que as três são fornecidas ao modelo. Cada uma responde a uma pergunta:
+``quanto mudou?'', ``mudou muito em relação ao nível?'' e ``mudou muito em relação ao
+que costuma variar?''. A última é quase sempre a diagnóstica, e é a que um humano
+examinando o gráfico tende a subestimar.
+
+O termo $\max(\sigma_b, 10^{-6})$ protege contra divisão por zero quando o sensor está
+congelado --- situação frequente, como o \cref{cap:dados} discutiu.
+\end{destaque}
+
+\subsection{Métricas categóricas}
+
+Três métricas convertem grandezas contínuas em categorias verbais, que o modelo de
+linguagem manipula melhor que números.
+
+\begin{center}
+\small
+\begin{tabular}{lll}
+\toprule
+\textbf{Métrica} & \textbf{Categoria} & \textbf{Critério} \\
+\midrule
+\multirow{3}{*}{\texttt{direction}}
+& \ing{increase} & $\delta > 0{,}5\,\sigma_b$ \\
+& \ing{decrease} & $\delta < -0{,}5\,\sigma_b$ \\
+& \ing{stable}   & caso contrário \\
+\midrule
+\multirow{3}{*}{\texttt{magnitude}}
+& \ing{small}    & $z < 1$ \\
+& \ing{moderate} & $1 \leq z < 3$ \\
+& \ing{large}    & $z \geq 3$ \\
+\midrule
+\multirow{3}{*}{\texttt{rate}}
+& \ing{sudden}   & $|\text{inclinação}| > 0{,}01$ \\
+& \ing{fast}     & $|\text{inclinação}| > 0{,}002$ \\
+& \ing{gradual}  & caso contrário \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{destaque}[Categorizar é uma decisão, não uma conveniência]
+Fornecer ``a pressão aumentou de forma súbita e de grande magnitude'' em vez de
+``$\delta = 4{,}7$, $z = 8{,}2$, inclinação $= 0{,}031$'' facilita o trabalho do modelo,
+que foi treinado sobre texto e não sobre tabelas numéricas.
+
+O custo é a perda de informação nas fronteiras: $z = 2{,}99$ e $z = 3{,}01$ recebem
+categorias diferentes apesar de serem praticamente idênticos. Por isso as métricas
+contínuas são fornecidas \emph{junto} com as categóricas, e não em vez delas. O modelo
+recebe ambas e pode reconhecer casos de fronteira.
+\end{destaque}
+
+\subsection{Métricas de forma e variabilidade}
+
+\begin{itemize}[leftmargin=*,itemsep=0.3em]
+  \item \texttt{slope} --- inclinação da regressão linear sobre o segmento.
+  \item \texttt{behavior} --- descrição qualitativa da forma da curva.
+  \item \texttt{oscillation\_ratio} --- razão entre a energia oscilatória do evento e a
+        da base. Discrimina golfadas de deslocamentos monotônicos.
+  \item \texttt{noise\_ratio} $= \sigma_e / \sigma_b$ --- razão entre desvios padrão.
+  \item \texttt{event\_range} --- amplitude do segmento.
+  \item \texttt{baseline\_mean} e \texttt{event\_mean} --- os níveis absolutos.
+\end{itemize}
+
+\begin{destaque}[Por que fornecer os níveis absolutos]
+As demais doze métricas são relativas, e há um bom motivo: elas precisam ser comparáveis
+entre poços. Mas há informação diagnóstica no valor absoluto que o relativo apaga.
+
+Uma temperatura de fundo de \SI{4}{\celsius} está próxima da condição de formação de
+hidrato; uma de \SI{60}{\celsius} não está, e nenhuma variação relativa comunica isso.
+Fornecer \texttt{baseline\_mean} e \texttt{event\_mean} permite ao modelo aplicar
+conhecimento físico sobre faixas absolutas --- exatamente o tipo de raciocínio que os
+métodos numéricos dos capítulos anteriores não fazem.
+\end{destaque}
+
+\subsection{Métricas entre sensores}
+
+As treze métricas descrevem cada sensor isoladamente. Mas o \cref{cap:dominio} insistiu
+que a informação diagnóstica está frequentemente na \emph{relação} entre sensores. Duas
+métricas adicionais capturam isso:
+
+\begin{itemize}[leftmargin=*,itemsep=0.3em]
+  \item \textbf{relação P-PDG $\times$ P-TPT}, com três valores possíveis:
+        \ing{same\_direction}, \ing{diverging}, ou
+        \ing{one\_stable\_or\_both\_stable};
+  \item \textbf{sensor dominante}, aquele com maior $|z|$.
+\end{itemize}
+
+\begin{exemplo}{Por que a divergência é diagnóstica}
+Considere duas situações.
+
+\emph{Primeira}: P-PDG e P-TPT caem juntas. O poço inteiro está despressurizando --- é
+consistente com uma redução de produção, uma restrição a jusante, ou uma parada.
+
+\emph{Segunda}: P-PDG sobe enquanto P-TPT cai. As duas pressões estão divergindo, o que
+só é fisicamente possível se algo entre elas mudou --- tipicamente uma restrição ou o
+fechamento de uma válvula na coluna.
+
+O valor absoluto de cada pressão pode ser idêntico nos dois casos. É a relação que
+distingue, e nenhuma métrica por sensor a captura.
+\end{exemplo}
+
+\section{Perfis de classe}
+
+O modelo precisa saber contra o que comparar. Para cada classe conhecida constrói-se um
+perfil estatístico a partir das instâncias de treinamento.
+
+\subsection{Remoção de valores extremos em duas passagens}
+
+Um perfil contaminado por uma instância atípica descreve mal a classe. A depuração usa o
+critério do intervalo interquartil em duas passagens, com rigor crescente:
+
+\begin{enumerate}[leftmargin=*,itemsep=0.2em]
+  \item primeira passagem com $k = 3{,}0$ --- remove apenas extremos grosseiros;
+  \item segunda passagem com $k = 1{,}5$ --- refina sobre a distribuição já limpa.
+\end{enumerate}
+
+\begin{destaque}[Por que duas passagens e não uma com $k = 1{,}5$]
+Porque quartis são estimados a partir dos próprios dados. Um único valor muito extremo
+desloca o terceiro quartil e, com ele, o limite superior --- fenômeno conhecido como
+mascaramento. Aplicar $k = 1{,}5$ diretamente pode não remover o extremo que corrompeu a
+estimativa.
+
+Removendo primeiro os extremos grosseiros com $k = 3{,}0$, os quartis da segunda
+passagem são estimados sobre dados mais limpos, e o critério mais rigoroso opera sobre
+uma referência confiável. É um procedimento simples e frequentemente esquecido.
+\end{destaque}
+
+\subsection{Composição do perfil}
+
+Cada perfil contém quatro elementos:
+
+\begin{description}[leftmargin=0pt,style=nextline,itemsep=0.4em]
+\item[Comportamento macro.] Padrão agregado ao longo de todo o evento.
+\item[Comportamento local.] Padrão nos instantes iniciais --- útil para detecção precoce.
+\item[Conhecimento de domínio.] Descrição física do mecanismo, redigida a partir da
+literatura e da experiência operacional. É a única parte não derivada dos dados, e é
+deliberadamente explícita: não se confia no que o modelo possa ter absorvido durante o
+pré-treinamento.
+\item[Características distintivas.] O que separa esta classe das mais parecidas com ela.
+\end{description}
+
+\begin{destaque}[O último elemento é o mais importante]
+As três primeiras seções descrevem a classe. A quarta descreve suas \emph{fronteiras}.
+
+Uma classe descrita isoladamente permite ao modelo reconhecer compatibilidade; descrita
+em contraste com suas vizinhas, permite discriminar. Como o \cref{cap:resultados-agente}
+mostrará, a maior parte dos erros do agente é entre classes fisicamente vizinhas --- e é
+exatamente essa seção do perfil que ataca esse modo de falha.
+\end{destaque}
+
+\section{O prompt}
+
+A estrutura final entregue ao modelo:
+
+\begin{center}
+\small
+\begin{tabular}{ll}
+\toprule
+\textbf{Seção} & \textbf{Conteúdo} \\
+\midrule
+Papel        & especialista em análise de dados de poços submarinos \\
+Escopo       & julgar apenas com base nas estatísticas fornecidas \\
+Perfis       & as nove classes, com os quatro elementos acima \\
+Evidência    & as treze métricas por sensor, mais as métricas entre sensores \\
+Tarefa       & ordenar três candidatas; justificar; avaliar confiança \\
+Novidade     & se nenhuma classe servir, nomear e descrever o fenômeno \\
+Formato      & JSON com campos especificados \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+A saída é validada automaticamente: JSON bem formado, exatamente três candidatas, classes
+pertencentes ao conjunto declarado, confiança em $\{$\ing{High}, \ing{Medium},
+\ing{Low}$\}$.
+
+\begin{destaque}[O que este projeto \emph{não} inclui --- e por quê]
+Não há ajuste fino do modelo, não há aprendizado com exemplos no prompt, não há múltiplas
+passagens com agregação de votos, não há uso de ferramentas externas pelo agente.
+
+Cada uma dessas técnicas provavelmente melhoraria os resultados. A omissão é deliberada:
+o objetivo é estabelecer uma \textbf{linha de base honesta} para o que um modelo de
+propósito geral, sem qualquer adaptação, consegue fazer nesta tarefa. Os números do
+\cref{cap:resultados-agente} devem ser lidos como piso, não como teto.
+\end{destaque}
+
+\section{A arquitetura completa}
+
+Vale, ao final desta descrição, situar a camada de agente no sistema inteiro.
+
+\begin{enumerate}[leftmargin=*,itemsep=0.3em]
+  \item A U-Net segmenta o sinal e delimita a região anômala (\cref{cap:segmentacao}).
+  \item O classificador multiclasse produz a representação latente
+        (\cref{cap:mahalanobis}).
+  \item A distância de Mahalanobis decide se o segmento é conhecido ou novidade.
+  \item As métricas deste capítulo são calculadas sobre o segmento.
+  \item O agente recebe métricas e perfis, e produz hipóteses justificadas.
+  \item O operador decide.
+\end{enumerate}
+
+\begin{destaque}[Cada camada depende da anterior]
+A cadeia é sequencial, e isso significa que erros se propagam. Se a segmentação erra as
+fronteiras --- como no poço B1, com IoU de $56\,\%$ ---, as métricas dos passos 4 são
+calculadas sobre um segmento contaminado, e a interpretação do agente parte de premissas
+erradas.
+
+É a razão pela qual o \cref{cap:segmentacao} foi apresentado como pré-requisito da
+explicabilidade, e não como um refinamento independente.
+\end{destaque}
+
+\resumocapitulo{%
+A camada de agente resolve um problema de tradução: converter um segmento anômalo em
+descrição textual que preserve informação diagnóstica. A solução é uma linguagem
+intermediária de treze métricas por sensor --- deslocamento absoluto, variação
+percentual, escore-$z$, inclinação, direção, magnitude, velocidade, comportamento, razão
+de oscilação, razão de ruído, amplitude e os dois níveis médios --- acrescidas de duas
+métricas entre sensores, entre as quais a relação entre P-PDG e P-TPT. Métricas
+contínuas e categóricas são fornecidas simultaneamente, para que o modelo reconheça casos
+de fronteira. O pré-processamento aplica padronização, normalização Min-Max, remoção de
+ruído por \ing{wavelet} db4 nível 3 com limiarização suave, e usa apenas instâncias de
+poços reais. Os perfis de classe, depurados por remoção de extremos em duas passagens com
+$k = 3{,}0$ e depois $k = 1{,}5$, contêm comportamento macro, comportamento local,
+conhecimento de domínio explícito e --- o elemento decisivo --- as características que
+distinguem a classe de suas vizinhas. O agente recebe perfis e evidência, e produz três
+candidatas ordenadas com justificativa e confiança, em JSON validado. Não há ajuste fino
+nem agregação de múltiplas passagens: os resultados do próximo capítulo são um piso.}
+
+\begin{exercicios}
+\item Implemente as treze métricas e aplique-as a instâncias de cada classe do 3W.
+      Construa uma matriz de correlação entre elas: quais são redundantes? Proponha um
+      subconjunto mínimo que preserve a capacidade discriminativa.
+
+\item O escore-$z$ usa $\max(\sigma_b, 10^{-6})$. Analise o comportamento da métrica
+      quando o sensor de base está congelado ($\sigma_b = 0$) mas o evento apresenta
+      variação. O valor resultante é informativo ou é um artefato? Proponha um
+      tratamento alternativo.
+
+\item As categorias de \texttt{magnitude} usam fronteiras em $z = 1$ e $z = 3$.
+      Justifique essas escolhas sob a hipótese de normalidade e discuta o que acontece
+      quando ela é violada. Proponha fronteiras baseadas em quantis empíricos e compare.
+
+\item Implemente a remoção de extremos em duas passagens e compare com uma única passagem
+      com $k = 1{,}5$. Construa um conjunto sintético em que o mascaramento ocorra e
+      quantifique a diferença nos perfis resultantes.
+
+\item Projete uma métrica adicional entre sensores que capture a defasagem temporal
+      entre a resposta de P-PDG e a de P-TPT. Que classes ela ajudaria a discriminar?
+      Implemente-a e verifique empiricamente.
+
+\item Escreva o prompt completo descrito neste capítulo e submeta o mesmo segmento vinte
+      vezes com temperatura $0{,}2$. Meça a variabilidade da saída. Repita com
+      temperatura $0{,}0$ e $0{,}7$ e discuta o compromisso entre consistência e
+      diversidade de hipóteses.
+
+\item Argumenta-se que instâncias desenhadas à mão devem ser excluídas porque medem
+      concordância com a intuição do anotador. Construa o argumento contrário: em que
+      circunstâncias avaliar sobre instâncias sintéticas seria legítimo e informativo?
+\end{exercicios}
+
+\begin{leituras}
+\item \citet{Lopes2026LLM} --- o trabalho que originou este capítulo, com o prompt
+      completo.
+\item \citet{VARGAS2019} e \citet{VazVargas2026_3w2} --- a descrição do 3W e das
+      proveniências das instâncias.
+\item \citet{Ma2024wellrecords} e \citet{Wei2024leakage} --- aplicações de modelos de
+      linguagem a registros e a diagnóstico no setor.
+\item \citet{Belay2026agenticAD} --- detecção de anomalias com arquiteturas de agente.
+\item \citet{Zhang2026llmrules} --- extração de regras de domínio com modelos de
+      linguagem.
+\end{leituras}

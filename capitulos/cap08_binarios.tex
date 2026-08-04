@@ -1,0 +1,469 @@
+\chapter{Ensemble de classificadores binários}
+\label{cap:binarios}
+
+\begin{objetivos}
+Ao final deste capítulo, você será capaz de:
+\begin{itemize}[leftmargin=*,itemsep=0.2em]
+  \item explicar a diferença estrutural entre um classificador multiclasse e um ensemble
+        de classificadores binários um-contra-todos, e por que apenas o segundo pode
+        expressar rejeição;
+  \item projetar e treinar um classificador binário por classe de anomalia, incluindo o
+        tratamento do desbalanceamento da classe negativa;
+  \item conduzir uma busca sistemática de hiperparâmetros e interpretar seus resultados;
+  \item comparar o desempenho por classe do ensemble binário com o de um classificador
+        multiclasse, de uma OCSVM e da literatura;
+  \item reconhecer as classes em que a abordagem falha e formular hipóteses sobre o
+        motivo.
+\end{itemize}
+\end{objetivos}
+
+\section{Uma mudança de pergunta}
+
+O \cref{cap:dual} terminou com um sistema que detecta sem classificar. A tentação
+natural é acoplar-lhe um classificador multiclasse: nove classes, uma camada
+\ing{softmax}, entropia cruzada categórica. É a solução que qualquer curso introdutório
+sugeriria, e é a solução que o \cref{cap:introducao} descartou.
+
+Este capítulo desenvolve a alternativa. Em vez de perguntar
+
+\begin{center}
+\emph{``qual das nove classes é esta janela?''}
+\end{center}
+
+\noindent
+pergunta-se, nove vezes de forma independente,
+
+\begin{center}
+\emph{``esta janela é da classe $k$? Sim ou não.''}
+\end{center}
+
+\begin{destaque}[Por que isso não é uma reformulação vazia]
+Em mundo fechado, as duas formulações são equivalentes: dado que a janela pertence a
+alguma das nove classes, saber a resposta das nove perguntas binárias é saber a resposta
+da pergunta multiclasse.
+
+Em mundo aberto, elas deixam de ser equivalentes, e a razão é puramente estrutural.
+O classificador multiclasse produz escores acoplados pela restrição
+$\sum_k \hat{p}_k = 1$: se um escore cai, outro necessariamente sobe. Os nove
+classificadores binários produzem escores \emph{independentes}, cada um saído de sua
+própria sigmoide. Nada os impede de serem todos simultaneamente baixos --- e
+``todos baixos'' é a assinatura do desconhecido.
+\end{destaque}
+
+Formalmente, a regra de decisão é a \cref{eq:ensemble-rejeicao} do \cref{cap:novidades}:
+\[
+  \hat{y} = \begin{cases}
+    \argmax_{k} s_k(\mat{X}), & \text{se } \max_k s_k(\mat{X}) > \tau, \\[0.3em]
+    \texttt{desconhecido},    & \text{caso contrário.}
+  \end{cases}
+\]
+
+\subsection{Três consequências adicionais}
+
+A independência dos classificadores traz três benefícios que não são o objetivo
+declarado, mas que se revelaram decisivos.
+
+\begin{description}[leftmargin=0pt,style=nextline,itemsep=0.5em]
+
+\item[Extensibilidade incremental.] Acrescentar uma décima classe custa \emph{um}
+treinamento. Nenhum dos nove classificadores existentes precisa ser tocado, porque
+nenhum deles depende dos demais. Em um classificador multiclasse, acrescentar uma classe
+altera a camada de saída e exige retreinamento completo. Essa propriedade é o que torna
+viável o ciclo de incorporação de novas classes do \cref{cap:mundoaberto}.
+
+\item[Otimização independente.] Cada classe pode ter sua própria arquitetura, seu
+próprio comprimento de janela, seu próprio limiar. Um evento lento como a incrustação
+(classe 7) e um evento abrupto como o fechamento de DHSV (classe 2) não precisam
+compartilhar hiperparâmetros --- e, como argumentou o \cref{cap:dominio}, eles não
+deveriam.
+
+\item[Diagnóstico interpretável.] Quando o sistema erra, sabe-se \emph{qual} dos nove
+classificadores errou. Em um classificador multiclasse, o erro é uma propriedade do
+modelo inteiro.
+
+\end{description}
+
+\subsection{E os custos}
+
+Três, e vale enunciá-los com a mesma clareza.
+
+Primeiro, \textbf{custo computacional multiplicado por nove} --- quantificado no
+\cref{cap:closedworld} e, como se verá, irrelevante na prática. Segundo,
+\textbf{possibilidade de conflito}: dois classificadores podem reivindicar a mesma
+janela com escores altos, situação que a regra $\argmax$ resolve arbitrariamente e que
+o \cref{cap:mundoaberto} tratará com voto ponderado. Terceiro, \textbf{desbalanceamento
+severo em cada tarefa binária}: ao treinar o classificador da classe $k$, todas as
+demais classes formam a classe negativa, tipicamente numa razão de oito ou nove para
+um.
+
+\section{Metodologia}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{binary_diagram.png}
+\caption{Fluxo metodológico do desenvolvimento dos classificadores binários: análise
+exploratória, preparação dos dados, construção dos classificadores, otimização de
+hiperparâmetros e, por fim, verificação e validação --- esta última incluindo a
+comparação com um modelo termodinâmico independente, discutida no
+\cref{cap:closedworld}.}
+\label{fig:binarios-fluxo}
+\end{figure}
+
+\subsection{Análise exploratória}
+
+A etapa que costuma ser omitida em artigos é aqui a que determina as decisões seguintes.
+Três achados orientaram o projeto.
+
+\begin{enumerate}[leftmargin=*,itemsep=0.4em]
+
+\item \textbf{Forte correlação entre sensores.} As pressões de fundo e de cabeça são
+altamente correlacionadas em regime normal, e é justamente a \emph{quebra} dessa
+correlação que caracteriza vários eventos. Isso confirma a observação do
+\cref{cap:dominio} de que a informação está na relação, não no sinal isolado.
+
+\item \textbf{Heterogeneidade das escalas temporais.} A duração característica dos
+eventos varia de minutos a meses, o que torna implausível um comprimento de janela
+único. Essa constatação motivou a varredura sistemática de $T$ reportada no
+\cref{cap:closedworld}.
+
+\item \textbf{Desbalanceamento em dois níveis.} Entre normal e anômalo, e entre as
+próprias classes anômalas.
+
+\end{enumerate}
+
+\subsection{Preparação dos dados}
+
+\begin{itemize}[leftmargin=*,itemsep=0.3em]
+  \item Seleção de instâncias reais, com instâncias simuladas usadas apenas para
+        complementar classes escassas.
+  \item Tratamento de valores ausentes e detecção de sensores congelados, conforme o
+        \cref{cap:dados}.
+  \item Extração de janelas com sobreposição.
+  \item \textbf{Divisão temporal $80/20$ dentro de cada instância}, e não divisão
+        aleatória de janelas. Essa decisão, discutida na
+        \cref{sec:dados-telemetria} e vizinhança, custa alguns pontos percentuais de
+        acurácia reportada e é a diferença entre um número honesto e um número inflado
+        por vazamento.
+  \item Subamostragem da classe negativa para atenuar o desbalanceamento induzido pela
+        formulação um-contra-todos.
+\end{itemize}
+
+\subsection{Arquitetura dos classificadores}
+
+Cada classificador binário é uma rede recorrente seguida de camadas densas:
+
+\begin{center}
+\small
+\begin{tabular}{ll}
+\toprule
+\textbf{Camada} & \textbf{Configuração} \\
+\midrule
+Entrada        & $(T, S)$ \\
+LSTM           & 32 a 128 unidades (buscado) \\
+\ing{Dropout}  & $0{,}1$ a $0{,}5$ (buscado) \\
+Densa, ReLU    & 32 a 64 unidades (buscado) \\
+Densa, sigmoide& 1 unidade \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+A saída é um único escalar em $[0,1]$ --- e é a ausência de acoplamento entre esses
+escalares, ao longo dos nove modelos, que carrega toda a diferença conceitual deste
+capítulo.
+
+\subsection{Otimização de hiperparâmetros}
+
+A busca foi conduzida com Keras-Tuner em modo de \termo{busca aleatória}{random search},
+com \textbf{cem combinações por anomalia}. O espaço de busca e as condições de
+treinamento estão na \cref{tab:binarios-hp}.
+
+\begin{table}[htbp]
+\centering
+\caption{Espaço de busca de hiperparâmetros e condições de treinamento dos
+classificadores binários.}
+\label{tab:binarios-hp}
+\small
+\begin{tabular}{ll}
+\toprule
+\textbf{Item} & \textbf{Valor ou faixa} \\
+\midrule
+Estratégia de busca      & Busca aleatória, 100 combinações por classe \\
+Unidades LSTM            & 32 a 128 \\
+Taxa de \ing{dropout}    & $0{,}1$ a $0{,}5$ \\
+Unidades densas          & 32 a 64 \\
+Taxa de aprendizado      & $10^{-4}$ a $10^{-2}$ \\
+Épocas                   & 25 \\
+Parada antecipada        & paciência de 5 épocas \\
+Tamanho do lote          & 64 \\
+Otimizador               & Adam \\
+Função de perda          & Entropia cruzada binária \\
+Divisão treino/teste     & Temporal, $80/20$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{destaque}[Por que busca aleatória e não busca em grade]
+Com cinco hiperparâmetros e uma grade grosseira de cinco valores cada, seriam
+$5^5 = \num{3125}$ combinações por classe, ou \num{28125} treinamentos. A busca
+aleatória com cem amostras cobre o espaço de forma mais eficiente quando poucos
+hiperparâmetros dominam o desempenho --- o que é o caso aqui, e é o resultado clássico
+sobre o assunto. O ponto prático: nove classes tornam qualquer procedimento de busca
+nove vezes mais caro, e isso obriga a escolher métodos econômicos.
+\end{destaque}
+
+\section{Resultados por classe}
+
+A \cref{tab:binarios-porclasse} é a tabela central deste capítulo. Ela compara, classe
+a classe, quatro abordagens: o ensemble um-contra-todos proposto, um classificador
+multiclasse treinado sobre os mesmos dados, uma OCSVM aplicada ao espaço bruto, e os
+resultados publicados por \citet{Marins2021} nas duas modalidades.
+
+\begin{table}[htbp]
+\centering
+\caption{Acurácia por classe. OVA é o ensemble um-contra-todos proposto; Multi. é o
+classificador multiclasse; OCSVM é a máquina de vetores de suporte de uma classe
+aplicada ao espaço bruto. As duas últimas colunas reproduzem \citet{Marins2021} nas
+modalidades binária e multiclasse. Traços indicam classes não avaliadas naquele
+trabalho.}
+\label{tab:binarios-porclasse}
+\small
+\begin{tabular}{llccccc}
+\toprule
+\textbf{Cl.} & \textbf{Evento} & \textbf{OVA} & \textbf{Multi.} & \textbf{OCSVM} &
+\textbf{Lit. bin.} & \textbf{Lit. multi.} \\
+\midrule
+0 & Normal                     & $0{,}73$ & $0{,}710$ & --- & --- & --- \\
+1 & Aumento de BSW             & $0{,}91$ & $0{,}916$ & $0{,}63$ & $0{,}99$ & $0{,}508$ \\
+2 & Fechamento de DHSV         & $0{,}92$ & $0{,}919$ & $0{,}57$ & $0{,}99$ & $0{,}888$ \\
+3 & Golfadas severas           & $0{,}94$ & $0{,}866$ & $0{,}67$ & $1{,}00$ & $0{,}791$ \\
+4 & Instabilidade de fluxo     & $0{,}69$ & $0{,}758$ & $0{,}64$ & $0{,}99$ & $0{,}954$ \\
+5 & Perda de produtividade     & $0{,}79$ & $0{,}953$ & $0{,}69$ & $0{,}98$ & $0{,}833$ \\
+6 & Restrição rápida no PCK    & $0{,}91$ & $0{,}609$ & $0{,}63$ & $0{,}97$ & $0{,}710$ \\
+7 & Incrustação no PCK         & $0{,}82$ & $0{,}865$ & $0{,}65$ & --- & --- \\
+8 & Hidrato na produção        & $0{,}88$ & $0{,}989$ & $0{,}74$ & $0{,}99$ & $0{,}000$ \\
+9 & Hidrato no serviço         & $0{,}93$ & $0{,}981$ & $0{,}63$ & --- & --- \\
+\midrule
+  & \textbf{Global}            & $\bm{0{,}87}$ & $0{,}86$ & $0{,}65$ & $0{,}98$ & $0{,}930$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Leitura global}
+
+\begin{resultadochave}
+O ensemble um-contra-todos atinge acurácia global de $\bm{0{,}87}$, contra $0{,}86$ do
+classificador multiclasse e $0{,}65$ da OCSVM. A diferença para o multiclasse é de um
+ponto percentual --- estatisticamente marginal.
+\end{resultadochave}
+
+Esse resultado precisa ser lido com precisão, porque é fácil lê-lo errado nos dois
+sentidos.
+
+A leitura pessimista seria: ``o ensemble não é melhor, logo não vale o custo''. Ela
+ignora que o ensemble \emph{faz outra coisa}. O classificador multiclasse não pode
+rejeitar; o ensemble pode. O empate em desempenho de mundo fechado significa que
+\textbf{a capacidade de rejeição foi obtida sem custo em acurácia} --- o que é o
+resultado desejável, não um resultado decepcionante.
+
+A leitura otimista seria: ``o ensemble é superior''. Um ponto percentual sobre esse
+conjunto não sustenta essa afirmação.
+
+\begin{destaque}[O que a tabela realmente demonstra]
+Que a rejeição é gratuita, em termos de acurácia de mundo fechado. A demonstração de que
+ela \emph{funciona} está no \cref{cap:closedworld}, no experimento em que a classe 8 é
+escondida e $89\,\%$ de suas instâncias são corretamente sinalizadas como desconhecidas.
+\end{destaque}
+
+\subsection{Onde as duas abordagens divergem}
+
+Comparar classe a classe é mais informativo que comparar médias.
+
+\begin{center}
+\small
+\begin{tabular}{clcc l}
+\toprule
+& \textbf{Classe} & \textbf{OVA} & \textbf{Multi.} & \textbf{Diferença} \\
+\midrule
+\multirow{3}{*}{OVA melhor}
+& 6 --- Restrição no PCK   & $0{,}91$ & $0{,}609$ & $+0{,}301$ \\
+& 3 --- Golfadas           & $0{,}94$ & $0{,}866$ & $+0{,}074$ \\
+& 0 --- Normal             & $0{,}73$ & $0{,}710$ & $+0{,}020$ \\
+\midrule
+\multirow{3}{*}{Multi. melhor}
+& 5 --- Perda de produtiv. & $0{,}79$ & $0{,}953$ & $-0{,}163$ \\
+& 8 --- Hidrato produção   & $0{,}88$ & $0{,}989$ & $-0{,}109$ \\
+& 4 --- Instabilidade      & $0{,}69$ & $0{,}758$ & $-0{,}068$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+O padrão é coerente com a taxonomia por assinatura do \cref{cap:dominio}. O ensemble
+binário vence nas classes com assinatura própria e bem delimitada (6 e 3); o
+multiclasse vence nas classes sintomáticas ou de assinatura compartilhada (5, 4) e na
+classe 8. A explicação plausível: quando a assinatura é distintiva, um modelo dedicado a
+ela é melhor; quando a assinatura é ambígua, a informação de \emph{contraste} entre
+classes --- que só o multiclasse possui --- ajuda a desambiguar.
+
+\begin{destaque}[Uma pista para a arquitetura final]
+Esse padrão é a primeira evidência, neste livro, de que a resposta correta não é
+``escolher entre ensemble e multiclasse'', mas usar cada um onde ele é bom. O
+\cref{cap:mahalanobis} vai reforçá-la em outro registro --- o espaço latente do
+classificador multiclasse revela-se superior ao do autoencoder para detecção de
+novidade --- e o \cref{cap:sintese} a transformará em proposta de projeto.
+\end{destaque}
+
+\subsection{A falha da OCSVM}
+
+A OCSVM aplicada diretamente ao espaço bruto atinge $0{,}65$ de acurácia global, com
+desempenho notavelmente uniforme entre classes ($0{,}57$ a $0{,}74$). Uniformidade,
+neste caso, não é virtude: indica que o método está capturando pouco da estrutura
+específica de cada classe.
+
+A explicação está no \cref{cap:novidades}. A OCSVM impõe uma fronteira limitada em torno
+dos dados, o que é conceitualmente correto para mundo aberto, mas o faz \emph{no espaço
+em que os dados lhe são apresentados}. No espaço bruto de alta dimensão, com sensores
+correlacionados e escalas heterogêneas, a noção de proximidade que a OCSVM usa é
+pobre.
+
+A moral --- que atravessa o restante do livro --- é que \textbf{o método de detecção de
+novidade importa menos que o espaço em que ele opera}. A mesma OCSVM, aplicada a um
+espaço latente adequado, contribui de forma útil no voto ponderado do
+\cref{cap:mundoaberto}.
+
+\subsection{As duas classes problemáticas}
+
+A classe 4 (instabilidade de fluxo) obtém $0{,}69$ e a classe 5 (perda rápida de
+produtividade) obtém $0{,}79$ com o ensemble --- os dois piores resultados da tabela,
+excetuando a classe normal.
+
+Não é coincidência, e o \cref{cap:dominio} já antecipou o motivo: ambas são
+\emph{sintomáticas}. Elas descrevem o que se observa, não o que causou. Duas instâncias
+rotuladas como classe 4 podem ter causas físicas completamente distintas e assinaturas
+correspondentemente distintas. Um classificador binário treinado sobre esse rótulo está
+sendo solicitado a aprender uma categoria que não é internamente coerente.
+
+\begin{destaque}[Um problema de rótulo, não de modelo]
+Nenhuma arquitetura resolve uma taxonomia inconsistente. As classes 4 e 5 vão
+apresentar desempenho ruim em todos os capítulos deste livro: $0{,}69$ e $0{,}79$ aqui;
+$67{,}5\,\%$ de detecção de novidade para a classe 5 no \cref{cap:mahalanobis} contra
+mais de $96\,\%$ das demais; $18{,}5\,\%$ de acerto na primeira escolha do agente para a
+classe 4 no \cref{cap:resultados-agente}.
+
+A recomendação que emerge --- e que o \cref{cap:sintese} formaliza --- é tratá-las como
+\emph{sinalizadores}, não como classes: ``há instabilidade; investigue a causa'' é uma
+saída honesta, ``esta é a classe 4'' não é.
+\end{destaque}
+
+\subsection{Sobre a comparação com a literatura}
+
+As duas últimas colunas da \cref{tab:binarios-porclasse} exigem cautela. Os valores
+binários de \citet{Marins2021} --- $0{,}97$ a $1{,}00$ --- são superiores aos deste
+capítulo em todas as classes. Três diferenças de protocolo explicam boa parte da
+discrepância:
+
+\begin{enumerate}[leftmargin=*,itemsep=0.3em]
+  \item \textbf{Divisão dos dados.} A divisão temporal adotada aqui é mais rigorosa que
+        a divisão aleatória de janelas, e produz números sistematicamente menores.
+  \item \textbf{Composição da classe negativa.} Um classificador binário
+        ``classe $k$ contra normal'' é uma tarefa substancialmente mais fácil que
+        ``classe $k$ contra todas as outras oito anomalias mais normal''.
+  \item \textbf{Uso de instâncias simuladas e desenhadas à mão.}
+\end{enumerate}
+
+O valor de $0{,}000$ na coluna multiclasse da literatura para a classe 8 é, por si só,
+instrutivo: um classificador multiclasse que erra \emph{todas} as instâncias de hidrato
+enquanto atinge $0{,}930$ de acurácia global. É a patologia do desbalanceamento em sua
+forma mais pura, e o argumento mais eloquente a favor das métricas balanceadas do
+\cref{cap:aprendizado}.
+
+\begin{destaque}[Comparações entre trabalhos]
+Números de trabalhos diferentes sobre o 3W raramente são comparáveis sem verificação do
+protocolo. Ao ler a literatura da área, verifique sempre: divisão temporal ou aleatória?
+Instâncias simuladas incluídas? Estado transiente descartado? Classe negativa composta
+de quê? As respostas movem a acurácia em mais pontos percentuais do que qualquer escolha
+de arquitetura.
+\end{destaque}
+
+\section{O que falta}
+
+Este capítulo estabeleceu que a rejeição é estruturalmente possível e que ela não custa
+acurácia. Restam três lacunas, que organizam o restante do livro.
+
+\begin{enumerate}[leftmargin=*,itemsep=0.4em]
+
+\item \textbf{A rejeição funciona?} O experimento decisivo --- esconder uma classe e
+verificar se ela é rejeitada --- está no \cref{cap:closedworld}, junto com a validação
+contra um modelo termodinâmico independente e a análise do compromisso entre janela e
+tempo de resposta.
+
+\item \textbf{E depois de rejeitar?} O material rejeitado precisa ser organizado,
+nomeado e reincorporado. É o \cref{cap:mundoaberto}.
+
+\item \textbf{Por que o sistema decidiu assim?} Nem o escore binário nem o rótulo dizem
+ao operador o que motivou a decisão. É a \cref{parte:explicabilidade}.
+
+\end{enumerate}
+
+\resumocapitulo{%
+Substituir um classificador multiclasse por um ensemble de classificadores binários
+um-contra-todos não é uma reformulação equivalente: os escores dos classificadores
+binários são independentes e não somam um, o que permite que sejam todos simultaneamente
+baixos --- a assinatura do desconhecido. A independência traz ainda extensibilidade
+incremental, otimização por classe e diagnóstico interpretável, ao custo de nove vezes o
+esforço computacional e de desbalanceamento severo em cada tarefa binária. Com busca
+aleatória de cem combinações por classe e divisão temporal $80/20$, o ensemble atinge
+acurácia global de $0{,}87$, contra $0{,}86$ do multiclasse e $0{,}65$ de uma OCSVM
+aplicada ao espaço bruto: a capacidade de rejeição foi obtida sem custo em acurácia. A
+comparação classe a classe revela um padrão coerente --- o ensemble vence onde a
+assinatura é distintiva, o multiclasse vence onde ela é ambígua --- que antecipa a
+arquitetura híbrida proposta ao final do livro. As classes sintomáticas 4 e 5 falham em
+ambas as abordagens, indicando um problema de taxonomia e não de modelo.}
+
+\begin{exercicios}
+\item Demonstre formalmente que, se $K$ classificadores binários independentes produzem
+      escores $s_k \in [0,1]$, então o vetor $(s_1, \dots, s_K)$ pode assumir qualquer
+      ponto do hipercubo $[0,1]^K$, enquanto a saída de uma \ing{softmax} de $K$ classes
+      está restrita ao simplexo. Calcule a dimensão de cada conjunto e interprete a
+      diferença.
+
+\item Ao treinar o classificador binário da classe $k$, a classe negativa reúne todas as
+      demais. Para o 3W com dez classes aproximadamente equilibradas em número de
+      instâncias, qual a razão de desbalanceamento? Compare três contramedidas ---
+      subamostragem, superamostragem e ponderação na perda --- quanto ao efeito sobre
+      revocação e precisão.
+
+\item Implemente o ensemble e reproduza a \cref{tab:binarios-porclasse}. Em seguida,
+      repita o experimento com divisão aleatória de janelas em vez de divisão temporal e
+      quantifique o ganho artificial de acurácia. Discuta o que isso implica para a
+      leitura da literatura da área.
+
+\item A classe 6 obtém $0{,}91$ com o ensemble e $0{,}609$ com o multiclasse. Formule
+      duas hipóteses para essa diferença de trinta pontos percentuais e proponha, para
+      cada uma, um experimento que a testaria.
+
+\item Discuta a proposta de tratar as classes 4 e 5 como sinalizadores em vez de
+      classes. Que métricas você usaria para avaliar um ``sinalizador''? Como isso
+      afetaria a acurácia global reportada e a utilidade operacional do sistema?
+
+\item Proponha e implemente uma estratégia de resolução de conflito para o caso em que
+      dois classificadores binários reivindicam a mesma janela com escores acima do
+      limiar. Considere: $\argmax$ simples, voto ponderado por desempenho histórico da
+      classe, e apresentação de ambas as hipóteses ao operador. Avalie cada uma no
+      conjunto 3W.
+
+\item O limiar $\tau$ da \cref{eq:ensemble-rejeicao} é único para todas as classes.
+      Proponha um procedimento para calibrar $\tau_k$ por classe usando um conjunto de
+      validação, e discuta o compromisso entre taxa de rejeição e acurácia sobre as
+      janelas não rejeitadas.
+\end{exercicios}
+
+\begin{leituras}
+\item \citet{LopesTese2025} --- a tese que originou este capítulo.
+\item \citet{Lopes2026PST} --- a extensão que constitui o \cref{cap:closedworld}, com a
+      validação da capacidade de rejeição.
+\item \citet{Marins2021} e \citet{marins2020fault} --- os trabalhos de referência
+      comparados na \cref{tab:binarios-porclasse}.
+\item \citet{Scheirer2013} --- o arcabouço teórico que justifica a rejeição.
+\item \citet{Smola2004} --- a OCSVM, cujo desempenho aqui ilustra a importância do
+      espaço de representação.
+\end{leituras}

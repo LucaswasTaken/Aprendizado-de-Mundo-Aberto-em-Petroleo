@@ -1,0 +1,99 @@
+\chapter*{Notação}
+\label{cap:notacao-front}
+\addcontentsline{toc}{chapter}{Notação}
+\markboth{Notação}{Notação}
+
+A notação a seguir é usada de forma consistente em todo o livro. Onde um trabalho
+original empregava símbolo diferente, ele foi harmonizado; a correspondência está
+registrada no \cref{cap:notacao}.
+
+\section*{Convenções gerais}
+
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+\textbf{Forma} & \textbf{Significado} \\
+\midrule
+$x$, $\alpha$              & escalar \\
+$\vect{x}$                 & vetor (coluna, em negrito) \\
+$\mat{X}$, $\mat{\Sigma}$  & matriz (em negrito maiúsculo) \\
+$\vect{x}^{\top}$          & transposto \\
+$\mat{\Sigma}^{-1}$        & inversa \\
+$\|\vect{x}\|$             & norma euclidiana \\
+$\hat{y}$                  & valor predito \\
+$\bar{x}$                  & média amostral \\
+$\R^{d}$                   & espaço euclidiano de dimensão $d$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section*{Dados e séries temporais}
+
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+\textbf{Símbolo} & \textbf{Significado} \\
+\midrule
+$T$              & número de passos de tempo de uma janela \\
+$S$              & número de sensores (canais) \\
+$\mat{X} \in \R^{T \times S}$ & janela multivariada de sensores \\
+$\vect{x}_t \in \R^{S}$       & leitura de todos os sensores no instante $t$ \\
+$y \in \{0,1,\dots,9\}$       & rótulo de classe do 3W \\
+$\mathcal{K}$    & conjunto de classes conhecidas \\
+$\mathcal{U}$    & conjunto de classes desconhecidas (novidades) \\
+$\vect{b}$       & janela de linha de base, anterior ao evento \\
+$\vect{e}$       & janela de evento \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section*{Modelos}
+
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+\textbf{Símbolo} & \textbf{Significado} \\
+\midrule
+$f_{\theta}$     & modelo com parâmetros $\theta$ \\
+$g_{\phi}$       & codificador (\ing{encoder}) do autoencoder \\
+$h_{\psi}$       & decodificador (\ing{decoder}) do autoencoder \\
+$\vect{z} = g_{\phi}(\mat{X}) \in \R^{d}$ & representação latente \\
+$d$              & dimensão do espaço latente \\
+$\hat{\mat{X}} = h_{\psi}(\vect{z})$ & reconstrução \\
+$c_k$            & classificador binário da classe $k$ \\
+$s_k \in [0,1]$  & escore do classificador binário $c_k$ \\
+$\tau$           & limiar de decisão \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section*{Estatística e avaliação}
+
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+\textbf{Símbolo} & \textbf{Significado} \\
+\midrule
+$\mu$, $\sigma$    & média e desvio-padrão \\
+$\mat{\Sigma}$     & matriz de covariância \\
+$d_M(\vect{x})$    & distância de Mahalanobis \\
+$\lambda$          & parâmetro de regularização da covariância \\
+$k$                & multiplicador de desvio-padrão em limiares $\mu + k\sigma$ \\
+$K$                & número de agrupamentos (\ing{clusters}) \\
+VP, VN             & verdadeiros positivos e verdadeiros negativos \\
+FP, FN             & falsos positivos e falsos negativos \\
+$\text{ACC}$, $\text{ACC}_b$ & acurácia e acurácia balanceada \\
+$\text{REC}$, $\text{PR}$, $\text{SP}$ & revocação, precisão e especificidade \\
+$F_1$              & medida F1 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{destaque}[Colisão de símbolos]
+Dois usos de $k$ convivem no livro e não podem ser confundidos: o \emph{multiplicador
+de desvio-padrão} em limiares da forma $\mu + k\sigma$ (\cref{cap:dual},
+\cref{cap:mundoaberto}) e o \emph{número de vizinhos ou de posições em um
+\ing{ranking}} nas métricas ``top-$k$'' (\cref{cap:resultados-agente}). O contexto
+sempre desambigua; quando houver risco, o significado é repetido por extenso.
+Da mesma forma, $K$ maiúsculo designa exclusivamente o número de agrupamentos.
+\end{destaque}

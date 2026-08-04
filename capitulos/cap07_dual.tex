@@ -1,0 +1,549 @@
+\chapter{O sistema dual: regra e reconstrução}
+\label{cap:dual}
+
+\begin{objetivos}
+Ao final deste capítulo, você será capaz de:
+\begin{itemize}[leftmargin=*,itemsep=0.2em]
+  \item descrever a arquitetura de um sistema dual que combina um diagrama de decisão
+        determinístico com um autoencoder recorrente;
+  \item justificar por que a combinação supera cada componente isolado, em termos de
+        cobertura e de taxa de falsos positivos;
+  \item construir um autoencoder LSTM para detecção de anomalias e definir seu limiar
+        pela regra $\mu + 3\sigma$;
+  \item explicar como o sistema se autotreina em campo, sem rotulação humana, e quais
+        salvaguardas isso exige;
+  \item interpretar os resultados de três estudos de caso reais e compará-los com a
+        literatura sobre fechamento espúrio de DHSV.
+\end{itemize}
+\end{objetivos}
+
+\section{O problema que este capítulo resolve}
+
+Comecemos pelo requisito, não pelo método.
+
+Uma operadora deseja monitorar duzentos e cinquenta poços submarinos em tempo real.
+Cada poço tem um comportamento distinto: níveis de pressão diferentes, curvas de
+declínio diferentes, esquemas de elevação artificial diferentes. Não há rotulação
+humana disponível de forma contínua. Não há garantia de que os eventos que ocorrerão
+estejam catalogados. E o sistema precisa funcionar a partir do momento em que é ligado.
+
+Essas quatro restrições eliminam, de saída, a solução acadêmica padrão --- treinar um
+classificador supervisionado sobre um conjunto rotulado e implantá-lo. O que se propõe
+neste capítulo, e que efetivamente opera em campo, é uma arquitetura de dois
+componentes com naturezas complementares.
+
+\begin{description}[leftmargin=0pt,style=nextline,itemsep=0.5em]
+
+\item[Um diagrama de decisão determinístico.] Codifica conhecimento de engenharia em
+regras explícitas. Não requer treinamento, funciona no primeiro segundo, é auditável e
+seu comportamento é previsível. Em contrapartida, só reconhece o que foi explicitamente
+programado.
+
+\item[Um autoencoder recorrente.] Aprende o comportamento normal \emph{daquele poço
+específico} a partir dos próprios dados, sem rótulos, e sinaliza qualquer desvio.
+Detecta o inesperado, mas não sabe nomeá-lo e precisa de tempo para aprender.
+
+\end{description}
+
+\begin{destaque}[A tese deste capítulo]
+Os dois componentes não competem: eles se alimentam. O diagrama de decisão determina
+\emph{quais dados são normais} e, com isso, fornece ao autoencoder o conjunto de
+treinamento que ele não teria de outra forma. O autoencoder, por sua vez, cobre o
+espaço de eventos que o diagrama não enumera. É uma relação de mão dupla, e é essa
+relação que produz o ganho de desempenho reportado na \cref{sec:dual-resultados}.
+\end{destaque}
+
+\section{Arquitetura geral}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.55\textwidth]{DiagramaVIGIA2.png}
+\caption{Fluxo geral do sistema dual. Os dados do poço alimentam simultaneamente o
+diagrama de decisão e o módulo de detecção de anomalias por inteligência artificial. O
+diagrama de decisão encaminha ao módulo de aprendizado apenas os trechos que classifica
+como normais. Qualquer um dos dois componentes pode disparar o alerta ao operador.}
+\label{fig:dual-visaogeral}
+\end{figure}
+
+A \cref{fig:dual-visaogeral} mostra a estrutura. Note a seta rotulada como entrada de
+dados normais: é ela que materializa a relação descrita acima. O autoencoder nunca vê
+dados que o diagrama de decisão considera anômalos, e portanto o modelo de normalidade
+que ele constrói não é contaminado por eventos.
+
+\section{O diagrama de decisão}
+
+O diagrama de decisão é uma árvore de regras organizada em quatro camadas sucessivas.
+Cada camada responde a uma pergunta e restringe o espaço de hipóteses da seguinte.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.9\textwidth]{New_Decision_Tree.jpeg}
+\caption{Estrutura do diagrama de decisão. O fluxo bifurca conforme o dado seja o
+primeiro do poço, siga uma mudança de estado de válvula ou dê continuidade a um regime já
+estabelecido, encaminhando cada caso para estabilização, análise de anomalia ou
+atualização da média móvel. Adaptado de \citet{aranha2023system}.}
+\label{fig:dual-decisao}
+\end{figure}
+
+A \cref{fig:dual-decisao} mostra o fluxo. Vale insistir num ponto que a semelhança visual
+esconde: apesar do nome e do formato, isto \emph{não} é uma árvore de decisão aprendida.
+Nenhum de seus nós foi ajustado por otimização; cada bifurcação foi escrita por
+engenheiros de produção e pode ser lida, auditada e alterada linha a linha. É conhecimento
+declarado, não induzido --- e é essa diferença que sustenta a arquitetura dual descrita
+neste capítulo.
+
+\begin{enumerate}[leftmargin=*,itemsep=0.5em]
+
+\item \textbf{Identificação do poço.} Qual poço é este, qual seu esquema de completação,
+quais sensores estão disponíveis e quais são os limites operacionais declarados? Essa
+camada não classifica nada --- ela carrega o contexto sem o qual as camadas seguintes
+não podem operar. É também onde entram informações que nenhum modelo aprende dos dados:
+profundidade, número de zonas produtoras, presença de gás de elevação.
+
+\item \textbf{Tipo de dado.} O sinal recebido é válido? Esta camada implementa as
+verificações discutidas no \cref{cap:dominio}: valor ausente, sensor congelado, leitura
+fora da faixa física do instrumento, salto incompatível com a dinâmica do processo. Um
+dado reprovado aqui não prossegue, e não contamina nem o alerta nem o treinamento.
+
+\item \textbf{Transiente ou estabilizado?} O poço está em regime permanente ou em
+transição? A distinção é essencial: durante uma partida, uma parada programada ou uma
+manobra de válvula, os sinais apresentam variações de grande amplitude que são
+perfeitamente normais. Sinalizá-las como anomalia é a receita para a fadiga de alarme
+descrita no \cref{cap:introducao}.
+
+\item \textbf{Análise de anomalia.} Somente aqui, com poço identificado, dado válido e
+regime estabilizado, aplicam-se as regras de diagnóstico propriamente ditas ---
+divergência entre pressões, queda de temperatura, oscilação sustentada.
+
+\end{enumerate}
+
+\begin{destaque}[Por que quatro camadas e não uma lista de regras]
+A organização em camadas não é estética. Cada camada elimina uma fonte de falso
+positivo antes que a próxima seja avaliada, e o resultado é que a última camada ---
+a única que gera alarme --- opera sobre um subconjunto de dados já saneado. Uma lista
+plana de regras avaliadas em paralelo produziria alarmes durante partidas, durante
+falhas de sensor e durante manobras programadas.
+\end{destaque}
+
+\subsection{O tratamento de manobras de válvula}
+
+Uma consequência prática merece destaque, porque é onde a maior parte dos sistemas
+falha. Quando o operador altera deliberadamente o estado de uma válvula, o poço muda de
+ponto de operação. Todos os sinais se deslocam. Um detector de anomalia baseado em
+desvio da normalidade aprendida sinalizará --- corretamente, do ponto de vista
+estatístico, e inutilmente, do ponto de vista operacional.
+
+A solução adotada é radical e correta: \emph{ao detectar mudança de válvula, o sistema
+descarta o modelo aprendido e reinicia o ciclo de treinamento}. O poço, depois da
+manobra, é tratado como um poço novo. O custo é o período de reaprendizado; o benefício
+é a ausência de alarmes espúrios sistemáticos.
+
+\section{O detector por autoencoder}
+
+\subsection{Lógica de operação}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{IA_flow_chart_2.jpeg}
+\caption{Lógica operacional do módulo de detecção por inteligência artificial. Note os
+três estados possíveis: antes do treinamento, o sistema apenas acumula dados normais
+selecionados pelo diagrama de decisão; após o treinamento, ele prediz, compara com a
+tolerância e informa o estado do poço; uma mudança de válvula reinicia o ciclo. Dados
+julgados anômalos nunca retornam ao conjunto de treinamento.}
+\label{fig:dual-fluxo-ia}
+\end{figure}
+
+A \cref{fig:dual-fluxo-ia} detalha a máquina de estados. Três aspectos merecem
+comentário.
+
+\begin{itemize}[leftmargin=*,itemsep=0.4em]
+
+\item \textbf{O sistema informa que não sabe.} Antes de acumular dados suficientes, ele
+responde explicitamente ``rede não treinada''. Não há resposta silenciosamente errada.
+É uma forma primitiva --- mas efetiva --- da rejeição que o \cref{cap:binarios}
+formalizará.
+
+\item \textbf{Dados anômalos são excluídos do treinamento futuro.} Sem essa
+salvaguarda, o modelo aprenderia gradualmente a considerar a anomalia normal, e o
+alarme se extinguiria sozinho. É a versão local do problema de deriva discutido no
+\cref{cap:operacao}.
+
+\item \textbf{O treinamento é contínuo.} Dados normais posteriores ao treinamento
+inicial continuam sendo acumulados e usados em retreinamentos, o que permite ao modelo
+acompanhar a evolução lenta e legítima do poço.
+
+\end{itemize}
+
+\subsection{Arquitetura da rede}
+
+O autoencoder é do tipo \ing{sequence-to-sequence} com camadas LSTM. A entrada é um
+tensor de forma $(\text{lote}, 500, 5)$: quinhentos passos de tempo de cinco sensores.
+
+\begin{center}
+\small
+\begin{tabular}{lll}
+\toprule
+\textbf{Camada} & \textbf{Forma de saída} & \textbf{Função} \\
+\midrule
+Entrada                       & $(500, 5)$  & janela de \SI{500}{\second} \\
+LSTM(16), ReLU                & $(500, 16)$ & codificação \\
+LSTM(4), ReLU                 & $(4)$       & \textbf{representação latente} \\
+\ing{RepeatVector}(500)       & $(500, 4)$  & replicação temporal \\
+LSTM(16), ReLU                & $(500, 16)$ & decodificação \\
+\ing{TimeDistributed} Densa(5)& $(500, 5)$  & reconstrução \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+A compressão é de $500 \times 5 = \num{2500}$ valores para $4$: um fator de $625$. Essa
+severidade é deliberada, e responde diretamente à advertência do \cref{cap:profundo}
+sobre autoencoders excessivamente expressivos. Com quatro dimensões latentes, a rede não
+tem como memorizar; ela é obrigada a capturar apenas a estrutura dominante da
+normalidade.
+
+\subsection{Treinamento}
+
+\begin{center}
+\small
+\begin{tabular}{ll}
+\toprule
+\textbf{Hiperparâmetro} & \textbf{Valor} \\
+\midrule
+Função de perda      & SMAPE (\cref{eq:smape}) \\
+Otimizador           & Adam \\
+Épocas               & 500 \\
+Tamanho do lote      & 100 \\
+Ativação             & ReLU \\
+Normalização         & Min-Max para $[0,1]$ \\
+Ruído injetado       & 0 a 0,5\,\% \\
+Dados mínimos        & $\approx 500$ amostras normais ($\approx \SI{5000}{\second}$) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Duas escolhas merecem justificativa.
+
+A \textbf{perda SMAPE} em vez do erro quadrático médio decorre da heterogeneidade de
+escalas discutida no \cref{cap:aprendizado}: pressões da ordem de centenas de bar e
+temperaturas da ordem de dezenas de graus. Um erro quadrático médio sobre variáveis
+normalizadas ainda pondera implicitamente pela variância de cada canal; o SMAPE, sendo
+relativo, trata todos os canais de forma comparável.
+
+O \textbf{ruído injetado} de até 0,5\,\% cumpre dois papéis. Regulariza, impedindo que a
+rede se apoie em detalhes de alta frequência específicos daquele poço; e simula a
+variabilidade de instrumentação, tornando o modelo mais robusto quando transferido
+entre poços com sensores de calibração ligeiramente diferente.
+
+\subsection{Limiar e classificação de risco}
+
+O escore de anomalia é o SMAPE de reconstrução. Sobre o conjunto de dados normais
+acumulados, calculam-se $\mu$ e $\sigma$ desse escore, e define-se
+\begin{equation}
+  \tau = \mu + 3\sigma.
+  \label{eq:dual-limiar}
+\end{equation}
+
+Sob normalidade aproximada, $\tau$ corresponde a aproximadamente $99{,}7\,\%$ dos casos
+--- uma taxa nominal de falso positivo de $0{,}3\,\%$. A distribuição do erro de
+reconstrução não é gaussiana, mas a regra é adequada como heurística e tem a virtude de
+ser explicável a um operador em uma frase.
+
+O valor do escore é então convertido em três níveis de risco:
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.86\textwidth]{abnormal.png}
+\caption{Exemplo de detecção em dados reais. Nos dois painéis superiores, as pressões e
+as temperaturas medidas por PDG e TPT; no inferior, o escore de anomalia com a linha de
+tolerância da \cref{eq:dual-limiar}. A ultrapassagem do limiar precede em várias horas o
+desvio que seria visível a olho nu nos sinais brutos. Adaptado de
+\citet{aranha2023system}.}
+\label{fig:dual-escore}
+\end{figure}
+
+\begin{center}
+\small
+\begin{tabular}{ll l}
+\toprule
+\textbf{Faixa} & \textbf{Nível} & \textbf{Ação recomendada} \\
+\midrule
+$< 30\,\%$          & Baixo & Registro; sem notificação. \\
+$30\,\%$ a $70\,\%$ & Médio & Notificação ao operador; acompanhamento. \\
+$> 70\,\%$          & Alto  & Alerta; investigação imediata. \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{destaque}[Por que graduar o alarme]
+Um alarme binário força uma escolha entre perder eventos e cansar o operador. A
+graduação em três níveis desloca essa escolha para o operador, que dispõe de contexto
+que o sistema não tem. É uma decisão de projeto de interface, não de aprendizado de
+máquina, e é frequentemente o que separa um sistema usado de um sistema desligado.
+\end{destaque}
+
+\section{Implantação}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{system.png}
+\caption{Interface do sistema em operação. À esquerda, os valores instantâneos dos
+cinco sensores monitorados; ao centro, os registros de pressão e temperatura; à
+direita, os erros relativos de reconstrução por sensor e o erro agregado. O painel
+inferior direito mostra o escore de anomalia cruzando o limiar, indicado pela linha
+horizontal.}
+\label{fig:dual-interface}
+\end{figure}
+
+O sistema foi implementado com Node-RED \citep{nodered} para orquestração de fluxo e
+aquisição, e Python 3.7 com Keras \citep{Chollet2015} para o modelo. A escolha do
+Node-RED merece nota: trata-se de uma ferramenta de programação visual por fluxo,
+amplamente usada em automação industrial, que permite a engenheiros de operação
+inspecionar e modificar o encadeamento sem tocar no código do modelo.
+
+À época da avaliação reportada aqui, o sistema estava implantado em \textbf{mais de
+vinte unidades flutuantes de produção} e \textbf{mais de duzentos e cinquenta poços
+submarinos} nas bacias de Santos e de Campos.
+
+\begin{destaque}[O que ``implantado'' significa]
+Vale a pena explicitar, porque a palavra é usada com generosidade na literatura. Aqui
+significa: executando continuamente em ambiente de produção da operadora, sobre dados
+de tempo real, com saída visível a operadores em turno, e sujeito às consequências
+operacionais de seus alertas. Não é um protótipo avaliado \ing{offline}.
+\end{destaque}
+
+\section{Resultados}
+\label{sec:dual-resultados}
+
+\subsection{Contribuição de cada componente}
+
+A \cref{tab:dual-componentes} isola o efeito de acrescentar o autoencoder ao diagrama de
+decisão.
+
+\begin{table}[htbp]
+\centering
+\caption{Desempenho do diagrama de decisão isolado e do sistema dual completo.}
+\label{tab:dual-componentes}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Configuração} & \textbf{ACC} & \textbf{ACC}$_b$ & $\bm{F_1}$ \\
+\midrule
+Diagrama de decisão                 & $0{,}9727$ & $0{,}9615$ & $0{,}9758$ \\
+Diagrama de decisão + autoencoder   & $\bm{0{,}9894}$ & $\bm{0{,}9771}$ & $\bm{0{,}9917}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{resultadochave}
+O acréscimo do autoencoder reduz o erro de $2{,}73\,\%$ para $1{,}06\,\%$ --- uma
+redução relativa de aproximadamente $61\,\%$. A acurácia balanceada sobe de $0{,}9615$
+para $0{,}9771$, e a medida $F_1$ de $0{,}9758$ para $0{,}9917$.
+\end{resultadochave}
+
+A leitura correta desse ganho exige cuidado. Em valor absoluto, $1{,}67$ ponto
+percentual parece pouco. Em termos operacionais, significa que aproximadamente três em
+cada cinco erros do sistema baseado em regras deixaram de ocorrer. Quando a base é um
+sistema já bom, é assim que o progresso se manifesta.
+
+\subsection{Comparação com a literatura}
+
+O fechamento espúrio de DHSV (classe 2) é o evento mais estudado na literatura do 3W,
+o que permite comparação direta.
+
+\begin{table}[htbp]
+\centering
+\caption{Detecção de fechamento espúrio da DHSV: comparação com trabalhos anteriores.}
+\label{tab:dual-literatura}
+\begin{tabular}{llcc}
+\toprule
+\textbf{Trabalho} & \textbf{Método} & \textbf{ACC} & $\bm{F_1}$ \\
+\midrule
+\citet{Marins2021}  & Floresta aleatória      & $0{,}8708$ & --- \\
+\citet{Turan2021}   & Árvore de decisão       & $0{,}6000$ & $0{,}4900$ \\
+\citet{Machado2022} & LSTM                    & $\bm{0{,}9922}$ & $0{,}9360$ \\
+Este capítulo       & Diagrama + autoencoder  & $0{,}9894$ & $\bm{0{,}9917}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{destaque}[Como ler esta tabela]
+O sistema dual tem acurácia ligeiramente inferior à de \citet{Machado2022}
+($0{,}9894$ contra $0{,}9922$) e medida $F_1$ substancialmente superior
+($0{,}9917$ contra $0{,}9360$).
+
+A combinação é diagnóstica. Uma medida $F_1$ de $0{,}9360$ com acurácia de $0{,}9922$
+indica desequilíbrio entre precisão e revocação --- tipicamente, muitos falsos
+positivos ou muitos falsos negativos concentrados na classe minoritária, mascarados
+pela acurácia global (\cref{cap:aprendizado}). O sistema dual apresenta as duas métricas
+alinhadas, o que indica desempenho equilibrado.
+
+Uma ressalva de honestidade: os conjuntos de avaliação não são idênticos entre os
+trabalhos, e a comparação é indicativa, não conclusiva.
+\end{destaque}
+
+\subsection{Estudos de caso em poços reais}
+
+Os três casos a seguir são eventos reais, com data e hora, detectados pelo sistema em
+operação. Eles importam porque são a única evidência disponível sobre generalização a
+condições que nenhum conjunto de dados público contém.
+
+\begin{table}[htbp]
+\centering
+\caption{Estudos de caso: características dos poços. WD é a lâmina d'água e TD a
+profundidade total.}
+\label{tab:dual-pocos}
+\small
+\begin{tabular}{lllll}
+\toprule
+\textbf{Poço} & \textbf{Tipo} & \textbf{WD (m)} & \textbf{TD (m)} & \textbf{Zonas} \\
+\midrule
+1 & Produtor, pré-sal de Santos & \num{2041} & \num{5870} & 3 (\num{5432} a \num{5774}\,m) \\
+2 & Produtor                    & \num{2125} & \num{5552} & 2 (\num{5137} a \num{5440}\,m) \\
+3 & Injetor WAG                 & \num{1946} & \num{6197} & 3 (\num{5437} a \num{5730}\,m) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[htbp]
+\centering
+\caption{Estudos de caso: eventos detectados e desempenho. O SMAPE indicado é o valor de
+pico do erro de reconstrução durante o evento.}
+\label{tab:dual-casos}
+\small
+\begin{tabular}{llcccc}
+\toprule
+\textbf{Poço} & \textbf{Evento} & \textbf{Data e hora} & \textbf{SMAPE} &
+\textbf{ACC}$_b$ & $\bm{F_1}$ \\
+\midrule
+1 & Fechamento espúrio (1º) & 01/08/2022 01:16 & $39{,}148\,\%$ & $0{,}9897$ & $0{,}9987$ \\
+1 & Fechamento espúrio (2º) & 01/08/2022 08:48 & $48{,}312\,\%$ & $0{,}9988$ & $0{,}9989$ \\
+2 & Comunicação de pressão na CKGL & 06/06/2018 14:37 & $33{,}136\,\%$ & $0{,}9998$ & $0{,}9998$ \\
+3 & Fechamento espúrio DHSV/M1 & 18/10/2022 02:10 & $23{,}390\,\%$ & $0{,}9988$ & $0{,}9991$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{exemplo}{O poço 3, minuto a minuto}
+O caso do poço 3 é o mais instrutivo, porque tem começo, meio e fim documentados.
+
+Trata-se de um injetor de água e gás alternados (WAG) em lâmina d'água de
+\SI{1946}{\meter}. Às \textbf{02:10} de 18 de outubro de 2022, DHSV e M1 fecharam sem
+comando. O sistema sinalizou o desvio com SMAPE de pico de $23{,}390\,\%$. As válvulas
+foram reabertas às \textbf{07:14}, e o poço retornou à condição normal às
+\textbf{08:29}.
+
+Dois pontos merecem atenção. Primeiro, o SMAPE de pico deste caso é o menor dos quatro
+--- cerca de metade do observado no segundo evento do poço 1 --- e ainda assim
+suficiente para ultrapassar o limiar com folga. Isso indica que $\tau = \mu + 3\sigma$
+está calibrado de forma conservadora o bastante para eventos de assinatura mais
+discreta.
+
+Segundo, o sistema acompanhou corretamente o \emph{retorno} à normalidade, com uma hora
+e quinze minutos de defasagem em relação à reabertura das válvulas --- o tempo físico
+de reestabilização do poço, não um atraso do algoritmo.
+\end{exemplo}
+
+\begin{exemplo}{O poço 2 e o valor de detectar o não catalogado}
+O evento do poço 2 foi uma comunicação indevida de pressão através da válvula
+reguladora de gás de elevação. \emph{Esse evento não pertence a nenhuma das nove classes
+do 3W}, não estava programado no diagrama de decisão e não teria sido detectado por
+nenhum classificador supervisionado treinado no catálogo padrão.
+
+Foi detectado pelo autoencoder, com $\text{ACC}_b = 0{,}9998$, simplesmente porque não
+se parecia com a normalidade daquele poço.
+
+É a demonstração mais direta do argumento deste livro: o componente que não sabe o nome
+de nada é o único capaz de reagir ao que ainda não tem nome. O que lhe falta ---
+dizer \emph{o que} está acontecendo --- é o que os \cref{cap:binarios,cap:mundoaberto}
+e, em outro registro, a \cref{parte:explicabilidade} vão perseguir.
+\end{exemplo}
+
+\section{Limitações}
+
+\begin{enumerate}[leftmargin=*,itemsep=0.4em]
+
+\item \textbf{Não classifica.} O autoencoder responde ``anômalo'' ou ``normal''. O
+diagrama de decisão classifica, mas apenas o que foi programado. Nenhum dos dois nomeia
+um evento inédito.
+
+\item \textbf{Período cego.} São necessárias aproximadamente quinhentas amostras normais
+--- cerca de uma hora e vinte e três minutos --- antes que o modelo esteja disponível. E
+o relógio reinicia a cada mudança de válvula.
+
+\item \textbf{Limiar único e global.} Um único $\tau$ para todos os sensores e todos os
+regimes. Um evento que afete fortemente um sensor e pouco os demais pode ser diluído no
+erro agregado.
+
+\item \textbf{Hipótese de normalidade sobre o erro.} A regra $\mu + 3\sigma$ pressupõe
+uma distribuição que os dados não seguem exatamente. Na prática funciona, mas a taxa de
+falso positivo nominal de $0{,}3\,\%$ não deve ser levada ao pé da letra.
+
+\item \textbf{Avaliação limitada.} Três poços e quatro eventos. É evidência forte de
+funcionamento e evidência fraca de generalização.
+
+\end{enumerate}
+
+\begin{destaque}[Para onde isso leva]
+A limitação (1) é a mais estrutural, e é ela que abre o \cref{cap:binarios}: como
+transformar ``algo está errado'' em ``isto é um hidrato'' \emph{sem} recair na hipótese
+de mundo fechado que o \cref{cap:introducao} descartou.
+\end{destaque}
+
+\resumocapitulo{%
+O sistema dual combina um diagrama de decisão determinístico em quatro camadas ---
+identificação do poço, validação do dado, discriminação de transiente e análise de
+anomalia --- com um autoencoder LSTM que comprime janelas de quinhentos segundos e cinco
+sensores em quatro dimensões latentes. A relação entre os componentes é de mão dupla: o
+diagrama seleciona os dados normais que treinam o autoencoder, e o autoencoder cobre os
+eventos que o diagrama não enumera. O limiar de detecção é $\mu + 3\sigma$ sobre o SMAPE
+de reconstrução, convertido em três níveis de risco. O sistema opera em mais de vinte
+unidades flutuantes e mais de duzentos e cinquenta poços. O acréscimo do autoencoder ao
+diagrama eleva a acurácia de $0{,}9727$ para $0{,}9894$ e a medida $F_1$ de $0{,}9758$
+para $0{,}9917$, resultado competitivo com o estado da arte na detecção de fechamento
+espúrio de DHSV. Quatro eventos reais em três poços confirmam o funcionamento em campo,
+inclusive para um evento fora do catálogo. A limitação decisiva é que o sistema detecta
+sem classificar --- e é essa lacuna que o restante da Parte II ataca.}
+
+\begin{exercicios}
+\item O autoencoder comprime $500 \times 5 = \num{2500}$ valores em quatro dimensões.
+      Calcule a taxa de compressão e discuta, em termos de teoria da informação, que
+      tipos de estrutura podem sobreviver a essa compressão e quais necessariamente se
+      perdem.
+
+\item Implemente o autoencoder descrito neste capítulo e treine-o sobre instâncias
+      normais do 3W. Compare o histograma do SMAPE de reconstrução em dados normais e
+      anômalos e verifique empiricamente se $\mu + 3\sigma$ é uma escolha adequada de
+      limiar. Teste também $\mu + 2\sigma$ e $\mu + 4\sigma$, reportando a curva ROC.
+
+\item O sistema reinicia o treinamento a cada mudança de válvula. Modele o custo dessa
+      política: dado um poço com $\lambda$ manobras por mês e um período cego de
+      \SI{5000}{\second}, qual a fração de tempo em que o sistema está indisponível?
+      Para que valor de $\lambda$ a indisponibilidade ultrapassa $10\,\%$?
+
+\item Proponha e justifique uma alternativa ao reinício completo após manobra de
+      válvula. Considere: um modelo por estado de válvula; um modelo condicionado ao
+      estado como entrada adicional; adaptação incremental. Discuta prós e contras.
+
+\item O sistema usa um limiar único sobre o erro agregado. Proponha um esquema de
+      limiares por sensor e discuta como combinar as decisões individuais. Que ganho
+      você esperaria para um evento que afeta apenas a temperatura de fundo?
+
+\item A \cref{tab:dual-literatura} mostra $\text{ACC} = 0{,}9922$ com $F_1 = 0{,}9360$
+      para um dos trabalhos. Construa uma matriz de confusão compatível com esse par de
+      valores e explique qual desequilíbrio ele revela.
+
+\item Discuta criticamente a evidência dos estudos de caso. Quatro eventos em três poços
+      sustentam qual afirmação? Formule três afirmações de força decrescente e indique
+      qual delas os dados suportam.
+\end{exercicios}
+
+\begin{leituras}
+\item \citet{LopesTese2025} --- a tese que originou este capítulo, com detalhamento
+      adicional do diagrama de decisão.
+\item \citet{Machado2022}, \citet{Marins2021} e \citet{Turan2021} --- os trabalhos
+      comparados na \cref{tab:dual-literatura}.
+\item \citet{aranha2023system} e \citet{Aranha2024} --- descrição de sistemas de
+      monitoramento em operação, com os requisitos de campo que motivaram a arquitetura
+      dual.
+\item \citet{Malhotra2015LongST} --- referência clássica sobre autoencoders LSTM para
+      detecção de anomalias em séries temporais.
+\end{leituras}

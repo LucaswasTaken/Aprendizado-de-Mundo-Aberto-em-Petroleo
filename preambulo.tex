@@ -1,0 +1,178 @@
+% ---------------------------------------------------------------------------
+% Preâmbulo comum do livro
+% ---------------------------------------------------------------------------
+
+% --- Codificação e idioma ---------------------------------------------------
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[brazil]{babel}
+\usepackage{lmodern}
+\usepackage{microtype}
+
+% --- Matemática -------------------------------------------------------------
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsfonts}
+\usepackage{mathtools}
+\usepackage{bm}
+
+% --- Tabelas e figuras ------------------------------------------------------
+\usepackage{graphicx}
+\usepackage{epstopdf}
+\epstopdfsetup{update,prepend}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{rotating}
+\usepackage[font=small,labelfont=bf]{caption}
+\usepackage{subcaption}
+\usepackage{float}
+
+% --- Cores e caixas ---------------------------------------------------------
+\usepackage{xcolor}
+\usepackage[most]{tcolorbox}
+\tcbuselibrary{skins,breakable}
+
+% --- Listagens de código ----------------------------------------------------
+\usepackage{listings}
+\definecolor{codfundo}{RGB}{247,247,247}
+\definecolor{codcomentario}{RGB}{100,120,100}
+\definecolor{codpalavra}{RGB}{20,60,140}
+\definecolor{codtexto}{RGB}{150,60,40}
+\lstdefinestyle{python}{
+  language         = Python,
+  basicstyle       = \ttfamily\footnotesize,
+  keywordstyle     = \color{codpalavra}\bfseries,
+  commentstyle     = \color{codcomentario}\itshape,
+  stringstyle      = \color{codtexto},
+  numbers          = none,
+  showstringspaces = false,
+  breaklines       = true,
+  breakatwhitespace= true,
+  columns          = fullflexible,
+  backgroundcolor  = \color{codfundo},
+  frame            = single,
+  rulecolor        = \color{black!25},
+  framesep         = 5pt,
+  xleftmargin      = 5pt,
+  xrightmargin     = 5pt,
+  aboveskip        = 1.1em,
+  belowskip        = 1.1em,
+  literate         = {á}{{\'a}}1 {ã}{{\~a}}1 {ç}{{\c c}}1 {é}{{\'e}}1
+                     {ê}{{\^e}}1 {í}{{\'i}}1 {ó}{{\'o}}1 {õ}{{\~o}}1 {ú}{{\'u}}1
+}
+\lstset{style=python}
+
+% --- Unidades e números -----------------------------------------------------
+\usepackage{siunitx}
+\sisetup{
+  output-decimal-marker = {,},
+  group-separator       = {.},
+  group-minimum-digits  = 4,
+  detect-weight         = true,
+  detect-family         = true
+}
+
+% --- Layout -----------------------------------------------------------------
+\usepackage[a4paper,inner=3cm,outer=2.5cm,top=3cm,bottom=2.5cm]{geometry}
+\usepackage{emptypage}
+\usepackage{enumitem}
+% Evita o aviso "Negative labelwidth" nas listas de descricao com leftmargin=0pt
+\setlist[description]{labelwidth=0pt,labelsep=0pt}
+\usepackage{makeidx}
+\makeindex
+
+% --- Bibliografia -----------------------------------------------------------
+\usepackage[round,authoryear]{natbib}
+\bibliographystyle{apalike}
+\renewcommand{\bibname}{Referências}
+
+% --- Hyperref e referências cruzadas (carregar por último) ------------------
+\usepackage[hidelinks,breaklinks=true]{hyperref}
+\hypersetup{
+  pdftitle  = {Aprendizado de Mundo Aberto em Poços de Petróleo},
+  pdfauthor = {Lucas Gouveia Omena Lopes},
+  pdfsubject= {Detecção, classificação e explicação de anomalias em poços de petróleo},
+  pdfkeywords = {mundo aberto, detecção de anomalias, poços de petróleo, aprendizado profundo, LLM}
+}
+\usepackage[brazilian]{cleveref}
+
+% ---------------------------------------------------------------------------
+% Nomes em português para o cleveref
+% ---------------------------------------------------------------------------
+\crefname{chapter}{Capítulo}{Capítulos}
+\Crefname{chapter}{Capítulo}{Capítulos}
+\crefname{part}{Parte}{Partes}
+\Crefname{part}{Parte}{Partes}
+\crefname{section}{Seção}{Seções}
+\Crefname{section}{Seção}{Seções}
+\crefname{figure}{Figura}{Figuras}
+\Crefname{figure}{Figura}{Figuras}
+\crefname{table}{Tabela}{Tabelas}
+\Crefname{table}{Tabela}{Tabelas}
+\crefname{equation}{Equação}{Equações}
+\Crefname{equation}{Equação}{Equações}
+
+% ---------------------------------------------------------------------------
+% Ambientes didáticos
+% ---------------------------------------------------------------------------
+\definecolor{corDefinicao}{HTML}{1F4E79}
+\definecolor{corExemplo}{HTML}{2E7D32}
+\definecolor{corDestaque}{HTML}{B35C00}
+\definecolor{corExercicio}{HTML}{5B2C6F}
+\definecolor{corResultado}{HTML}{8B1A1A}
+
+\newtcolorbox[auto counter,number within=chapter]{definicao}[2][]{%
+  breakable, enhanced, colback=corDefinicao!4, colframe=corDefinicao,
+  fonttitle=\bfseries, title={Definição~\thetcbcounter\ --- #2}, #1}
+
+\newtcolorbox[auto counter,number within=chapter]{exemplo}[2][]{%
+  breakable, enhanced, colback=corExemplo!4, colframe=corExemplo,
+  fonttitle=\bfseries, title={Exemplo~\thetcbcounter\ --- #2}, #1}
+
+\newtcolorbox{destaque}[1][Em resumo]{%
+  breakable, enhanced, colback=corDestaque!5, colframe=corDestaque,
+  fonttitle=\bfseries, title={#1}}
+
+\newtcolorbox{resultadochave}[1][Resultado-chave]{%
+  breakable, enhanced, colback=corResultado!4, colframe=corResultado,
+  fonttitle=\bfseries, title={#1}}
+
+\newtcolorbox{objetivos}{%
+  breakable, enhanced, colback=black!3, colframe=black!55,
+  fonttitle=\bfseries, title={Objetivos de aprendizagem}}
+
+\newenvironment{exercicios}%
+  {\section*{Exercícios}\addcontentsline{toc}{section}{Exercícios}%
+   \begin{enumerate}[label=\textbf{\arabic*.},leftmargin=*,itemsep=0.4em]}%
+  {\end{enumerate}}
+
+\newenvironment{leituras}%
+  {\section*{Leituras recomendadas}\addcontentsline{toc}{section}{Leituras recomendadas}%
+   \begin{itemize}[leftmargin=*,itemsep=0.3em]}%
+  {\end{itemize}}
+
+\newcommand{\resumocapitulo}[1]{%
+  \section*{Resumo do capítulo}\addcontentsline{toc}{section}{Resumo do capítulo}#1}
+
+% ---------------------------------------------------------------------------
+% Macros de notação
+% ---------------------------------------------------------------------------
+\newcommand{\vect}[1]{\bm{#1}}
+\newcommand{\mat}[1]{\bm{#1}}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\prob}{\mathbb{P}}
+\DeclareMathOperator*{\argmax}{arg\,max}
+\DeclareMathOperator*{\argmin}{arg\,min}
+\DeclareMathOperator{\std}{std}
+
+% Primeira ocorrência de termo estrangeiro
+\newcommand{\ing}[1]{\emph{#1}}
+% Termo em português seguido do original em inglês
+\newcommand{\termo}[2]{#1\index{#1}\ (\ing{#2})}
+
+% Siglas frequentes
+\newcommand{\treW}{3W}

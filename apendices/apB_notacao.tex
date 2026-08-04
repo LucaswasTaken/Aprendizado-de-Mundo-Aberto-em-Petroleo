@@ -1,0 +1,202 @@
+\chapter{Correspondência de notação}
+\label{cap:notacao}
+
+A notação do livro foi harmonizada. Este apêndice registra a correspondência com os
+símbolos dos trabalhos originais, para que o leitor possa transitar entre as fontes sem
+ambiguidade. A tabela de símbolos propriamente dita encontra-se nas páginas pré-textuais.
+
+\section{Séries temporais e janelas}
+
+\begin{table}[htbp]
+\centering
+\caption{Correspondência de notação para dados e janelas.}
+\label{tab:notb-dados}
+\small
+\begin{tabular}{p{2.3cm}p{4.6cm}p{5.4cm}}
+\toprule
+\textbf{Neste livro} & \textbf{Significado} & \textbf{Nos trabalhos originais} \\
+\midrule
+$T$ &
+Passos de tempo da janela &
+\emph{window size}, \emph{sequence length}, $n_{\text{steps}}$; valores 200, 500 e a
+varredura de 150 a 7500 do \cref{cap:closedworld} \\
+\addlinespace
+$S$ &
+Número de sensores &
+\emph{n\_features}, \emph{channels}; valores 4 e 5 conforme o capítulo \\
+\addlinespace
+$\mat{X} \in \R^{T \times S}$ &
+Janela multivariada &
+$X$, \emph{input tensor}, com forma $(T, S)$ na notação de \ing{frameworks} \\
+\addlinespace
+$\vect{b}$, $\vect{e}$ &
+Janelas de linha de base e de evento &
+\emph{baseline window} e \emph{event window} no \cref{cap:agente} \\
+\addlinespace
+$y$ &
+Rótulo de classe &
+\emph{class}, \emph{label}; no 3W, o código de 0 a 9 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{destaque}[Uma diferença de convenção que confunde]
+Bibliotecas de aprendizado profundo descrevem a entrada como \emph{(batch, timesteps,
+features)}. Este livro omite a dimensão de lote e escreve $\mat{X} \in \R^{T \times S}$.
+
+Assim, a camada descrita nos trabalhos originais como \emph{Input(500, 5)} corresponde
+aqui a $T = 500$ e $S = 5$.
+\end{destaque}
+
+\section{Modelos e representações}
+
+\begin{table}[htbp]
+\centering
+\caption{Correspondência de notação para modelos.}
+\label{tab:notb-modelos}
+\small
+\begin{tabular}{p{2.3cm}p{4.6cm}p{5.4cm}}
+\toprule
+\textbf{Neste livro} & \textbf{Significado} & \textbf{Nos trabalhos originais} \\
+\midrule
+$g_{\phi}$, $h_{\psi}$ &
+Codificador e decodificador &
+\emph{encoder} e \emph{decoder}; frequentemente sem símbolo, apenas nomeados \\
+\addlinespace
+$\vect{z}$ &
+Representação latente &
+\emph{latent vector}, \emph{embedding}, \emph{bottleneck}, \emph{latent
+representation} \\
+\addlinespace
+$d$ &
+Dimensão do latente &
+\emph{latent dim}; valores 4, 16, 64 e 128 conforme o capítulo \\
+\addlinespace
+$c_k$, $s_k$ &
+Classificador binário da classe $k$ e seu escore &
+\emph{binary classifier k}, \emph{sigmoid output}, \emph{score} \\
+\addlinespace
+$\tau$ &
+Limiar de decisão &
+\emph{threshold}; valores 0,3, 0,5 e 0,65 conforme o contexto \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{destaque}[Três latentes distintos, um mesmo símbolo]
+O símbolo $\vect{z}$ designa, em capítulos diferentes, objetos com propriedades muito
+distintas:
+
+no \cref{cap:mundoaberto}, o latente de dimensão 16 de um autoencoder;
+
+no \cref{cap:mahalanobis}, o latente de dimensão 128 de um autoencoder maior \emph{e} a
+penúltima camada de dimensão 64 de um classificador multiclasse.
+
+A tese central do \cref{cap:mahalanobis} é justamente que esses espaços não são
+intercambiáveis, apesar de receberem o mesmo símbolo. Quando a distinção importa, o texto
+a explicita.
+\end{destaque}
+
+\section{Estatística e limiares}
+
+\begin{table}[htbp]
+\centering
+\caption{Correspondência de notação para estatística e limiares.}
+\label{tab:notb-estat}
+\small
+\begin{tabular}{p{2.3cm}p{4.6cm}p{5.4cm}}
+\toprule
+\textbf{Neste livro} & \textbf{Significado} & \textbf{Nos trabalhos originais} \\
+\midrule
+$\mu + k\sigma$ &
+Limiar de reconstrução &
+\emph{mean + 3 std}; no \cref{cap:dual}, $k = 3$ \\
+\addlinespace
+$d_M$ &
+Distância de Mahalanobis &
+\emph{Mahalanobis distance}, $D^2$ quando elevada ao quadrado \\
+\addlinespace
+$\lambda$ &
+Regularização da covariância &
+\emph{shrinkage}, \emph{regularization term} somado à diagonal \\
+\addlinespace
+$K$ &
+Número de agrupamentos &
+$k$ minúsculo em \emph{k-means}; aqui maiúsculo, para evitar colisão \\
+\addlinespace
+$R = \mu/\sigma$ &
+Razão do limiar adaptativo &
+\emph{ratio} no \cref{cap:mundoaberto} \\
+\addlinespace
+$\delta = \bar{e} - \bar{b}$ &
+Variação absoluta &
+\emph{delta}, \emph{absolute change} no \cref{cap:agente} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Métricas}
+
+\begin{table}[htbp]
+\centering
+\caption{Correspondência de notação para métricas de avaliação.}
+\label{tab:notb-metricas}
+\small
+\begin{tabular}{p{2.3cm}p{4.6cm}p{5.4cm}}
+\toprule
+\textbf{Neste livro} & \textbf{Significado} & \textbf{Nos trabalhos originais} \\
+\midrule
+ACC & Acurácia & \emph{accuracy}, \emph{acc} \\
+$\text{ACC}_b$ & Acurácia balanceada & \emph{balanced accuracy} \\
+REC & Revocação & \emph{recall}, \emph{sensitivity}, \emph{true positive rate} \\
+PR & Precisão & \emph{precision}, \emph{positive predictive value} \\
+SP & Especificidade & \emph{specificity}, \emph{true negative rate} \\
+$F_1$ & Medida F1 & \emph{F1-score}, \emph{F-measure} \\
+IoU & Interseção sobre união & \emph{IoU}, \emph{Jaccard index} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{destaque}[Duas armadilhas de tradução]
+\textbf{``Precisão''} traduz \emph{precision} neste livro, e nunca \emph{accuracy}. Em
+português técnico corrente, ``precisão'' é usada às vezes para acurácia, o que gera
+confusão. Aqui, acurácia é ACC e precisão é PR.
+
+\textbf{``Sensibilidade''} e \textbf{``revocação''} são o mesmo objeto. O livro usa
+revocação uniformemente, mas a literatura médica e de sinais prefere sensibilidade.
+\end{destaque}
+
+\section{Nomenclatura de classes}
+
+\begin{table}[htbp]
+\centering
+\caption{Correspondência entre a numeração de classes do 3W e a designação usada no
+livro.}
+\label{tab:notb-classes}
+\small
+\begin{tabular}{clp{6.8cm}}
+\toprule
+\textbf{Código} & \textbf{Designação no livro} & \textbf{Denominação no 3W} \\
+\midrule
+0 & Normal & \emph{Normal} \\
+1 & Aumento de BSW & \emph{Abrupt Increase of BSW} \\
+2 & Fechamento de DHSV & \emph{Spurious Closure of DHSV} \\
+3 & Golfadas severas & \emph{Severe Slugging} \\
+4 & Instabilidade de fluxo & \emph{Flow Instability} \\
+5 & Perda de produtividade & \emph{Rapid Productivity Loss} \\
+6 & Restrição rápida no PCK & \emph{Quick Restriction in PCK} \\
+7 & Incrustação no PCK & \emph{Scaling in PCK} \\
+8 & Hidrato na produção & \emph{Hydrate in Production Line} \\
+9 & Hidrato no serviço & \emph{Hydrate in Service Line} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{destaque}[Deslocamento de índice]
+Alguns dos trabalhos originais indexam as nove classes anômalas de 1 a 9; outros indexam
+de 0 a 8, tratando a classe normal separadamente. Este livro segue estritamente a
+numeração do 3W, de 0 a 9, com a classe 0 correspondendo ao regime normal.
+
+Ao comparar tabelas com as fontes originais, verifique a convenção antes de alinhar
+linhas.
+\end{destaque}

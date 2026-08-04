@@ -1,0 +1,330 @@
+\chapter{Modelos de linguagem como camada de raciocínio}
+\label{cap:llm}
+
+\begin{objetivos}
+Ao final deste capítulo, você será capaz de:
+\begin{itemize}[leftmargin=*,itemsep=0.2em]
+  \item descrever a arquitetura \ing{transformer} e o mecanismo de atenção que a
+        sustenta;
+  \item explicar o que é uma mistura de especialistas e por que ela reduz o custo de
+        inferência;
+  \item projetar prompts com saída estruturada e validá-los;
+  \item reconhecer os modos de falha característicos de modelos de linguagem ---
+        alucinação, sensibilidade ao prompt, ausência de calibração --- e desenhar
+        salvaguardas;
+  \item posicionar corretamente o papel de um modelo de linguagem em um sistema de
+        monitoramento industrial.
+\end{itemize}
+\end{objetivos}
+
+\section{A pergunta que sobrou}
+
+Ao final da \cref{parte:evolucao}, o sistema sabe onde está o evento e sabe, com
+$98{,}2\,\%$ de acerto, que ele é desconhecido. O que ele entrega ao operador é,
+literalmente, isto:
+
+\begin{center}
+\ttfamily
+\{ segmento: [14230, 15870], classe: desconhecida, escore: 0.94 \}
+\end{center}
+
+O operador precisa então abrir as séries temporais, examinar cada sensor, comparar com o
+regime anterior, lembrar de eventos semelhantes e formar uma hipótese. O sistema fez o
+trabalho de percepção; todo o trabalho de \emph{interpretação} continua com o humano.
+
+Esta parte do livro investiga se um modelo de linguagem pode assumir parte dessa carga.
+
+\begin{destaque}[O que se está e o que não se está propondo]
+\textbf{Não} se propõe substituir os modelos numéricos por um modelo de linguagem. Um
+\ing{transformer} de propósito geral é ruim em séries temporais multivariadas
+amostradas a cada segundo, e não há razão para esperar o contrário.
+
+Propõe-se acrescentar uma camada \emph{acima} deles. Os modelos numéricos detectam,
+segmentam e quantificam; o modelo de linguagem recebe as quantidades resultantes ---
+não os dados brutos --- e produz a interpretação. É uma divisão de trabalho por
+competência, e o restante desta parte a testa empiricamente.
+\end{destaque}
+
+\section{O \ing{transformer}}
+
+\subsection{Atenção}
+
+O mecanismo central, introduzido por \citet{Vaswani2017}, é a atenção por produto escalar
+escalado (\cref{eq:atencao}):
+\[
+  \text{Atenção}(\mat{Q}, \mat{K}, \mat{V}) =
+  \operatorname{softmax}\!\left( \frac{\mat{Q}\mat{K}^\top}{\sqrt{d_k}} \right) \mat{V}.
+\]
+
+A leitura intuitiva: cada posição da sequência emite uma \termo{consulta}{query}, compara-a
+com as \termo{chaves}{keys} de todas as demais posições, e agrega os \termo{valores}{values}
+ponderados pela similaridade. O resultado é que qualquer posição pode acessar qualquer
+outra em uma única operação --- em contraste com uma LSTM, onde a informação precisa
+atravessar todos os passos intermediários.
+
+O fator $\sqrt{d_k}$ evita que o produto escalar cresça com a dimensão e sature a
+\ing{softmax}.
+
+\begin{destaque}[Por que isso mudou tudo]
+Duas propriedades, e nenhuma delas é ``o modelo entende linguagem''.
+
+\textbf{Paralelização.} Uma LSTM processa a sequência passo a passo, e o passo $t$ depende
+do $t-1$. A atenção computa todas as posições simultaneamente. Isso é o que tornou
+possível treinar sobre corpora de trilhões de tokens.
+
+\textbf{Caminho curto.} Em uma LSTM, a distância informacional entre duas posições
+separadas por $n$ passos é $O(n)$. Na atenção, é $O(1)$. Dependências de longo alcance
+deixam de ser um problema arquitetural.
+\end{destaque}
+
+\subsection{Da arquitetura ao modelo de linguagem}
+
+Empilhando blocos de atenção com camadas densas, normalização e conexões residuais, e
+treinando o resultado para prever o próximo \termo{token}{token} em um corpus muito
+grande, obtém-se um modelo de linguagem.
+
+O que emerge desse treinamento --- e permanece objeto de debate legítimo --- é a
+capacidade de executar tarefas não vistas explicitamente, quando descritas em linguagem
+natural. É essa capacidade que este livro explora, com o ceticismo apropriado.
+
+\section{Mistura de especialistas}
+
+\begin{definicao}{Mistura de especialistas}
+Arquitetura em que a camada densa de cada bloco é substituída por um conjunto de
+sub-redes especialistas e uma rede de roteamento que seleciona, para cada
+\ing{token}, apenas um subconjunto pequeno delas. O modelo tem muitos parâmetros no
+total, mas ativa poucos por inferência.
+\end{definicao}
+
+O modelo usado nesta parte do livro tem aproximadamente \textbf{397 bilhões de parâmetros
+totais} e ativa cerca de \textbf{17 bilhões} por \ing{token} --- uma fração de
+aproximadamente $4\,\%$.
+
+\begin{destaque}[Por que isso importa para uma aplicação industrial]
+Um modelo denso de 397 bilhões de parâmetros seria inviável de servir com latência
+aceitável. A mistura de especialistas permite capacidade de modelo grande com custo de
+inferência de modelo médio.
+
+Para o problema deste livro, a consequência prática é que a camada de linguagem pode ser
+consultada em segundos, contra os \SI{405}{\milli\second} do ensemble numérico e os
+trinta minutos a cinco horas de tempo característico do processo. A camada de raciocínio
+não é o gargalo --- exatamente como o \cref{cap:closedworld} concluiu para os modelos
+numéricos.
+\end{destaque}
+
+\section{Como se instrui um modelo de linguagem}
+
+\subsection{Prompt}
+
+\begin{definicao}{Prompt}
+Texto de entrada fornecido ao modelo, contendo instruções, contexto, dados e formato de
+saída desejado. Diferentemente de um programa, não é executado: é interpretado
+estatisticamente.
+\end{definicao}
+
+A construção do prompt é a principal alavanca de engenharia disponível, e as decisões
+relevantes para esta aplicação são quatro.
+
+\begin{description}[leftmargin=0pt,style=nextline,itemsep=0.4em]
+
+\item[Papel e escopo.] Declarar explicitamente o papel do modelo --- ``você é um
+especialista em análise de dados de poços submarinos'' --- e, tão importante quanto,
+seus limites --- ``julgue apenas com base nas estatísticas fornecidas''.
+
+\item[Conhecimento de domínio explícito.] Não confiar no que o modelo possa ter
+absorvido durante o pré-treinamento. Os perfis de classe do \cref{cap:agente} são
+fornecidos no prompt, de forma explícita e verificável.
+
+\item[Formato de saída estruturado.] Exigir JSON com campos definidos. Isso permite
+validação automática e integração com o restante do sistema, e é o que separa um
+experimento de uma peça de software.
+
+\item[Temperatura baixa.] Reduzir a aleatoriedade da amostragem para privilegiar
+consistência sobre criatividade.
+
+\end{description}
+
+\subsection{Saída estruturada}
+
+O agente do \cref{cap:agente} produz, para cada segmento:
+
+\begin{itemize}[leftmargin=*,itemsep=0.2em]
+  \item três classes candidatas, ordenadas;
+  \item uma justificativa por candidata, referenciando as estatísticas;
+  \item um nível de confiança (\ing{High}, \ing{Medium}, \ing{Low});
+  \item um nome e uma descrição, caso julgue tratar-se de fenômeno não catalogado.
+\end{itemize}
+
+\begin{destaque}[Por que três candidatas e não uma]
+Porque uma única resposta força o modelo a comprometer-se, e um modelo que se compromete
+sob incerteza produz afirmações confiantes e falsas --- exatamente a patologia que a
+\cref{fig:closed-multiclasse} exibiu para o classificador multiclasse.
+
+Três candidatas ordenadas comunicam a estrutura da incerteza. E, como o
+\cref{cap:resultados-agente} mostrará, a diferença entre acerto na primeira escolha
+($35{,}1\,\%$) e nas três primeiras ($63{,}9\,\%$) é grande o bastante para que essa
+decisão de projeto seja o que separa um sistema inútil de um sistema útil.
+\end{destaque}
+
+\subsection{Modo de raciocínio}
+
+Modelos recentes podem ser instruídos a gerar uma cadeia de raciocínio intermediária
+antes da resposta final. O ganho, em tarefas que exigem comparação de múltiplas
+evidências, é consistente; o custo é latência e \ing{tokens}.
+
+Neste trabalho o modo está ativado, com temperatura $0{,}2$, \ing{top-p} $0{,}7$ e limite
+de \num{4096} \ing{tokens}.
+
+\begin{destaque}[Cadeia de raciocínio não é explicação]
+Distinção importante e frequentemente ignorada. O texto que o modelo gera antes da
+resposta é uma sequência que aumenta a probabilidade de acerto; não há garantia de que
+ele descreva o processo computacional efetivamente realizado.
+
+Neste sistema, a explicabilidade genuína vem de outro lugar: as estatísticas do
+\cref{cap:agente} são calculadas deterministicamente e podem ser verificadas
+independentemente. A justificativa do modelo é auditável \emph{contra elas}. É essa
+ancoragem --- e não a cadeia de raciocínio --- que torna a saída confiável.
+\end{destaque}
+
+\section{Modos de falha}
+
+Um capítulo sobre modelos de linguagem em contexto industrial que não enumere seus modos
+de falha seria irresponsável.
+
+\begin{description}[leftmargin=0pt,style=nextline,itemsep=0.5em]
+
+\item[Alucinação.] O modelo produz afirmações plausíveis e falsas com a mesma fluência
+com que produz afirmações corretas. Em um contexto onde a saída pode motivar uma
+intervenção de milhões de dólares, isso é inaceitável sem salvaguarda.
+
+\emph{Mitigação adotada}: fornecer todas as estatísticas no prompt, restringir a
+julgamento sobre elas, exigir justificativa que as referencie, e manter o humano como
+decisor.
+
+\item[Sensibilidade ao prompt.] Reformulações semanticamente equivalentes podem alterar
+o resultado. Isso compromete a reprodutibilidade.
+
+\emph{Mitigação adotada}: prompt fixo, versionado e reportado integralmente.
+
+\item[Ausência de calibração.] A confiança declarada pelo modelo não corresponde
+necessariamente a uma probabilidade. ``High'' não significa $90\,\%$.
+
+\emph{Mitigação adotada}: tratar o nível de confiança como ordinal e reportar a acurácia
+empírica separadamente.
+
+\item[Contaminação de dados.] O 3W é público desde 2019, e um modelo treinado em corpus
+amplo pode tê-lo visto. Um acerto pode refletir memorização, não raciocínio.
+
+\emph{Mitigação adotada}: nenhuma completamente satisfatória. É uma limitação declarada,
+e o \cref{cap:resultados-agente} argumenta a partir dos \emph{padrões} de erro, que
+memorização não explicaria bem.
+
+\item[Custo e dependência externa.] Inferência em serviço de terceiros implica custo por
+chamada, latência de rede e dependência operacional.
+
+\emph{Mitigação adotada}: acionar o modelo apenas sobre segmentos já detectados como
+anômalos --- um punhado por dia, não a cada segundo.
+
+\end{description}
+
+\begin{destaque}[A regra que organiza esta parte do livro]
+Um modelo de linguagem \textbf{nunca decide sozinho} em um sistema de monitoramento
+industrial. Ele propõe, justifica e ordena hipóteses. A decisão é do operador, e o
+sistema deve ser projetado para que essa fronteira seja explícita na interface.
+\end{destaque}
+
+\section{Infraestrutura}
+
+O modelo é acessado por um serviço gerenciado de inferência, com os parâmetros
+resumidos na \cref{tab:llm-config}.
+
+\begin{table}[htbp]
+\centering
+\caption{Configuração de inferência do agente.}
+\label{tab:llm-config}
+\small
+\begin{tabular}{ll}
+\toprule
+\textbf{Parâmetro} & \textbf{Valor} \\
+\midrule
+Modelo                 & Qwen3.5-397B-A17B (mistura de especialistas) \\
+Parâmetros totais      & $\approx 397$ bilhões \\
+Parâmetros ativos      & $\approx 17$ bilhões por \ing{token} \\
+Serviço                & NVIDIA NIM \\
+Modo de raciocínio     & ativado \\
+Temperatura            & $0{,}2$ \\
+\ing{Top-p}            & $0{,}7$ \\
+Limite de \ing{tokens} & \num{4096} \\
+Formato de saída       & JSON estruturado \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{destaque}[Sobre reprodutibilidade]
+Modelos servidos por API são atualizados sem aviso, e o mesmo prompt pode produzir saídas
+diferentes meses depois. Trabalhos que dependem deles devem reportar data de execução,
+identificador exato do modelo e todos os parâmetros de amostragem --- e ainda assim a
+reprodutibilidade é inferior à de um modelo local. É um custo real da abordagem, e o
+\cref{cap:futuro} discutirá alternativas.
+\end{destaque}
+
+\resumocapitulo{%
+Modelos de linguagem baseados em \ing{transformer} devem sua eficácia a duas propriedades
+do mecanismo de atenção --- paralelização completa e caminho informacional de comprimento
+constante entre quaisquer posições --- e não a qualquer compreensão no sentido humano. A
+arquitetura de mistura de especialistas permite modelos de centenas de bilhões de
+parâmetros com custo de inferência de modelos muito menores: o modelo aqui utilizado tem
+$397$ bilhões de parâmetros e ativa $17$ bilhões por \ing{token}. A instrução se dá por
+prompt, cujas decisões de projeto relevantes são declarar papel e escopo, fornecer
+conhecimento de domínio explicitamente, exigir saída estruturada em JSON e usar
+temperatura baixa. O agente produz três candidatas ordenadas, com justificativa e
+confiança por candidata --- decisão que se mostrará determinante nos resultados. Os modos
+de falha característicos são alucinação, sensibilidade ao prompt, ausência de calibração,
+contaminação de dados de treinamento e dependência de serviço externo; cada um exige
+salvaguarda explícita. A regra que organiza esta parte: o modelo de linguagem propõe e
+justifica, nunca decide.}
+
+\begin{exercicios}
+\item Calcule a complexidade computacional da atenção em função do comprimento da
+      sequência $n$ e da dimensão $d$. Compare com a de uma LSTM. Para que valores de $n$
+      a atenção deixa de ser vantajosa?
+
+\item Um modelo com $397$ bilhões de parâmetros ativa $17$ bilhões por \ing{token}.
+      Estime a memória necessária para armazenar os pesos em precisão de 16 bits e a
+      necessária para uma inferência. Discuta as implicações para implantação local em
+      uma unidade de produção.
+
+\item Escreva um prompt que instrua um modelo a classificar um segmento anômalo de poço
+      a partir de estatísticas fornecidas, com saída em JSON validável. Aplique-o a três
+      segmentos e avalie a estabilidade das respostas ao reformular o prompt sem alterar
+      seu conteúdo semântico.
+
+\item Discuta a afirmação: ``a cadeia de raciocínio gerada pelo modelo é uma explicação
+      de sua decisão''. Apresente um argumento contra e proponha um experimento que
+      distinga entre cadeia de raciocínio fiel e cadeia de raciocínio confabulada.
+
+\item Projete um procedimento automático de validação da saída do agente contra as
+      estatísticas fornecidas no prompt --- por exemplo, verificar se cada afirmação
+      numérica na justificativa corresponde a um valor efetivamente presente na entrada.
+      Que fração das alucinações esse procedimento capturaria?
+
+\item O 3W é público desde 2019 e pode ter sido visto durante o pré-treinamento. Proponha
+      três estratégias para estimar o grau de contaminação e discuta os limites de cada
+      uma.
+
+\item Compare o custo total de propriedade de três arquiteturas: modelo servido por API,
+      modelo aberto executado localmente, e modelo aberto ajustado ao domínio. Considere
+      custo por inferência, latência, reprodutibilidade, privacidade dos dados e esforço
+      de manutenção.
+\end{exercicios}
+
+\begin{leituras}
+\item \citet{Vaswani2017} --- o artigo que introduz o \ing{transformer}.
+\item \citet{Qwen2025} --- a família de modelos utilizada.
+\item \citet{Lopes2026LLM} --- o trabalho que originou esta parte do livro.
+\item \citet{Liu2024oilgasLLM} e \citet{Chebbi2025energygpt} --- aplicações de modelos de
+      linguagem no setor de petróleo e gás.
+\item \citet{Sharma2025xaiagents} --- explicabilidade em sistemas baseados em agentes.
+\item \citet{Zhang2025LLMTSFD} --- modelos de linguagem aplicados a detecção de falhas em
+      séries temporais.
+\end{leituras}

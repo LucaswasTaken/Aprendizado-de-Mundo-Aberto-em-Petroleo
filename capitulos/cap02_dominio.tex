@@ -1,0 +1,469 @@
+\chapter{Anatomia de um poço submarino}
+\label{cap:dominio}
+
+\begin{objetivos}
+Ao final deste capítulo, você será capaz de:
+\begin{itemize}[leftmargin=*,itemsep=0.2em]
+  \item descrever os componentes de um poço submarino de produção, do reservatório à
+        unidade flutuante, e nomear as válvulas que compõem a árvore de natal molhada;
+  \item explicar a função dos sensores PDG e TPT e justificar por que exatamente essas
+        quatro variáveis dominam os métodos deste livro;
+  \item caracterizar cada uma das nove classes de anomalia do conjunto 3W em termos de
+        mecanismo físico e assinatura esperada nos sensores;
+  \item distinguir eventos de causa-raiz de eventos sintomáticos, e explicar por que
+        essa distinção afeta o projeto do classificador;
+  \item descrever a completação inteligente e os eventos associados a válvulas de
+        controle de intervalo (ICV).
+\end{itemize}
+\end{objetivos}
+
+\section{Do reservatório à plataforma}
+
+Um sistema de produção \ing{offshore} pode ser lido como uma sequência de quatro
+domínios, cada um com sua física e seus modos de falha.
+
+\begin{enumerate}[leftmargin=*,itemsep=0.5em]
+  \item \textbf{Reservatório.} A rocha porosa que contém os hidrocarbonetos. Fornece a
+        energia primária do escoamento (pressão estática) e determina a composição do
+        fluido produzido --- razão gás-óleo, fração de água, presença de
+        CO\textsubscript{2} e H\textsubscript{2}S.
+  \item \textbf{Poço.} A conexão vertical (ou desviada) entre reservatório e leito
+        marinho, revestida por colunas de aço cimentadas e equipada internamente com a
+        \termo{coluna de produção}{production tubing} e seus acessórios.
+  \item \textbf{Sistema submarino.} A árvore de natal molhada instalada na cabeça do
+        poço, o \ing{jumper} que a conecta ao \ing{manifold} ou diretamente ao
+        \ing{riser}, e as linhas de fluxo que atravessam o leito marinho.
+  \item \textbf{Unidade de superfície.} O \ing{riser} que sobe até a unidade flutuante,
+        o separador trifásico, o sistema de compressão e o de tratamento de água.
+\end{enumerate}
+
+Neste livro, o objeto de interesse é predominantemente o segundo e o terceiro domínio.
+Os eventos indesejáveis do conjunto 3W ocorrem entre o fundo do poço e a válvula
+reguladora de produção, e é ali que estão os sensores que os revelam.
+
+\subsection{A completação}
+
+Chama-se \termo{completação}{well completion} o conjunto de operações e equipamentos
+que preparam o poço para produzir de forma controlada. Os elementos relevantes para
+este livro são:
+
+\begin{description}[leftmargin=0pt,style=nextline,itemsep=0.5em]
+
+\item[Coluna de produção.] Tubo interno por onde o fluido escoa até a superfície. Isola
+o fluxo do revestimento e permite a instalação de acessórios.
+
+\item[\ing{Packer}.] Elemento de vedação que ancora a coluna ao revestimento e isola o
+espaço anular, impedindo comunicação de pressão entre a zona produtora e o restante do
+poço.
+
+\item[Válvula de segurança de subsuperfície (DHSV).] Instalada tipicamente a algumas
+centenas de metros abaixo do leito marinho, é uma válvula do tipo \ing{flapper}
+mantida aberta por pressão hidráulica aplicada por uma linha de controle. \emph{A
+falha segura é o fechamento}: se a pressão hidráulica se perde por qualquer motivo, a
+válvula fecha. Essa escolha de projeto --- correta do ponto de vista de segurança ---
+é a origem do fechamento espúrio, um dos eventos mais frequentes no conjunto 3W.
+
+\item[Válvulas de gás de elevação (GLV).] Em poços com elevação artificial por gás,
+permitem a injeção de gás do anular para a coluna, reduzindo a densidade da mistura e,
+portanto, a pressão hidrostática que o reservatório precisa vencer.
+
+\item[Válvulas de controle de intervalo (ICV).] Em poços de \termo{completação
+inteligente}{intelligent completion}, permitem regular ou fechar remotamente cada zona
+produtora individualmente. São o assunto de uma classe de anomalia inteira
+(\cref{sec:dominio-icv}) e aparecem com destaque no \cref{cap:mundoaberto}.
+
+\end{description}
+
+\subsection{A árvore de natal molhada}
+
+A \termo{árvore de natal molhada}{wet christmas tree} (ANM) é o conjunto de válvulas
+instalado sobre a cabeça do poço no leito marinho. Sua função é dar controle de fluxo,
+permitir intervenções e garantir barreiras de segurança redundantes. A nomenclatura das
+válvulas varia entre operadoras; a que adotamos aqui é a usual na literatura brasileira
+e no conjunto 3W:
+
+\begin{center}
+\small
+\begin{tabular}{ll p{7.5cm}}
+\toprule
+\textbf{Sigla} & \textbf{Nome} & \textbf{Função} \\
+\midrule
+M1 & Master 1        & Válvula mestre inferior da linha de produção; primeira barreira. \\
+M2 & Master 2        & Válvula mestre superior; segunda barreira em série com M1. \\
+W1 & Wing 1          & Válvula de asa da linha de produção. \\
+W2 & Wing 2          & Válvula de asa da linha de serviço ou anular. \\
+XO & \ing{Cross-Over}& Interliga produção e anular; usada em operações especiais. \\
+PXO & \ing{Production Cross-Over} & Cruzamento dedicado à produção. \\
+CKP & \ing{Production Choke} & Válvula reguladora de produção; controla a vazão por
+    estrangulamento. Também chamada PCK. \\
+CKGL & \ing{Gas-Lift Choke} & Válvula reguladora da injeção de gás de elevação. \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{destaque}[PCK ou CKP?]
+As duas siglas designam a mesma válvula reguladora de produção. O conjunto 3W nomeia
+duas de suas classes com ``PCK'' (\emph{Quick Restriction in PCK} e \emph{Scaling in
+PCK}), enquanto a documentação de engenharia usa com frequência ``CKP''. Neste livro
+mantemos ``PCK'' ao nos referirmos às classes do 3W, para preservar a rastreabilidade,
+e ``CKP'' ao discutirmos o equipamento.
+\end{destaque}
+
+\section{O que os sensores enxergam}
+\label{sec:dominio-sensores}
+
+Aqui está o fato que molda todo o restante do livro: \textbf{o número de variáveis
+observadas é pequeno, e elas são fortemente correlacionadas}.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.42\textwidth]{esquema_vazio.png}
+\caption{Disposição típica de válvulas e sensores em um poço submarino. Os medidores
+PDG, TPT e PT ocupam posições fixas ao longo do caminho do fluido, e cada válvula ---
+DHSV, M1, M2, W1, W2, XO, PXO e a reguladora --- define um estado operacional distinto.
+Adaptado de \citet{aranha2023system}.}
+\label{fig:dominio-esquema}
+\end{figure}
+
+A \cref{fig:dominio-esquema} situa os sensores no caminho do fluido. Essa geometria
+explica boa parte do que vem a seguir: o PDG está a montante de tudo e responde primeiro
+a variações no reservatório; o TPT está no leito marinho, onde o resfriamento é máximo;
+o PT está a jusante da reguladora, e portanto enxerga a pressão já estrangulada. Duas
+anomalias de mesma origem física produzem assinaturas diferentes em cada um desses
+pontos, e é essa diferença que os modelos exploram.
+
+\subsection{Os quatro sinais fundamentais}
+
+\begin{description}[leftmargin=0pt,style=nextline,itemsep=0.5em]
+
+\item[P-PDG --- pressão no medidor permanente de fundo.]
+O \termo{medidor permanente de fundo}{permanent downhole gauge} (PDG) é instalado na
+coluna de produção, próximo à zona produtora. Mede a pressão no ponto mais próximo do
+reservatório que a instrumentação alcança. É o sinal mais informativo sobre o
+comportamento do reservatório e sobre eventos de fundo, e é também o mais sujeito a
+falha --- sua substituição exige intervenção com sonda.
+
+\item[T-PDG --- temperatura no medidor permanente de fundo.]
+Mede a temperatura do fluido no fundo. Varia lentamente em condições normais e reage a
+mudanças de vazão com constante de tempo apreciável, o que a torna útil para
+discriminar transitórios rápidos de mudanças de regime.
+
+\item[P-TPT --- pressão no transdutor de temperatura e pressão.]
+O \termo{transdutor de temperatura e pressão}{temperature and pressure transducer}
+(TPT) está instalado na árvore de natal, a jusante do poço e a montante da válvula
+reguladora. Mede a pressão na cabeça do poço.
+
+\item[T-TPT --- temperatura no transdutor de temperatura e pressão.]
+Temperatura na cabeça do poço. É a variável mais diretamente ligada à formação de
+hidratos, já que a região da ANM é onde a combinação de baixa temperatura ambiente e
+alta pressão é mais severa.
+
+\end{description}
+
+O conjunto 3W disponibiliza outras variáveis --- pressão a jusante da \ing{choke}
+(P-JUS-CKP), temperatura a jusante, vazões de gás de elevação, posição da \ing{choke}.
+Contudo, a maior parte dos trabalhos discutidos neste livro utiliza o subconjunto
+\{P-PDG, T-PDG, P-TPT, T-TPT\}, por três razões: são as variáveis presentes em
+praticamente todas as instâncias, são as menos afetadas por convenções de instalação
+específicas de cada poço, e carregam a informação física essencial dos eventos de
+interesse.
+
+\begin{exemplo}{O gradiente entre fundo e cabeça}
+A diferença $P_{\text{PDG}} - P_{\text{TPT}}$ é, aproximadamente, a perda de carga ao
+longo da coluna de produção --- soma da componente hidrostática com a componente
+friccional. Quando o fluido fica mais denso (aumento de BSW, por exemplo), a
+componente hidrostática cresce e o gradiente aumenta. Quando a vazão cai, a componente
+friccional diminui e o gradiente diminui.
+
+Um único par de sensores permite, portanto, inferir mudanças em duas propriedades
+distintas do escoamento. É por essa razão que o agente de linguagem do
+\cref{cap:agente} calcula explicitamente um descritor de \emph{relação entre P-PDG e
+P-TPT} --- ``mesma direção'', ``divergentes'' ou ``um estável'' --- e o entrega ao
+modelo como evidência. A informação está na relação, não em cada sinal isolado.
+\end{exemplo}
+
+\subsection{Por que os sensores mentem}
+
+Três patologias de instrumentação atravessam todo o livro e precisam ser enunciadas
+desde já.
+
+\begin{itemize}[leftmargin=*,itemsep=0.4em]
+  \item \textbf{Congelamento.} O sensor para de atualizar e repete indefinidamente a
+        última leitura válida. Uma série congelada tem desvio-padrão nulo e é
+        trivialmente detectável --- desde que alguém procure por isso.
+  \item \textbf{Perda de telemetria.} O valor se torna ausente ou é substituído por
+        zero. Essa patologia terá importância inesperada no
+        \cref{cap:resultados-agente}: em várias classes do 3W, o início da anomalia
+        coincide com a perda dos medidores de fundo, o que cria uma correlação espúria
+        entre ``anomalia'' e ``ausência de dado''.
+  \item \textbf{Deriva.} O sensor mantém a dinâmica, mas seu nível absoluto se desloca
+        lentamente. É a mais perigosa das três, porque não produz nenhuma assinatura
+        óbvia e corrompe silenciosamente qualquer modelo calibrado em valores
+        absolutos.
+\end{itemize}
+
+\begin{destaque}[Consequência de projeto]
+As três patologias acima são o argumento técnico para trabalhar com \emph{variações
+relativas a uma linha de base} em vez de valores absolutos. Essa decisão aparece de
+formas diferentes ao longo do livro: normalização por janela no \cref{cap:dual},
+padronização por poço no \cref{cap:segmentacao} e, de forma mais explícita, no cálculo
+do descritor $\delta = \bar{e} - \bar{b}$ do \cref{cap:agente}.
+\end{destaque}
+
+\section{A taxonomia dos eventos indesejáveis}
+\label{sec:dominio-taxonomia}
+
+O conjunto 3W organiza os eventos em uma classe normal e nove classes de anomalia
+\citep{VARGAS2019,VazVargas2026_3w2}. Descrevemos cada uma pelo mecanismo físico e pela
+assinatura esperada.
+
+\subsection{Classe 0 --- Estado normal}
+
+Operação estável. Os sinais apresentam variação de baixa amplitude em torno de níveis
+determinados pelo ponto de operação. É a classe de referência contra a qual todas as
+demais são contrastadas e, em quantidade de amostras, a mais numerosa por larga
+margem.
+
+\subsection{Classe 1 --- Aumento abrupto de BSW}
+
+\textbf{Mecanismo.} O \termo{teor de água e sedimentos}{basic sediment and water} (BSW)
+é a fração volumétrica de água no fluido produzido. Um aumento abrupto indica avanço
+da frente de água do aquífero ou de um poço injetor, ou ainda comunicação com uma zona
+aquífera por falha de isolamento.
+
+\textbf{Assinatura.} Água é mais densa que óleo. O aumento da fração de água eleva a
+massa específica média da coluna, aumentando a pressão hidrostática. Espera-se aumento
+de P-PDG e mudança no gradiente entre fundo e cabeça. A temperatura pode cair, já que a
+água tem capacidade calorífica maior.
+
+\textbf{Dificuldade.} O evento é gradual em muitos casos reais, o que o confunde com
+declínio natural. A classe 1 apresenta desempenho apenas mediano em quase todos os
+experimentos deste livro.
+
+\subsection{Classe 2 --- Fechamento espúrio da DHSV}
+
+\textbf{Mecanismo.} Perda de pressão na linha de controle hidráulico leva a DHSV a
+fechar sem comando. O poço é isolado abaixo da válvula.
+
+\textbf{Assinatura.} A mais nítida de todas. A pressão a montante da válvula (P-PDG)
+sobe rapidamente, pois o reservatório continua a alimentar um volume fechado; a pressão
+a jusante (P-TPT) despenca. As duas pressões divergem de forma inequívoca. As
+temperaturas caem, pois cessa o transporte convectivo de calor do fundo.
+
+\textbf{Consequência para os métodos.} A classe 2 é aquela em que praticamente todo
+método deste livro atinge desempenho excelente --- 95\,\% no ensemble binário do
+\cref{cap:closedworld}, 100\,\% na detecção de novidade do \cref{cap:resultados-agente}.
+É o caso fácil, e serve de controle positivo: um método que falhe na classe 2 tem um
+defeito estrutural.
+
+\subsection{Classe 3 --- Golfadas severas}
+
+\textbf{Mecanismo.} Em escoamento multifásico ascendente com \ing{riser} em catenária,
+o líquido pode acumular-se no ponto baixo até bloquear a passagem de gás. A pressão a
+montante cresce até vencer a coluna de líquido, que é então expelida em golfada. O
+ciclo se repete com período de minutos a dezenas de minutos.
+
+\textbf{Assinatura.} Oscilação periódica de grande amplitude em P-TPT e, com menor
+amplitude, em P-PDG. É a única classe cuja assinatura característica é \emph{de
+frequência}, não de nível.
+
+\textbf{Consequência para os métodos.} Métodos que resumem uma janela por média e
+desvio-padrão perdem a informação de periodicidade. Esse é um dos motivos pelos quais
+o agente de linguagem do \cref{cap:agente} calcula uma \emph{razão de oscilação}
+explícita, e um dos motivos pelos quais o desempenho da classe 3 melhora
+substancialmente quando se usa segmentação temporal (\cref{cap:segmentacao}) em vez de
+classificação de janela agregada.
+
+\subsection{Classe 4 --- Instabilidade de fluxo}
+
+\textbf{Mecanismo.} Regime de escoamento não estacionário sem a periodicidade regular
+da golfada severa. Pode originar-se de instabilidade de gás de elevação, de
+acoplamento entre reservatório e coluna, ou de operação próxima ao limite de
+estabilidade.
+
+\textbf{Assinatura.} Variabilidade aumentada em todos os sinais, sem padrão dominante.
+
+\textbf{Advertência.} A classe 4 é \emph{sintomática}, não causal. Instabilidade de
+fluxo é aquilo que se observa; o que a causou pode ser qualquer coisa. Essa
+característica explica por que ela apresenta o pior desempenho médio do livro --- 69\,\%
+no ensemble binário (\cref{cap:closedworld}), 18,5\,\% na primeira escolha do agente
+(\cref{cap:resultados-agente}) --- e por que foi deliberadamente excluída de dois dos
+três estudos com modelos de linguagem.
+
+\subsection{Classe 5 --- Perda rápida de produtividade}
+
+\textbf{Mecanismo.} Queda súbita do índice de produtividade do poço, por dano à
+formação, colapso de canhoneado, produção de finos ou bloqueio na região próxima ao
+poço.
+
+\textbf{Assinatura.} Queda de vazão com aumento da pressão de fundo (o reservatório
+deixa de conseguir entregar fluido à mesma taxa).
+
+\textbf{Advertência.} Como a classe 4, é sintomática. O \cref{cap:mahalanobis} reporta
+para ela o pior resultado de detecção de novidade de toda a Tabela correspondente:
+67,5\,\% no espaço latente, contra mais de 96\,\% para as demais classes.
+
+\subsection{Classe 6 --- Restrição rápida no PCK}
+
+\textbf{Mecanismo.} Obstrução súbita da válvula reguladora de produção, por detrito,
+falha mecânica ou deposição abrupta.
+
+\textbf{Assinatura.} Aumento da pressão a montante da \ing{choke} (P-TPT) com queda da
+pressão a jusante. Contraste com a classe 2: ali a divergência ocorre \emph{através da
+DHSV}, no fundo; aqui, \emph{através da choke}, na superfície.
+
+\subsection{Classe 7 --- Incrustação no PCK}
+
+\textbf{Mecanismo.} Deposição gradual de sais inorgânicos --- carbonato de cálcio,
+sulfato de bário --- na passagem da válvula reguladora, reduzindo progressivamente a
+área efetiva.
+
+\textbf{Assinatura.} Mesma direção da classe 6, mas em escala de tempo de semanas a
+meses. A distinção entre 6 e 7 é, essencialmente, \emph{uma distinção de derivada}.
+
+\subsection{Classe 8 --- Hidrato na linha de produção}
+
+\textbf{Mecanismo.} Hidratos de gás natural são estruturas cristalinas em que moléculas
+de água formam gaiolas que aprisionam moléculas de metano, etano e propano. Formam-se
+em condições de alta pressão e baixa temperatura --- exatamente as condições de uma
+linha de produção submarina em águas profundas. O tampão resultante obstrui o
+escoamento.
+
+\textbf{Assinatura.} Aumento da pressão a montante do tampão, queda a jusante, e queda
+de temperatura. A dinâmica é de horas.
+
+\textbf{Destaque.} A classe 8 é o objeto do experimento central do
+\cref{cap:closedworld}, em que é comparada com um modelo termodinâmico analítico, e é
+a classe escondida no experimento de conjunto aberto. No \cref{cap:mahalanobis}, ela
+apresenta a razão de separação mais extrema já observada nos experimentos deste livro
+--- 186,5 vezes no espaço latente.
+
+\subsection{Classe 9 --- Hidrato na linha de serviço}
+
+\textbf{Mecanismo.} O mesmo da classe 8, mas na linha de serviço (anular ou linha de
+injeção de gás), que opera em condições distintas e é menos instrumentada.
+
+\textbf{Assinatura.} Semelhante à classe 8, porém observada indiretamente, por reflexo
+sobre a linha de produção.
+
+\textbf{Advertência.} A classe 9 é a mais escassa em número de instâncias e a de pior
+desempenho consistente. No \cref{cap:resultados-agente}, o agente acerta 7,1\,\% na
+primeira tentativa e não converge para um nome consensual quando solicitado a batizar
+o evento como novidade.
+
+\section{Além do 3W: eventos de completação inteligente}
+\label{sec:dominio-icv}
+
+Dois eventos discutidos neste livro não pertencem ao conjunto 3W. Vêm de dados
+proprietários e cumprem um papel metodológico específico: \emph{servem de novidade
+genuína}, isto é, de classe que o sistema comprovadamente nunca viu.
+
+\begin{description}[leftmargin=0pt,style=nextline,itemsep=0.5em]
+
+\item[Falha de ICV.] A válvula de controle de intervalo não responde ao comando, ou
+responde parcialmente, ou apresenta vazamento entre zonas. A assinatura é um degrau de
+pressão e vazão que não corresponde a nenhum comando registrado. No
+\cref{cap:mundoaberto}, instâncias de falha de ICV são apresentadas a um sistema
+treinado apenas nas nove classes do 3W: 48\,\% são classificadas como pertencentes a
+alguma classe conhecida e 52\,\% são corretamente marcadas como desconhecidas e
+encaminhadas ao estágio de agrupamento.
+
+\item[Operação de válvula.] Manobras programadas de abertura e fechamento. São
+\emph{eventos normais} cuja assinatura se assemelha à de anomalias --- o caso clássico
+do falso positivo legítimo. Um sistema que não distinga uma operação programada de um
+fechamento espúrio é inútil em campo.
+
+\end{description}
+
+\begin{destaque}[Por que isso importa metodologicamente]
+Avaliar detecção de novidade escondendo uma classe do próprio conjunto de treinamento é
+válido, mas otimista: a classe escondida foi gerada pelo mesmo processo de coleta,
+rotulada pela mesma equipe, com a mesma instrumentação. Uma classe genuinamente externa
+--- vinda de outro conjunto de poços, com outra completação --- é um teste mais duro.
+Os dois eventos acima cumprem esse papel.
+\end{destaque}
+
+\section{Uma taxonomia por assinatura}
+
+Encerramos com uma reorganização das nove classes que será útil em todos os capítulos
+seguintes. Em vez de agrupá-las por mecanismo, agrupamo-las por \emph{aquilo que o
+algoritmo vê}.
+
+\begin{center}
+\small
+\begin{tabular}{p{3.4cm} p{2.0cm} p{7.2cm}}
+\toprule
+\textbf{Assinatura} & \textbf{Classes} & \textbf{Implicação para o método} \\
+\midrule
+Divergência entre dois sinais de pressão & 2, 6 & Facilmente capturada por
+descritores de relação entre sensores; alto desempenho universal. \\[0.3em]
+Oscilação periódica & 3 & Exige preservação da estrutura temporal; penaliza
+agregação por média. \\[0.3em]
+Rampa lenta & 1, 7 & Exige janela longa; confunde-se com deriva de sensor e com
+declínio natural. \\[0.3em]
+Degrau com queda de temperatura & 8, 9 & Bem separável quando há dados de
+temperatura confiáveis; a classe 9 sofre por escassez. \\[0.3em]
+Aumento de variabilidade sem padrão & 4, 5 & Sintomática; baixa separabilidade
+intrínseca. Candidata a tratamento diferenciado. \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Essa tabela antecipa a proposta de \emph{divisão de trabalho por classe} do
+\cref{cap:sintese}: em vez de exigir que um único modelo trate igualmente as cinco
+famílias de assinatura, atribui-se a cada família o componente que a trata melhor.
+
+\resumocapitulo{%
+Um poço submarino é observado por um punhado de sensores --- essencialmente pressão e
+temperatura no fundo (PDG) e na cabeça (TPT) --- cujas leituras estão sujeitas a
+congelamento, perda de telemetria e deriva. As nove classes de anomalia do conjunto 3W
+diferem radicalmente em mecanismo físico, escala temporal e assinatura: há degraus
+nítidos (fechamento espúrio de DHSV), oscilações periódicas (golfadas), rampas lentas
+(incrustação) e classes meramente sintomáticas (instabilidade de fluxo, perda de
+produtividade). Essa heterogeneidade é a razão estrutural pela qual nenhum modelo único
+apresenta bom desempenho em todas as classes, e é o ponto de partida da arquitetura
+modular defendida neste livro. Eventos de completação inteligente --- falha de ICV e
+operação de válvula --- fornecem, por serem externos ao 3W, testes rigorosos de
+detecção de novidade.}
+
+\begin{exercicios}
+\item Desenhe, à mão, as curvas esperadas de P-PDG e P-TPT ao longo de trinta minutos
+      para: (a) fechamento espúrio da DHSV; (b) restrição rápida no PCK. Indique
+      claramente em que ponto as duas assinaturas se distinguem e qual descritor
+      numérico capturaria essa distinção.
+
+\item A diferença $P_{\text{PDG}} - P_{\text{TPT}}$ combina componente hidrostática e
+      componente friccional. Para cada uma das classes 1, 2, 5 e 8, diga se você espera
+      que essa diferença aumente, diminua ou permaneça estável, e justifique fisicamente.
+
+\item As classes 6 e 7 compartilham a mesma assinatura qualitativa e diferem apenas na
+      escala de tempo. Proponha dois descritores numéricos que as separariam de forma
+      robusta e discuta como o comprimento da janela de observação afeta cada um deles.
+
+\item Argumente a favor e contra a seguinte proposta: ``as classes 4 e 5 deveriam ser
+      removidas do catálogo de classificação e tratadas apenas como sinalizadores de
+      atenção''. Considere as consequências para a métrica global, para o operador e
+      para o registro histórico de eventos.
+
+\item Um sensor de fundo apresenta deriva de $+2$\,bar por mês. Descreva o efeito
+      dessa deriva sobre: (a) um detector de anomalia baseado em limiar absoluto;
+      (b) um detector baseado em erro de reconstrução de autoencoder treinado há seis
+      meses; (c) um descritor de variação relativa à linha de base imediatamente
+      anterior ao evento. Ordene as três abordagens por robustez.
+
+\item Consulte a documentação do conjunto 3W \citep{VazVargas2026_3w2} e liste todas as
+      variáveis disponíveis. Para cada variável não utilizada neste livro, argumente se
+      ela poderia ou não contribuir para separar as classes 4 e 5.
+\end{exercicios}
+
+\begin{leituras}
+\item \citet{VARGAS2019} descrevem a origem operacional de cada classe do 3W. É a fonte
+      primária para o conteúdo da \cref{sec:dominio-taxonomia}.
+\item \citet{VazVargas2026_3w2} apresentam a versão 2.0 do conjunto, com classes
+      adicionais e revisão da rotulação.
+\item \citet{Safamirzaei2015} tratam da termodinâmica de formação de hidratos, base do
+      modelo analítico usado no \cref{cap:closedworld}.
+\item \citet{aranha2023system} e \citet{Aranha2024} descrevem sistemas de monitoramento
+      em operação, com ênfase nos requisitos práticos que raramente aparecem em
+      artigos metodológicos.
+\end{leituras}

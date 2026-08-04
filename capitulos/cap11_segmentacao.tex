@@ -1,0 +1,437 @@
+\chapter{Da detecção à segmentação}
+\label{cap:segmentacao}
+
+\begin{objetivos}
+Ao final deste capítulo, você será capaz de:
+\begin{itemize}[leftmargin=*,itemsep=0.2em]
+  \item distinguir detecção de segmentação e justificar por que a segunda é
+        operacionalmente superior;
+  \item projetar uma U-Net unidimensional para segmentação de séries temporais;
+  \item explicar o papel das conexões de atalho na preservação da resolução temporal;
+  \item avaliar segmentação com IoU e com SoftED, e interpretar a diferença entre
+        as duas famílias de métrica;
+  \item diagnosticar desalinhamento de anotação a partir de padrões anômalos nas
+        métricas.
+\end{itemize}
+\end{objetivos}
+
+\section{A pergunta errada}
+
+Todos os capítulos anteriores fizeram a mesma pergunta: \emph{esta janela contém uma
+anomalia?} A resposta é um rótulo por janela.
+
+Considere o que isso significa em operação. Com janelas de \SI{900}{\second}, o sistema
+informa ``houve um evento em algum ponto destes quinze minutos''. O operador precisa
+então examinar novecentas amostras para descobrir onde. Se a janela for de
+\SI{7500}{\second}, são mais de duas horas de sinal.
+
+A pergunta correta é outra: \emph{quais amostras, exatamente, pertencem ao evento?}
+
+\begin{definicao}{Segmentação de séries temporais}
+Tarefa de atribuir um rótulo a \emph{cada amostra} de uma série temporal, produzindo uma
+saída de mesmo comprimento que a entrada. Formalmente, dado
+$\mat{X} \in \R^{T \times S}$, produzir $\vect{y} \in \{0,1\}^{T}$, em contraste com a
+detecção, que produz um único $y \in \{0,1\}$.
+\end{definicao}
+
+\begin{destaque}[Três ganhos, não um]
+A mudança de detecção para segmentação parece um refinamento de granularidade. Ela é
+mais que isso.
+
+Primeiro, \textbf{localização}: o operador sabe onde olhar.
+
+Segundo, \textbf{início do evento}: com o instante inicial identificado, torna-se
+possível medir antecedência de detecção --- métrica que o rótulo por janela não permite
+sequer definir.
+
+Terceiro, e menos óbvio, \textbf{qualidade da entrada para as etapas seguintes}. Um
+segmento delimitado com precisão contém apenas o evento; uma janela contém o evento mais
+o regime normal que o precede. Todas as estat\'isticas calculadas sobre o segmento ---
+e o \cref{cap:agente} calculará treze delas por sensor --- são tão boas quanto a
+delimitação. \textbf{A segmentação é pré-requisito da explicabilidade.}
+\end{destaque}
+
+\section{A U-Net unidimensional}
+
+\subsection{Por que esta arquitetura}
+
+A U-Net foi proposta por \citet{Ronneberger2015} para segmentação de imagens médicas,
+sob restrições que ecoam as deste problema: poucos exemplos anotados, necessidade de
+saída na mesma resolução da entrada, e classes desbalanceadas.
+
+Sua ideia central é o contorno de um dilema. Para reconhecer um evento é preciso
+contexto amplo --- e contexto amplo se obtém reduzindo a resolução. Mas para delimitá-lo
+com precisão é preciso resolução fina. As \termo{conexões de atalho}{skip connections}
+resolvem o conflito transportando as ativações de alta resolução do codificador
+diretamente para o decodificador, contornando o gargalo.
+
+\subsection{Arquitetura}
+
+\begin{center}
+\small
+\begin{tabular}{lll}
+\toprule
+\textbf{Bloco} & \textbf{Composição} & \textbf{Resolução} \\
+\midrule
+Entrada     & $(L, 1)$ & $L$ \\
+Cod.\ 1     & Conv1D(32,5)+BN, $\times 2$; MaxPool(2); \ing{Dropout} $0{,}2$ & $L/2$ \\
+Cod.\ 2     & Conv1D(64,5)+BN, $\times 2$; MaxPool(2); \ing{Dropout} $0{,}2$ & $L/4$ \\
+Gargalo     & Conv1D(128,5)+BN, $\times 2$ & $L/4$ \\
+Dec.\ 1     & \ing{UpSampling}(2); concatena atalho (64); Conv1D(64,5)+BN, $\times 2$ & $L/2$ \\
+Dec.\ 2     & \ing{UpSampling}(2); concatena atalho (32); Conv1D(32,5)+BN, $\times 2$ & $L$ \\
+Saída       & Conv1D(1,1), sigmoide & $L$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+A saída é uma probabilidade por amostra, limiarizada em $0{,}5$. O modelo é aplicado
+\textbf{por sensor}, e as regiões resultantes são combinadas em seguida --- decisão que
+preserva a informação de \emph{qual} sensor evidencia o evento, e que será usada pelo
+agente do \cref{cap:agente}.
+
+\begin{destaque}[Por que núcleo 5 e não 3]
+Com núcleos de tamanho 5, duas convoluções por bloco e dois níveis de subamostragem, o
+campo receptivo do gargalo cobre algumas dezenas de amostras --- suficiente para
+capturar a dinâmica de transição de um evento de poço, e ainda estreito o bastante para
+que a fronteira do segmento não seja borrada. Com núcleos 3, o campo receptivo exigiria
+mais níveis; com núcleos 7 ou maiores, as fronteiras perdem definição. É um compromisso
+que vale a pena verificar empiricamente em qualquer aplicação nova.
+\end{destaque}
+
+\section{Protocolo experimental}
+
+\begin{itemize}[leftmargin=*,itemsep=0.3em]
+  \item \textbf{Dados}: 3W complementado por instâncias proprietárias de poços reais;
+        quatro variáveis (P-PDG, P-TPT, T-TPT e P-MON-CKP).
+  \item \textbf{Amostra}: 200 passos $\times$ 4 variáveis, ou 800 dimensões quando
+        achatada.
+  \item \textbf{Janela deslizante}: comprimento de 100 passos, passo de \SI{5}{\second}.
+  \item \textbf{Pré-processamento}: imputação de faltantes (último válido, próximo
+        válido, média), padronização e remoção de ruído por transformada
+        \ing{wavelet}.
+  \item \textbf{Validação}: cruzada estratificada em cinco dobras.
+  \item \textbf{Treinamento}: Adam, 30 a 50 épocas.
+  \item \textbf{Limiares}: $0{,}5$ na saída da U-Net; percentil 95 para a distância de
+        Mahalanobis (\cref{cap:mahalanobis}); $0{,}3$ para os classificadores binários.
+\end{itemize}
+
+A avaliação é feita \textbf{poço a poço}, e não sobre um conjunto agregado. Dez poços
+--- identificados como G1, A1, A2, A3, B1, C1, C2, D1, E1 e F1 --- são reportados
+individualmente. Essa escolha é deliberada: o desvio padrão entre poços é a única
+medida honesta de generalização disponível, e agregá-los produziria um número único que
+esconderia exatamente a informação mais relevante.
+
+\section{Resultados}
+
+\subsection{Autoencoder \emph{versus} U-Net}
+
+A \cref{tab:seg-comparacao} confronta a abordagem anterior --- detecção por erro de
+reconstrução de autoencoder, como no \cref{cap:dual} --- com a segmentação por U-Net,
+poço a poço.
+
+\begin{table}[htbp]
+\centering
+\caption{Detecção por autoencoder \emph{versus} segmentação por U-Net, avaliadas no
+nível de amostra, por poço.}
+\label{tab:seg-comparacao}
+\small
+\begin{tabular}{lcccc}
+\toprule
+& \multicolumn{2}{c}{\textbf{Autoencoder}} & \multicolumn{2}{c}{\textbf{U-Net}} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}
+\textbf{Poço} & \textbf{ACC} & $\bm{F_1}$ & \textbf{ACC} & $\bm{F_1}$ \\
+\midrule
+G1 & $0{,}818$ & $0{,}706$ & $0{,}882$ & $0{,}731$ \\
+A1 & $0{,}541$ & $0{,}703$ & $0{,}775$ & $0{,}739$ \\
+A2 & $0{,}582$ & $0{,}736$ & $0{,}929$ & $0{,}936$ \\
+A3 & $0{,}293$ & $0{,}454$ & $0{,}951$ & $0{,}915$ \\
+B1 & $0{,}285$ & $0{,}443$ & $0{,}752$ & $0{,}632$ \\
+C1 & $0{,}772$ & $0{,}766$ & $0{,}885$ & $0{,}817$ \\
+C2 & $0{,}329$ & $0{,}277$ & $0{,}975$ & $0{,}912$ \\
+D1 & $0{,}296$ & $0{,}457$ & $0{,}892$ & $0{,}777$ \\
+E1 & $0{,}496$ & $0{,}663$ & $0{,}870$ & $0{,}874$ \\
+F1 & $0{,}567$ & $0{,}724$ & $0{,}720$ & $0{,}674$ \\
+\midrule
+\textbf{Global} & $0{,}500 \pm 0{,}187$ & $0{,}593 \pm 0{,}160$ &
+                  $\bm{0{,}863 \pm 0{,}082}$ & $\bm{0{,}801 \pm 0{,}102}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{resultadochave}
+A acurácia média sobe de $0{,}500$ para $0{,}863$ --- e o desvio padrão entre poços cai
+de $0{,}187$ para $0{,}082$, uma redução de $56\,\%$.
+\end{resultadochave}
+
+\subsection{O número que importa não é a média}
+
+Uma acurácia de $0{,}500$ em um problema binário é o desempenho de uma moeda. É tentador
+concluir que o autoencoder ``não funciona'', mas essa leitura é errada e vale
+desmontá-la: o autoencoder do \cref{cap:dual} obteve $0{,}9894$ em operação real.
+
+A diferença está na \emph{tarefa}. Lá ele decidia se uma janela era anômala; aqui, cada
+amostra. O erro de reconstrução é um escalar por janela e não carrega informação
+temporal fina; usá-lo para segmentar é usá-lo para o que ele não faz.
+
+\begin{destaque}[A redução da variância é o resultado principal]
+A média subiu $73\,\%$, mas é o desvio padrão que conta a história decisiva.
+
+Com o autoencoder, a acurácia varia de $0{,}285$ (B1) a $0{,}818$ (G1) --- uma faixa de
+cinquenta e três pontos percentuais. O sistema funciona bem em alguns poços e falha em
+outros, e não há como saber de antemão em quais. \textbf{Um sistema imprevisível é
+inutilizável, mesmo que sua média seja aceitável}, porque o operador não pode calibrar
+quanta confiança depositar no alerta.
+
+Com a U-Net, a faixa é de $0{,}720$ (F1) a $0{,}975$ (C2). O pior caso passa a ser
+melhor que o caso médio anterior. É essa propriedade --- e não a média --- que torna o
+sistema implantável.
+\end{destaque}
+
+Vale ainda notar o poço A3: acurácia de $0{,}293$ com o autoencoder e $0{,}951$ com a
+U-Net, um ganho de sessenta e seis pontos percentuais. Esse poço reaparecerá adiante,
+com um comportamento que revela algo sobre os dados, não sobre os modelos.
+
+\subsection{Qualidade da delimitação}
+
+Acurácia por amostra é uma métrica generosa em problemas desbalanceados. A
+\cref{tab:seg-iou} acrescenta a interseção sobre união (\cref{eq:iou}), que mede
+diretamente a sobreposição entre o segmento predito e o real.
+
+\begin{table}[htbp]
+\centering
+\caption{Acurácia e interseção sobre união da segmentação por U-Net, por poço.}
+\label{tab:seg-iou}
+\small
+\begin{tabular}{lcc}
+\toprule
+\textbf{Poço} & \textbf{ACC (\%)} & \textbf{IoU (\%)} \\
+\midrule
+A1 & $89{,}00$ & $74$ \\
+A2 & $95{,}50$ & $93$ \\
+A3 & $96{,}00$ & $85$ \\
+B1 & $84{,}00$ & $56$ \\
+C1 & $99{,}50$ & $98$ \\
+C2 & $97{,}75$ & $84$ \\
+D1 & $97{,}05$ & $93$ \\
+E1 & $94{,}22$ & $83$ \\
+F1 & $86{,}94$ & $72$ \\
+G1 & $98{,}73$ & $94$ \\
+\midrule
+\textbf{Global} & $\bm{94{,}00}$ & $\bm{85}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{resultadochave}
+IoU global de $85\,\%$: o segmento predito e o segmento real coincidem em cerca de cinco
+sextos de sua união.
+\end{resultadochave}
+
+O poço B1 merece atenção: $84\,\%$ de acurácia mas apenas $56\,\%$ de IoU. A combinação é
+diagnóstica --- o modelo acerta a maior parte das amostras, mas as fronteiras do
+segmento estão substancialmente deslocadas. Em termos operacionais, o evento é detectado
+e mal delimitado. Como toda a cadeia de explicabilidade depende da delimitação, esse é
+um caso em que a saída deve ser marcada como de baixa confiança.
+
+\section{Avaliação por SoftED}
+
+\subsection{O problema das métricas ponto a ponto}
+
+Considere um evento que começa na amostra 1000. Um detector o sinaliza na amostra 995;
+outro, na 1400. Pela acurácia por amostra, ambos erram --- o primeiro erra cinco
+amostras, o segundo quatrocentas. A diferença entre um sistema que antecipa em cinco
+segundos e um que atrasa em quase sete minutos praticamente desaparece na métrica.
+
+Em detecção de eventos, isso é inaceitável, e o SoftED de \citet{Salles2024softed}
+existe para corrigi-lo, atribuindo crédito parcial a detecções próximas do instante
+verdadeiro dentro de uma tolerância $k$.
+
+\subsection{Resultados}
+
+\begin{table}[htbp]
+\centering
+\caption{Avaliação SoftED com tolerância $k = 1000$ amostras, por poço.}
+\label{tab:seg-softed}
+\small
+\begin{tabular}{lccc}
+\toprule
+\textbf{Poço} & \textbf{Precisão} & \textbf{Revocação} & $\bm{F_1}$ \\
+\midrule
+G1 & $1{,}00$ & $1{,}00$ & $1{,}00$ \\
+A1 & $1{,}00$ & $1{,}00$ & $1{,}00$ \\
+C2 & $1{,}00$ & $1{,}00$ & $1{,}00$ \\
+D1 & $1{,}00$ & $1{,}00$ & $1{,}00$ \\
+F1 & $1{,}00$ & $1{,}00$ & $1{,}00$ \\
+B1 & $1{,}00$ & $0{,}40$ & $0{,}58$ \\
+E1 & $1{,}00$ & $0{,}41$ & $0{,}58$ \\
+A2 & $1{,}00$ & $0{,}30$ & $0{,}46$ \\
+A3 & $0{,}00$ & $1{,}00$ & $0{,}00$ \\
+\midrule
+\textbf{Global} & $\bm{0{,}89}$ & $\bm{0{,}68}$ & $\bm{0{,}74}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Métricas complementares globais: antecedência de detecção de $0{,}22$ e taxa de falso
+positivo de $0{,}11$.
+
+\subsection{Três leituras}
+
+\paragraph{Precisão alta, revocação baixa.} Precisão de $0{,}89$ contra revocação de
+$0{,}68$: quando o sistema aponta um evento, ele quase sempre está certo; mas ele deixa
+passar cerca de um terço dos eventos. Para um sistema de alerta operacional, essa é a
+assimetria preferível --- alarmes falsos destroem a confiança do operador mais
+rapidamente do que eventos perdidos, que ainda podem ser capturados por outros meios.
+Mas $0{,}68$ é um número que precisa melhorar.
+
+\paragraph{Cinco poços perfeitos.} G1, A1, C2, D1 e F1 obtêm $1{,}00$ nas três métricas.
+Metade dos poços é resolvida completamente. Isso indica que o método não tem uma
+limitação intrínseca --- ele falha por razões específicas, em poços específicos, e essas
+razões podem ser investigadas.
+
+\paragraph{Antecedência de $0{,}22$.} O sistema raramente antecipa o evento; ele o
+detecta no momento em que ocorre ou pouco depois. Para eventos de desenvolvimento lento
+--- incrustação, aumento de BSW --- a antecipação seria valiosa e não está sendo obtida.
+
+\subsection{O poço A3, ou como uma métrica revela um problema de dados}
+
+O poço A3 apresenta a combinação mais estranha do livro:
+
+\begin{center}
+\small
+\begin{tabular}{lc}
+\toprule
+Acurácia de segmentação (\cref{tab:seg-comparacao}) & $0{,}951$ \\
+IoU (\cref{tab:seg-iou})                            & $85\,\%$ \\
+SoftED --- revocação                                 & $1{,}00$ \\
+SoftED --- precisão                                  & $\bm{0{,}00}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Um modelo que segmenta com $95\,\%$ de acurácia e $85\,\%$ de IoU, e cuja precisão de
+detecção de evento é exatamente zero. Isso não é um resultado ruim --- é um resultado
+\emph{impossível}, sob a hipótese de que as anotações estão corretas.
+
+\begin{destaque}[O que precisão $0{,}00$ com revocação $1{,}00$ significa]
+Revocação $1{,}00$ indica que todo evento anotado tem uma detecção próxima. Precisão
+$0{,}00$ indica que nenhuma detecção está próxima de um evento anotado. As duas
+afirmações só são simultaneamente verdadeiras se houver \textbf{muitas} detecções, das
+quais apenas algumas caem perto de eventos anotados --- ou se houver um deslocamento
+sistemático maior que a tolerância entre o que o modelo detecta e o que está anotado.
+
+A segunda hipótese é a mais provável, e ela aponta para \emph{desalinhamento da
+anotação} do poço A3, não para falha do modelo. A alta acurácia de segmentação
+corrobora: o modelo encontra consistentemente uma estrutura no sinal --- ela apenas não
+está onde o rótulo diz.
+\end{destaque}
+
+Este é o tipo de achado que justifica reportar múltiplas métricas em vez de uma. Nenhuma
+delas, isoladamente, revelaria o problema; a \emph{contradição} entre elas revela.
+
+\section{Os classificadores binários sobre segmentos}
+
+Com o segmento delimitado, os classificadores binários do \cref{cap:binarios} podem ser
+aplicados a ele, e não à janela inteira. A arquitetura, mais leve por operar sobre um
+segmento já isolado, é:
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{Figure_4.png}
+\caption{Classificador binário aplicado ao segmento identificado, com as dimensões
+efetivas de cada tensor de parâmetros: uma camada recorrente seguida de camadas densas
+decrescentes até uma única saída escalar. A figura mostra a variante com LSTM de 256
+unidades; o número de unidades recorrentes é ajustado por classe.}
+\label{fig:seg-classificador}
+\end{figure}
+
+\begin{center}
+\small
+\begin{tabular}{ll}
+\toprule
+\textbf{Camada} & \textbf{Configuração} \\
+\midrule
+Entrada       & segmento \\
+LSTM(128 a 256) & opcional, conforme a classe \\
+Densa(64)     & + BN + \ing{Dropout} $0{,}3$ \\
+Densa(32)     & + BN + \ing{Dropout} $0{,}2$ \\
+Densa(16)     & + \ing{Dropout} $0{,}1$ \\
+Densa(1)      & sigmoide \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+O desempenho desses classificadores, e sobretudo o efeito do \emph{espaço} em que o
+segmento é representado, é o assunto do \cref{cap:mahalanobis}.
+
+\section{Limitações}
+
+\begin{enumerate}[leftmargin=*,itemsep=0.4em]
+  \item \textbf{Revocação de $0{,}68$}. Um terço dos eventos não é detectado dentro da
+        tolerância.
+  \item \textbf{Antecedência de $0{,}22$}. Praticamente não há detecção antecipada.
+  \item \textbf{Variabilidade entre poços persistente}, ainda que reduzida: IoU de
+        $56\,\%$ em B1 contra $98\,\%$ em C1.
+  \item \textbf{Dependência da qualidade da anotação}, como o caso A3 demonstra de forma
+        contundente.
+  \item \textbf{Segmentação binária}. A U-Net separa normal de anômalo; ela não
+        classifica o tipo de anomalia.
+\end{enumerate}
+
+\resumocapitulo{%
+Trocar detecção por segmentação --- rótulo por amostra em vez de rótulo por janela ---
+produz três ganhos: localização do evento, identificação do instante inicial e, o mais
+importante para o restante do livro, qualidade das estatísticas que alimentarão a
+camada de explicabilidade. A U-Net unidimensional, com codificador de dois níveis,
+gargalo de 128 filtros e conexões de atalho que preservam a resolução temporal, eleva a
+acurácia média de $0{,}500$ para $0{,}863$ e reduz o desvio padrão entre poços de
+$0{,}187$ para $0{,}082$ --- é a redução de variância, mais que o ganho de média, que
+torna o sistema implantável. A interseção sobre união global é de $85\,\%$. A avaliação
+por SoftED, que atribui crédito parcial a detecções próximas do instante verdadeiro,
+dá precisão de $0{,}89$, revocação de $0{,}68$ e medida $F_1$ de $0{,}74$, com cinco dos
+dez poços resolvidos perfeitamente. O poço A3, com revocação $1{,}00$ e precisão
+$0{,}00$ apesar de $95\,\%$ de acurácia de segmentação, revela desalinhamento de
+anotação --- um achado que só a contradição entre métricas distintas torna visível.}
+
+\begin{exercicios}
+\item Calcule o campo receptivo do gargalo da U-Net descrita, considerando núcleos de
+      tamanho 5, duas convoluções por bloco e dois níveis de subamostragem por fator 2.
+      Compare com a duração típica da transição de um fechamento de DHSV.
+
+\item Implemente a U-Net e reproduza a \cref{tab:seg-comparacao}. Em seguida, remova as
+      conexões de atalho e repita. Quantifique a degradação em acurácia e, separadamente,
+      em IoU. Qual das duas métricas é mais sensível à remoção? Por quê?
+
+\item Um modelo obtém acurácia de $0{,}84$ e IoU de $0{,}56$ (poço B1). Construa um
+      exemplo de segmentação predita e real, sobre uma série de mil amostras, compatível
+      com esse par de valores. O que isso revela sobre o erro do modelo?
+
+\item Implemente o SoftED e avalie a sensibilidade dos resultados à tolerância $k$. Trace
+      precisão, revocação e $F_1$ globais em função de $k$, de 100 a 5000. Existe um
+      valor de $k$ além do qual os resultados deixam de mudar? O que ele significa
+      fisicamente?
+
+\item O poço A3 apresenta precisão $0{,}00$ e revocação $1{,}00$. Projete um procedimento
+      automático que detecte esse padrão de contradição entre métricas e sinalize
+      possíveis erros de anotação em um conjunto de dados novo.
+
+\item A antecedência de detecção é de $0{,}22$. Proponha três modificações da arquitetura
+      ou do treinamento que poderiam aumentá-la --- por exemplo, ponderação assimétrica
+      da perda nas amostras iniciais do evento --- e discuta o efeito esperado de cada
+      uma sobre a taxa de falso positivo.
+
+\item A U-Net é aplicada por sensor e as regiões são combinadas depois. Compare essa
+      estratégia com uma U-Net multivariada que recebe os quatro sensores
+      simultaneamente. Que informação cada abordagem preserva e qual descarta? Implemente
+      ambas e compare.
+\end{exercicios}
+
+\begin{leituras}
+\item \citet{Lopes2026OTC} --- o artigo que originou este capítulo.
+\item \citet{Ronneberger2015} --- a U-Net original, cuja motivação em imagens médicas
+      espelha as restrições do problema de poços.
+\item \citet{Salles2024softed} --- a métrica SoftED e a discussão sobre por que métricas
+      ponto a ponto são inadequadas para detecção de eventos.
+\item \citet{VazVargas2026_3w2} --- a versão 2.0 do 3W, com discussão sobre a qualidade das
+      anotações.
+\end{leituras}

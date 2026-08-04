@@ -1,0 +1,474 @@
+\chapter{Superando o mundo fechado}
+\label{cap:closedworld}
+
+\begin{objetivos}
+Ao final deste capítulo, você será capaz de:
+\begin{itemize}[leftmargin=*,itemsep=0.2em]
+  \item conduzir e interpretar um experimento de mundo aberto por classe escondida;
+  \item analisar o compromisso entre comprimento de janela, acurácia e tempo de resposta
+        operacional;
+  \item validar um classificador contra um modelo físico independente e interpretar as
+        discrepâncias;
+  \item estimar o custo computacional de um ensemble e avaliar sua viabilidade em campo;
+  \item posicionar corretamente as limitações de um resultado positivo.
+\end{itemize}
+\end{objetivos}
+
+\section{Do princípio à evidência}
+
+O \cref{cap:binarios} estabeleceu que um ensemble de classificadores binários
+\emph{pode} rejeitar, e mostrou que essa capacidade não custa acurácia. Faltava a parte
+difícil: demonstrar que ela \emph{funciona} quando confrontada com uma classe que o
+sistema realmente nunca viu.
+
+Este capítulo apresenta essa demonstração, junto com três investigações que a
+acompanham: a varredura sistemática do comprimento de janela, a validação contra um
+modelo termodinâmico independente e a análise do custo computacional. É o
+aprofundamento do \cref{cap:binarios} --- mesmos classificadores, perguntas mais duras.
+
+\section{O experimento da classe escondida}
+
+\subsection{Protocolo}
+
+O experimento é conceitualmente simples e metodologicamente decisivo.
+
+\begin{enumerate}[leftmargin=*,itemsep=0.3em]
+  \item Treinam-se classificadores binários para \textbf{seis} classes apenas.
+  \item A classe 8 --- hidrato na linha de produção --- é \textbf{completamente removida}
+        do treinamento. Nenhuma janela dela é vista, em nenhum momento, por nenhum
+        classificador.
+  \item Apresentam-se ao ensemble as instâncias da classe 8.
+  \item Mede-se a fração dessas instâncias para as quais \emph{todos} os seis escores
+        ficam abaixo do limiar.
+\end{enumerate}
+
+A pergunta que o experimento responde não é ``o sistema classifica bem?'', mas
+\textbf{``o sistema sabe que não sabe?''}.
+
+\subsection{Resultado}
+
+\begin{resultadochave}
+$\bm{89\,\%}$ das instâncias da classe escondida foram sinalizadas como ``nenhuma das
+classes treinadas''.
+\end{resultadochave}
+
+A \cref{fig:closed-multiclasse} mostra o que acontece quando o mesmo experimento é feito
+com um classificador multiclasse, e é a ilustração mais direta do problema que este
+livro ataca.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.9\textwidth]{Figure_7.png}
+\caption{Escores de um classificador multiclasse treinado em seis classes, quando
+apresentado às instâncias da classe 8 --- que ele nunca viu. Note a concentração de
+massa próxima de $1{,}0$ para as classes 3, 2 e 5: o modelo não hesita, ele afirma com
+convicção máxima que o hidrato é outra coisa. A restrição
+$\sum_k \hat{p}_k = 1$ não lhe permite outra resposta.}
+\label{fig:closed-multiclasse}
+\end{figure}
+
+\begin{destaque}[O que a figura mostra e o que ela não mostra]
+Ela não mostra um modelo mal treinado. Os picos próximos de $1{,}0$ indicam alta
+confiança, e a alta confiança é apropriada \emph{dentro} do mundo fechado em que o
+modelo foi treinado e avaliado.
+
+O que a figura mostra é que a confiança de um classificador multiclasse não carrega
+informação alguma sobre se a entrada pertence ao domínio para o qual ele foi treinado.
+É um alerta que vale muito além do monitoramento de poços.
+\end{destaque}
+
+\begin{destaque}[Por que este é o resultado central da tese]
+Um classificador multiclasse, no mesmo experimento, teria acertado $0\,\%$ --- não por
+ser mal treinado, mas por construção. A restrição $\sum_k \hat{p}_k = 1$ o obriga a
+distribuir toda a massa de probabilidade entre as seis classes que conhece. A resposta
+``nenhuma delas'' não pertence ao seu espaço de saída.
+
+Os $89\,\%$ não medem, portanto, uma melhoria incremental sobre uma linha de base: eles
+medem a existência de uma capacidade que antes era literalmente inexpressável.
+\end{destaque}
+
+\subsection{Os onze por cento restantes}
+
+Um resultado honesto exige olhar para o complemento. Onze por cento das instâncias de
+hidrato foram atribuídas com confiança a alguma das seis classes conhecidas --- ou seja,
+o sistema afirmou algo falso com convicção.
+
+Em termos operacionais, esse é o modo de falha mais perigoso do sistema. Um alarme
+ausente leva o operador a investigar por conta própria; um diagnóstico errado o leva a
+investigar \emph{na direção errada}. O \cref{cap:operacao} retornará a essa distinção ao
+discutir o projeto da interface.
+
+\begin{destaque}[Uma comparação de escala]
+Vale registrar a ordem de grandeza. Os $89\,\%$ deste experimento contrastam com os
+$52\,\%$ obtidos sobre a anomalia de ICV no \cref{cap:mundoaberto} --- e a diferença é
+instrutiva.
+
+O hidrato tem assinatura física própria e distintiva. A falha de ICV é sintomaticamente
+próxima de classes existentes. A capacidade de rejeição, portanto, não é uma propriedade
+fixa do método: ela depende de quão distinta é a novidade em relação ao que já se
+conhece. Sistemas de mundo aberto detectam melhor o que é mais estranho --- o que é
+tranquilizador e, ao mesmo tempo, é a razão pela qual o número reportado em qualquer
+trabalho da área deve vir acompanhado da identificação da classe escondida.
+\end{destaque}
+
+\section{O comprimento da janela}
+
+\subsection{Um compromisso que não é técnico}
+
+Quanto tempo de sinal é necessário para reconhecer um hidrato? A pergunta parece
+técnica, mas sua resposta é operacional: cada segundo de janela é um segundo de atraso
+na detecção.
+
+A \cref{tab:closed-janelas} apresenta a varredura completa, de \SI{150}{\second} a
+\SI{7500}{\second}, para o classificador binário de hidrato.
+
+\begin{table}[htbp]
+\centering
+\caption{Desempenho do classificador binário de hidrato em função do comprimento da
+janela $T$. FP e FN são as taxas de falso positivo e falso negativo.}
+\label{tab:closed-janelas}
+\small
+\begin{tabular}{rcccccc}
+\toprule
+$\bm{T}$ \textbf{(s)} & \textbf{ACC} & \textbf{PR} & \textbf{REC} & $\bm{F_1}$ &
+\textbf{FP} & \textbf{FN} \\
+\midrule
+150   & $0{,}866$ & $0{,}863$ & $0{,}898$ & $0{,}881$ & $0{,}175$ & $0{,}102$ \\
+300   & $0{,}891$ & $0{,}883$ & $0{,}928$ & $0{,}905$ & $0{,}154$ & $0{,}072$ \\
+600   & $0{,}891$ & $0{,}891$ & $0{,}918$ & $0{,}904$ & $0{,}144$ & $0{,}082$ \\
+900   & $0{,}902$ & $0{,}885$ & $0{,}952$ & $0{,}917$ & $0{,}166$ & $0{,}048$ \\
+1200  & $0{,}898$ & $0{,}893$ & $0{,}937$ & $0{,}915$ & $0{,}157$ & $0{,}063$ \\
+1500  & $0{,}907$ & $0{,}911$ & $0{,}935$ & $0{,}923$ & $0{,}132$ & $0{,}065$ \\
+2250  & $0{,}899$ & $0{,}923$ & $0{,}910$ & $0{,}917$ & $0{,}117$ & $0{,}090$ \\
+3000  & $0{,}930$ & $0{,}949$ & $0{,}941$ & $0{,}945$ & $0{,}090$ & $0{,}059$ \\
+3750  & $0{,}961$ & $0{,}958$ & $0{,}985$ & $0{,}971$ & $0{,}085$ & $0{,}015$ \\
+4500  & $0{,}920$ & $0{,}895$ & $0{,}997$ & $0{,}943$ & $0{,}236$ & $\bm{0{,}003}$ \\
+5250  & $0{,}962$ & $\bm{0{,}977}$ & $0{,}966$ & $0{,}971$ & $\bm{0{,}047}$ & $0{,}034$ \\
+6000  & $0{,}869$ & $0{,}968$ & $0{,}832$ & $0{,}895$ & $0{,}056$ & $0{,}168$ \\
+6750  & $0{,}942$ & $0{,}922$ & $\bm{1{,}000}$ & $0{,}959$ & $0{,}180$ & $\bm{0{,}000}$ \\
+7500  & $\bm{0{,}966}$ & $0{,}958$ & $0{,}994$ & $\bm{0{,}975}$ & $0{,}092$ & $0{,}006$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Três leituras da tabela}
+
+\paragraph{A tendência.} A acurácia cresce de $0{,}866$ para $0{,}966$ ao longo de duas
+ordens de grandeza de $T$. O ganho é real, mas modesto: dez pontos percentuais para um
+aumento de cinquenta vezes no comprimento da janela. E ele não é monótono --- há uma
+queda pronunciada em \SI{6000}{\second} ($0{,}869$), com revocação despencando para
+$0{,}832$.
+
+\begin{destaque}[Sobre a não monotonicidade]
+A queda em \SI{6000}{\second} não deve ser explicada apressadamente. Duas causas
+concorrem. Primeira, janelas mais longas produzem \emph{menos} exemplos de treinamento a
+partir do mesmo conjunto de dados --- a variância da estimativa cresce. Segunda, com
+$T = \SI{6000}{\second}$ a janela passa a conter, frequentemente, tanto o regime normal
+quanto o evento inteiro, e o rótulo agregado torna-se ambíguo.
+
+A lição metodológica: uma varredura de hiperparâmetro que produz curva ruidosa está
+comunicando algo sobre a quantidade de dados, não apenas sobre o hiperparâmetro.
+\end{destaque}
+
+\paragraph{O compromisso entre FP e FN.} As duas últimas colunas revelam um padrão que a
+acurácia esconde. Em \SI{4500}{\second}, a taxa de falso negativo cai para $0{,}003$ ---
+praticamente nenhum hidrato escapa --- mas a de falso positivo sobe para $0{,}236$. Em
+\SI{5250}{\second}, quase o oposto: FP de $0{,}047$ e FN de $0{,}034$.
+
+Qual configuração é melhor? \textbf{A pergunta não tem resposta técnica.} Um hidrato não
+detectado pode custar dias de produção e uma intervenção submarina; um alarme falso custa
+atenção do operador. A razão entre esses custos é uma decisão da operadora, e o papel do
+engenheiro é apresentar a curva, não escolher o ponto.
+
+\paragraph{A leitura operacional.} É a mais importante, e a \cref{tab:closed-tempo} a
+torna explícita.
+
+\begin{table}[htbp]
+\centering
+\caption{Compromisso entre tempo de resposta e acurácia para três comprimentos de janela
+representativos.}
+\label{tab:closed-tempo}
+\begin{tabular}{rcc}
+\toprule
+$\bm{T}$ \textbf{(s)} & \textbf{Tempo de resposta} & \textbf{Acurácia} \\
+\midrule
+150  & $2{,}5$ minutos & $86{,}6\,\%$ \\
+300  & $5$ minutos     & $89{,}1\,\%$ \\
+900  & $15$ minutos    & $90{,}2\,\%$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{resultadochave}
+Reduzir a janela de \SI{900}{\second} para \SI{150}{\second} --- de quinze para dois
+minutos e meio de atraso --- custa apenas $3{,}6$ pontos percentuais de acurácia.
+\end{resultadochave}
+
+Esse número precisa ser confrontado com a física do problema. Segundo \citet{VARGAS2019},
+o tempo característico de resposta a um evento de hidrato varia de \textbf{trinta
+minutos a cinco horas}. Ou seja: mesmo a configuração mais lenta da tabela detecta o
+evento em uma fração do tempo disponível para agir.
+
+\begin{destaque}[A conclusão que inverte a intuição]
+O gargalo do sistema não é o tempo de detecção. É a confiabilidade do diagnóstico.
+
+Otimizar por latência, neste problema, é otimizar a variável errada. É por isso que o
+restante deste livro investe em segmentação precisa (\cref{cap:segmentacao}), em
+detecção de novidade confiável (\cref{cap:mahalanobis}) e em explicabilidade
+(\cref{parte:explicabilidade}) --- e não em inferência mais rápida.
+\end{destaque}
+
+\section{Validação contra um modelo físico}
+
+\subsection{A ideia}
+
+Comparar um classificador com outro classificador diz pouco: ambos podem estar
+compartilhando os mesmos vieses do conjunto de dados. Comparar um classificador com um
+\textbf{modelo termodinâmico independente} é outra coisa --- o modelo físico não foi
+treinado em dado nenhum e não conhece o 3W.
+
+\subsection{O modelo de Motiee}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{Figure_9.png}
+\caption{Arquitetura de validação cruzada entre modelo físico e modelo aprendido. Os
+mesmos valores de sensor alimentam dois caminhos independentes --- a análise
+pressão--temperatura contra a envoltória de formação de hidrato e o classificador
+binário --- cujos resultados são então confrontados antes de gerar o alerta.}
+\label{fig:closed-arquitetura}
+\end{figure}
+
+A correlação de \citet{montie1991} estima a temperatura de formação de hidrato
+$T_{\text{hid}}$ a partir da pressão $P$ e da densidade relativa do gás $q$:
+\begin{equation}
+\begin{split}
+  T_{\text{hid}} = {} & -238{,}245 + 78{,}99\,P - 5{,}35\,P^2 \\
+                      & + 349{,}4738\,q - 151{,}05\,q^2 - 27{,}60\,Pq.
+\end{split}
+\label{eq:motiee}
+\end{equation}
+
+A partir dela define-se um índice de proximidade da condição de hidrato,
+\begin{equation}
+  C_{\text{hid}} = 100 \, \frac{T - T_{\text{hid}}}{T},
+  \label{eq:chid}
+\end{equation}
+onde $T$ é a temperatura medida. Valores negativos ou próximos de zero indicam operação
+dentro ou junto da envoltória de formação. A curva pressão--temperatura de referência é a
+de \citet{Safamirzaei2015}.
+
+\begin{exemplo}{Usando a \cref{eq:motiee} na prática}
+Considere um trecho de linha operando a $P = \SI{7}{\mega\pascal}$ com gás de densidade
+relativa $q = 0{,}65$ e temperatura medida $T = \SI{14}{\celsius}$.
+
+Aplicando a \cref{eq:motiee}, obtém-se uma temperatura de formação
+$T_{\text{hid}}$ da ordem de \SI{12}{\celsius}. Pela \cref{eq:chid},
+$C_{\text{hid}} \approx 100 \times (14 - 12)/14 \approx 14\,\%$ --- ou seja, o sistema
+opera com margem térmica de aproximadamente catorze por cento acima da condição de
+formação.
+
+Uma queda de dois graus na temperatura da linha, perfeitamente possível durante uma
+parada, levaria $C_{\text{hid}}$ a zero. É esse tipo de raciocínio de margem que o
+modelo analítico oferece e que um classificador, por si só, não comunica.
+\end{exemplo}
+
+\subsection{Resultado da comparação}
+
+\begin{table}[htbp]
+\centering
+\caption{Classificador binário de hidrato \emph{versus} critério analítico baseado na
+correlação de Motiee.}
+\label{tab:closed-analitico}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Métrica} & \textbf{Classificador binário} & \textbf{Critério analítico} \\
+\midrule
+Acurácia            & $\bm{90{,}02\,\%}$ & $76{,}60\,\%$ \\
+Falsos positivos    & $16{,}80\,\%$      & $18{,}61\,\%$ \\
+Falsos negativos    & $\bm{4{,}80\,\%}$  & $20{,}10\,\%$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{resultadochave}
+O classificador supera o critério analítico em treze pontos percentuais de acurácia. A
+diferença concentra-se nos falsos negativos: $4{,}8\,\%$ contra $20{,}1\,\%$ --- uma
+redução de quatro vezes.
+\end{resultadochave}
+
+\subsection{Interpretando a diferença}
+
+Por que o modelo físico perde? Não por estar errado. A correlação de Motiee descreve
+corretamente a \emph{condição termodinâmica de formação} de hidrato. O que ela não
+descreve é a \emph{cinética}: a formação leva tempo, depende da presença de água livre,
+de nucleação, de histórico de escoamento e de eventual injeção de inibidor.
+
+Um trecho pode estar dentro da envoltória por horas sem formar hidrato; outro pode formar
+com margem aparentemente confortável, se houver acúmulo de água. O modelo analítico
+responde ``é termodinamicamente possível?''; o classificador aprende a responder ``está
+acontecendo?''.
+
+\begin{destaque}[Complementaridade, não substituição]
+As taxas de falso positivo são quase idênticas --- $16{,}8\,\%$ e $18{,}6\,\%$ --- o que
+sugere que ambos os métodos são igualmente conservadores ao alertar. A diferença está
+inteiramente na detecção.
+
+A arquitetura sensata não escolhe entre os dois. O modelo analítico fornece contexto
+físico interpretável --- a margem de $C_{\text{hid}}$ --- que o classificador não produz;
+o classificador fornece a sensibilidade que o modelo não tem. O
+\cref{cap:agente} retomará essa ideia em outro registro, ao alimentar o agente de
+linguagem com conhecimento de domínio explícito.
+\end{destaque}
+
+Vale ainda notar que esta validação é possível apenas para o hidrato, porque apenas ele
+dispõe de um modelo físico fechado e bem estabelecido. Para golfadas, incrustação ou
+falha de ICV não há equivalente --- e essa é uma limitação da estratégia de validação,
+não do classificador.
+
+\subsection{A complementaridade na tela do operador}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{Figure_10.png}
+\caption{Painel operacional com os dois indicadores lado a lado. À direita, a curva de
+formação de hidrato com o ponto de operação atual; abaixo, os dois medidores de risco:
+o analítico (PVT), em $19{,}71\,\%$, e o aprendido (IA), em $0{,}00\,\%$. Os dois números
+respondem a perguntas diferentes e são apresentados sem tentativa de fundi-los em um só.}
+\label{fig:closed-painel}
+\end{figure}
+
+A \cref{fig:closed-painel} materializa a recomendação da seção anterior. A decisão de
+projeto --- exibir os dois riscos separadamente, em vez de combiná-los em um índice
+único --- é deliberada. Um risco analítico de $19{,}71\,\%$ com risco aprendido nulo
+comunica ao operador algo específico e acionável: \emph{as condições termodinâmicas se
+aproximam da envoltória, mas ainda não há assinatura de formação}. Um índice combinado
+de, digamos, $10\,\%$ destruiria essa informação.
+
+\begin{destaque}[Fundir indicadores é perder informação]
+A tentação de reduzir múltiplos indicadores a um número único é forte, e quase sempre
+equivocada em contextos de decisão especializada. Dois indicadores que discordam são
+informativos precisamente por discordarem. O \cref{cap:operacao} desenvolverá esse
+princípio ao discutir o projeto do painel do operador.
+\end{destaque}
+
+\section{Custo computacional}
+
+O argumento recorrente contra ensembles é o custo. Convém quantificá-lo.
+
+\begin{table}[htbp]
+\centering
+\caption{Custo computacional por inferência, para janela de \SI{900}{\second}.}
+\label{tab:closed-custo}
+\begin{tabular}{lcc}
+\toprule
+& \textbf{Memória} & \textbf{Latência} \\
+\midrule
+Um classificador binário   & $\approx \SI{2,3}{\mega\byte}$ & $\approx \SI{45}{\milli\second}$ \\
+Ensemble de nove           & $\approx \SI{21}{\mega\byte}$  & $\approx \SI{405}{\milli\second}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{resultadochave}
+O ensemble completo ocupa cerca de \SI{21}{\mega\byte} e responde em cerca de
+\SI{405}{\milli\second} --- para um evento cujo tempo característico de resposta é de
+trinta minutos a cinco horas.
+\end{resultadochave}
+
+A margem é de três a quatro ordens de grandeza. Cabe em um computador industrial
+embarcado, e o custo de multiplicar por nove --- que parecia uma objeção séria no
+\cref{cap:binarios} --- revela-se irrelevante.
+
+\begin{destaque}[Uma observação sobre argumentos de eficiência]
+Este é um caso em que a quantificação encerra o debate. Objeções de custo computacional
+devem ser sempre confrontadas com a escala de tempo do processo monitorado. Em
+monitoramento de poços, com constantes de tempo de minutos a horas, praticamente
+qualquer modelo que caiba na memória disponível é rápido o bastante. A engenharia deve
+ser gasta em outro lugar.
+\end{destaque}
+
+\section{Limitações}
+
+\begin{enumerate}[leftmargin=*,itemsep=0.4em]
+
+\item \textbf{Uma única classe escondida.} O experimento foi feito removendo a classe 8.
+Não se sabe se $89\,\%$ se sustentaria com outra classe --- e a comparação com os
+$52\,\%$ da ICV no \cref{cap:mundoaberto} sugere fortemente que não.
+
+\item \textbf{Detecção sem localização.} O sistema classifica a janela inteira. Não diz
+onde, dentro dela, o evento começa. É a lacuna que o \cref{cap:segmentacao} preenche.
+
+\item \textbf{Rejeição sem organização.} Rejeitar é o primeiro passo; o
+\cref{cap:mundoaberto} mostrou o que vem depois, e mostrou também que essa etapa é a
+mais frágil da cadeia.
+
+\item \textbf{Rejeição sem explicação.} O sistema diz ``desconhecido'' sem dizer por quê.
+É a \cref{parte:explicabilidade}.
+
+\item \textbf{Validação física restrita ao hidrato.} As demais classes não dispõem de
+modelo independente contra o qual comparar.
+
+\end{enumerate}
+
+\resumocapitulo{%
+O experimento decisivo do princípio de mundo aberto consiste em treinar o ensemble sobre
+seis classes, esconder completamente a classe 8 --- hidrato na produção --- e verificar
+se suas instâncias são reconhecidas como desconhecidas: $89\,\%$ delas são, contra
+$0\,\%$ que um classificador multiclasse obteria por construção. A varredura do
+comprimento de janela, de \SI{150}{\second} a \SI{7500}{\second}, mostra ganho modesto e
+não monótono ($0{,}866$ a $0{,}966$) e revela que reduzir a janela de quinze para dois
+minutos e meio custa apenas $3{,}6$ pontos percentuais --- irrelevante frente ao tempo
+característico de resposta ao hidrato, de trinta minutos a cinco horas. O gargalo,
+portanto, não é a latência, mas a confiabilidade. A validação contra a correlação
+termodinâmica de Motiee dá ao classificador $90{,}02\,\%$ de acurácia contra $76{,}60\,\%$
+do critério analítico, com falsos negativos de $4{,}8\,\%$ contra $20{,}1\,\%$: o modelo
+físico descreve a condição de formação, o classificador aprende a ocorrência. O custo do
+ensemble --- \SI{21}{\mega\byte} e \SI{405}{\milli\second} --- é três ordens de grandeza
+menor que a escala de tempo do processo, encerrando a objeção de eficiência.}
+
+\begin{exercicios}
+\item Repita o experimento da classe escondida para cada uma das nove classes,
+      reportando a taxa de rejeição em cada caso. Correlacione os resultados com alguma
+      medida de distinção da assinatura --- por exemplo, a distância entre centroides no
+      espaço latente. A hipótese de que ``a rejeição depende de quão estranha é a
+      novidade'' se sustenta?
+
+\item A \cref{tab:closed-janelas} mostra queda de acurácia em \SI{6000}{\second}.
+      Projete dois experimentos que discriminem entre as duas explicações oferecidas
+      (menos exemplos de treinamento \emph{versus} rótulo agregado ambíguo).
+
+\item Para $T = \SI{4500}{\second}$, FP $= 0{,}236$ e FN $= 0{,}003$; para
+      $T = \SI{5250}{\second}$, FP $= 0{,}047$ e FN $= 0{,}034$. Formule o problema de
+      escolha como minimização de custo esperado, atribua custos plausíveis a um hidrato
+      não detectado e a um alarme falso, e determine para que razão de custos cada
+      configuração é preferível.
+
+\item Implemente a \cref{eq:motiee} e a \cref{eq:chid} e aplique-as às instâncias das
+      classes 8 e 9 do 3W. Reproduza a \cref{tab:closed-analitico}. Em seguida, examine
+      os casos em que o critério analítico erra e o classificador acerta: há padrão?
+
+\item O modelo analítico e o classificador têm taxas de falso positivo semelhantes mas
+      taxas de falso negativo muito distintas. Proponha três formas de combiná-los ---
+      conjunção, disjunção e voto ponderado --- e avalie cada uma quanto a FP, FN e
+      interpretabilidade.
+
+\item Estime o custo computacional do ensemble para os duzentos e cinquenta poços
+      mencionados no \cref{cap:dual}, supondo inferência a cada \SI{60}{\second}. Discuta
+      arquiteturas de implantação: inferência na plataforma, em terra, ou híbrida.
+
+\item Argumente a favor e contra a seguinte afirmação: ``o resultado de $89\,\%$ é
+      superestimado porque a classe 8 tem assinatura particularmente distintiva''. Que
+      evidência adicional resolveria a disputa?
+\end{exercicios}
+
+\begin{leituras}
+\item \citet{Lopes2026PST} --- o artigo que originou este capítulo.
+\item \citet{LopesTese2025} --- a tese, para o contexto completo.
+\item \citet{montie1991} e \citet{Safamirzaei2015} --- as correlações termodinâmicas
+      usadas na validação independente.
+\item \citet{VARGAS2019} --- a descrição do 3W e dos tempos característicos de cada
+      evento.
+\item \citet{Scheirer2013} --- a formalização do risco de espaço aberto, que dá suporte
+      teórico ao experimento da classe escondida.
+\end{leituras}

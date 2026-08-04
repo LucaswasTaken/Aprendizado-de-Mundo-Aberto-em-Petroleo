@@ -1,0 +1,454 @@
+\chapter{Roteiro prático com o repositório 3W}
+\label{cap:pratica}
+
+Todos os conceitos da \cref{parte:fundamentos} podem ser exercitados sobre o próprio 3W,
+com código público. Este apêndice descreve o recurso
+\emph{Introduction to Machine Learning Applied to Multivariate Time Series}
+\citep{Lopes2026Intro3W}, disponível no repositório oficial do projeto
+\citep{Petrobras3W}, e mapeia cada um de seus cadernos aos capítulos do livro.
+
+O recurso foi apresentado no 4º Workshop on 3W e é destinado a ensino: cursos,
+oficinas e disciplinas de aprendizado de máquina aplicado a séries temporais
+multivariadas.
+
+\begin{destaque}[O que este apêndice é e o que não é]
+Não é uma reprodução dos experimentos do livro --- esses estão no
+\cref{cap:reproducao}. É um \emph{roteiro de aprendizagem}: um caminho executável que
+leva o leitor dos dados brutos do 3W até um autoencoder LSTM, um conjunto de
+classificadores e três algoritmos de agrupamento, com configurações deliberadamente
+reduzidas para caber no tempo de uma aula.
+
+As diferenças em relação às configurações do livro são intencionais e estão listadas na
+\cref{sec:pratica-diferencas}.
+\end{destaque}
+
+\section{Estrutura do recurso}
+
+\begin{table}[htbp]
+\centering
+\caption{Cadernos do recurso e sua correspondência com os capítulos do livro.}
+\label{tab:pratica-mapa}
+\small
+\begin{tabular}{p{4.4cm}p{4.2cm}p{4.0cm}}
+\toprule
+\textbf{Caderno} & \textbf{Conteúdo} & \textbf{Capítulos} \\
+\midrule
+\texttt{1\_data\_treatment} &
+Carga, escalonamento, janelamento e validação cruzada &
+\cref{cap:dados} \\
+\addlinespace
+\texttt{2\_visualization\_techniques} &
+Redução de dimensionalidade e separabilidade de classes &
+\cref{cap:dados,cap:novidades} \\
+\addlinespace
+\texttt{3\_introduction\_to\_unsu\-pervised\_learning} &
+Autoencoder LSTM, limiar de reconstrução e OCSVM &
+\cref{cap:profundo,cap:novidades,cap:dual} \\
+\addlinespace
+\texttt{4\_introduction\_to\_super\-vised\_learning} &
+Árvores, florestas, SVM e redes densas &
+\cref{cap:aprendizado,cap:binarios} \\
+\addlinespace
+\texttt{5\_clustering\_methods} &
+$K$-médias, DBSCAN e MeanShift, com índices de qualidade &
+\cref{cap:novidades,cap:mundoaberto} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+O código de apoio fica em \texttt{src/}, com treze módulos. Toda a parametrização está
+centralizada em \texttt{src/config.py}, o que permite alterar o experimento sem tocar nos
+cadernos.
+
+\section{Instalação}
+
+\begin{lstlisting}
+conda env create -f environment.yml
+conda activate 3W-ml-mts
+jupyter notebook
+\end{lstlisting}
+
+O arquivo \texttt{environment.yml} local, dentro da pasta do recurso, fixa as versões dos
+pacotes. Usá-lo é o que garante que os resultados sejam consistentes entre execuções e
+entre máquinas.
+
+Verificação de que os dados foram preparados:
+
+\begin{lstlisting}
+from src.data_persistence import DataPersistence
+from src import config
+
+persistence = DataPersistence(base_dir=config.PROCESSED_DATA_DIR)
+print(persistence.check_windowed_data())
+print(persistence.check_raw_data())
+\end{lstlisting}
+
+\section{Configuração central}
+\label{sec:pratica-config}
+
+\begin{lstlisting}
+TARGET_FEATURES        = ["P-PDG", "P-TPT", "T-TPT", "class"]
+MAX_FILES_PER_CLASS    = 50        # ~4 a 5 GB de RAM
+DEFAULT_SCALING_METHOD = "minmax"  # standard | minmax | robust | normalizer
+RANDOM_SEED            = 42
+
+ENABLE_DATA_SAMPLING   = True
+SAMPLING_RATE          = 5         # mantem 1 linha a cada 5
+
+N_FOLDS                = 3
+WINDOW_SIZE            = 300
+WINDOW_STRIDE          = 150       # janelas com 50% de sobreposicao
+MIN_WINDOW_SIZE        = 300       # descarta janelas incompletas
+\end{lstlisting}
+
+\begin{destaque}[Três parâmetros que mudam a natureza do experimento]
+\textbf{\texttt{SAMPLING\_RATE = 5}} reduz a frequência efetiva de amostragem em cinco
+vezes. Uma janela de 300 pontos passa a cobrir \SI{1500}{\second} de operação, e não
+\SI{300}{\second}. Ao comparar com os números do livro, é esse tempo coberto --- e não a
+contagem de pontos --- que deve ser confrontado.
+
+\textbf{\texttt{WINDOW\_STRIDE = 150}} produz sobreposição de $50\,\%$. Com partição
+aleatória, isso vazaria informação entre treino e teste; o recurso evita o problema
+particionando por instância, e não por janela.
+
+\textbf{\texttt{MAX\_FILES\_PER\_CLASS = 50}} é o parâmetro que controla o consumo de
+memória. É o primeiro a ajustar quando o caderno 1 falha.
+\end{destaque}
+
+\section{Caderno 1: tratamento de dados}
+
+Corresponde ao \cref{cap:dados}. Executa quatro etapas.
+
+\begin{enumerate}[leftmargin=*,itemsep=0.3em]
+  \item \textbf{Carga} dos arquivos Parquet do 3W, com limite por classe.
+  \item \textbf{Comparação de escalonamentos} --- padronização, Min-Max, robusto e
+        normalizador --- sobre as mesmas séries.
+  \item \textbf{Validação cruzada com separação entre real e simulado.}
+  \item \textbf{Janelamento} para modelos de sequência, produzindo tensores de forma
+        $(n_{\text{janelas}}, 300, 3)$.
+\end{enumerate}
+
+\subsection{A separação entre real e simulado}
+
+A classe \texttt{CrossValidator} implementa uma política explícita:
+
+\begin{quote}
+\emph{o treinamento usa todos os dados disponíveis --- reais e simulados --- e o teste usa
+apenas dados reais.}
+\end{quote}
+
+\begin{destaque}[Uma política diferente da adotada no livro]
+O \cref{cap:reproducao} descreve outra escolha: incluir instâncias simuladas apenas nas
+classes com menos de trinta instâncias reais, e excluir sempre as desenhadas.
+
+As duas políticas são defensáveis e respondem a preocupações distintas. A do recurso
+maximiza o volume de treinamento e preserva a honestidade da avaliação; a do livro
+minimiza a contaminação do treinamento por idealizações.
+
+O que \emph{não} é defensável --- e é comum na literatura --- é misturar as três
+procedências sem declarar. Comparar as duas políticas sobre o mesmo conjunto é um
+exercício instrutivo, e está proposto ao final deste apêndice.
+\end{destaque}
+
+\section{Caderno 2: técnicas de visualização}
+
+Corresponde às discussões de projeção do \cref{cap:novidades}. As janelas são achatadas
+--- de $(300, 3)$ para um vetor --- e projetadas em duas dimensões por t-SNE e UMAP, com
+quatro configurações cada:
+
+\begin{table}[htbp]
+\centering
+\caption{Configurações de projeção avaliadas no caderno 2.}
+\label{tab:pratica-projecao}
+\small
+\begin{tabular}{llp{5.2cm}}
+\toprule
+\textbf{Método} & \textbf{Parâmetros} & \textbf{Efeito pretendido} \\
+\midrule
+t-SNE & perplexidade 30, taxa 200 & Configuração padrão \\
+t-SNE & perplexidade 10, taxa 100 & Ênfase na estrutura local \\
+t-SNE & perplexidade 50, taxa 300 & Ênfase na estrutura global \\
+t-SNE & perplexidade 30, taxa 500 & Convergência rápida \\
+\addlinespace
+UMAP & 15 vizinhos, dist.\ mín.\ 0,1 & Configuração padrão \\
+UMAP & 5 vizinhos, dist.\ mín.\ 0,0 & Agrupamentos compactos \\
+UMAP & 50 vizinhos, dist.\ mín.\ 0,5, métrica cosseno & Estrutura global \\
+UMAP & 30 vizinhos, dist.\ mín.\ 0,25, métrica Manhattan & Configuração robusta \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{destaque}[Por que quatro configurações, e não uma]
+Este é o ponto pedagógico do caderno. Ao ver a mesma nuvem de pontos organizada de quatro
+maneiras diferentes conforme a perplexidade, o leitor internaliza que
+\textbf{a projeção é uma escolha, não uma medida}.
+
+Todas as ressalvas do \cref{cap:novidades} sobre interpretar distâncias em projeções não
+lineares ficam concretas aqui, e é bem mais eficaz vê-las do que lê-las. A mesma cautela
+se aplica às figuras de espaço latente dos \cref{cap:mundoaberto,cap:mahalanobis}.
+\end{destaque}
+
+\section{Caderno 3: aprendizado não supervisionado}
+
+Corresponde aos \cref{cap:profundo,cap:dual}. Treina um autoencoder LSTM sobre janelas da
+classe 0 e usa o erro de reconstrução como escore de anomalia.
+
+\subsection{A arquitetura}
+
+\begin{lstlisting}
+from src.autoencoder_models import StableLSTMAutoencoder
+
+ae = StableLSTMAutoencoder(
+    time_steps=300,
+    n_features=3,
+    latent_dim=16,
+    lstm_units=64,
+)
+ae.build_model()
+\end{lstlisting}
+
+\begin{table}[htbp]
+\centering
+\caption{Decisões de estabilidade numérica no autoencoder do caderno 3.}
+\label{tab:pratica-ae}
+\small
+\begin{tabular}{p{4.0cm}p{8.0cm}}
+\toprule
+\textbf{Decisão} & \textbf{Motivo} \\
+\midrule
+Ativação \texttt{tanh} nas LSTM & Mais estável que ReLU em recorrentes; evita
+divergência do estado interno \\
+\addlinespace
+Inicialização ortogonal nos pesos recorrentes & Preserva a norma do estado ao longo dos
+300 passos \\
+\addlinespace
+Recorte de gradiente (\texttt{clipnorm=1{,}0}) & Contém o gradiente explosivo típico de
+sequências longas \\
+\addlinespace
+Taxa de aprendizado \num{0.0005} & Conservadora; troca velocidade por convergência
+confiável \\
+\addlinespace
+Saída sigmoide & Casa com o intervalo $[0,1]$ produzido pelo escalonamento Min-Max \\
+\addlinespace
+Sementes fixas nos inicializadores & Reprodutibilidade entre execuções \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{destaque}[Estabilidade não é detalhe de implementação]
+Todas as linhas da \cref{tab:pratica-ae} existem porque a alternativa falha. Um
+autoencoder LSTM sobre 300 passos com ativação ReLU e sem recorte de gradiente diverge
+com frequência, e a falha se manifesta como perda que vira NaN no meio do treinamento ---
+sintoma que o iniciante costuma atribuir aos dados.
+
+O sistema do \cref{cap:dual}, que opera em campo, adotou ReLU e funcionou por trabalhar
+com um gargalo muito mais estreito, de apenas quatro dimensões. A lição é que essas
+escolhas interagem, e nenhuma delas é universalmente correta.
+\end{destaque}
+
+\subsection{O limiar}
+
+\begin{lstlisting}
+from src.anomaly_detection import AnomalyDetector
+
+detector = AnomalyDetector()
+detector.compute_reconstruction_errors(ae, normal_data, anomaly_data)
+detector.determine_threshold(method="percentile", percentile=95)
+metrics = detector.evaluate_detection()
+\end{lstlisting}
+
+Duas políticas estão implementadas: percentil dos erros normais, e $\mu + 2\sigma$. São
+exatamente as duas alternativas discutidas nos \cref{cap:dual,cap:mahalanobis} --- ali com
+$k = 3$ e com o percentil 95, respectivamente. Comparar as duas sobre os mesmos erros é
+uma forma direta de ver que a escolha do limiar move o compromisso entre detecção e
+alarme falso muito mais do que a escolha da arquitetura.
+
+\subsection{A alternativa geométrica}
+
+O módulo \texttt{unsupervised\_preprocessing} traz a máquina de vetores de suporte de uma
+classe como comparação:
+
+\begin{lstlisting}
+from src.unsupervised_preprocessing import DistanceAnomalyDetector
+
+ocsvm = DistanceAnomalyDetector(nu=0.05, gamma="scale", kernel="rbf")
+ocsvm.fit(normal_data)
+\end{lstlisting}
+
+A implementação achata a janela para um vetor de $300 \times 3$ posições e encadeia
+padronização e OCSVM. É a mesma família de método que, no \cref{cap:binarios}, obteve
+$0{,}65$ de acurácia contra $0{,}87$ do ensemble binário --- e a razão desse desempenho
+fica evidente ao inspecionar a dimensão do vetor achatado.
+
+\section{Caderno 4: aprendizado supervisionado}
+
+Corresponde ao \cref{cap:aprendizado}. Treina e compara seis modelos clássicos.
+
+\begin{table}[htbp]
+\centering
+\caption{Modelos supervisionados do caderno 4.}
+\label{tab:pratica-supervisionado}
+\small
+\begin{tabular}{llp{5.6cm}}
+\toprule
+\textbf{Família} & \textbf{Modelo} & \textbf{Configuração} \\
+\midrule
+\multirow{2}{*}{Árvores}
+& Árvore de decisão & profundidade 10; mínimo de 20 para dividir, 10 por folha \\
+& Floresta aleatória & 100 árvores; profundidade 15; mínimo de 10 e 5 \\
+\midrule
+\multirow{2}{*}{SVM}
+& Núcleo linear & $C = 1{,}0$ \\
+& Núcleo RBF & $C = 1{,}0$; $\gamma$ automático \\
+\midrule
+\multirow{3}{*}{Redes densas}
+& Rasa & uma camada de 100 unidades \\
+& Profunda & camadas de 200, 100 e 50 \\
+& Regularizada & camadas de 150 e 100 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+O experimento padrão usa as classes $\{0, 3, 4, 8\}$ --- normal, golfadas severas,
+instabilidade de fluxo e hidrato na linha de produção. O balanceamento do treinamento é
+feito por estratégia combinada de sobre e subamostragem, com teto de mil amostras por
+classe; o conjunto de teste não é balanceado.
+
+\begin{destaque}[Balancear o treino e não balancear o teste]
+Essa assimetria é deliberada e frequentemente invertida por engano.
+
+Balancear o treino ajuda o modelo a aprender as classes raras. Balancear o teste
+\emph{altera a pergunta}: passa-se a medir o desempenho sob uma distribuição que não
+existe em operação. Como o \cref{cap:aprendizado} argumenta, é a acurácia balanceada ---
+e não a reamostragem do teste --- o instrumento correto para lidar com desbalanceamento
+na avaliação.
+
+Note ainda que a classe 4 está entre as selecionadas. É a classe sintomática que aparece
+no fundo de todas as tabelas do livro. Ver isso acontecer com uma floresta aleatória, em
+uma execução de poucos minutos, é a forma mais econômica de entender o argumento do
+\cref{cap:sintese} sobre taxonomia.
+\end{destaque}
+
+\section{Caderno 5: métodos de agrupamento}
+
+Corresponde aos \cref{cap:novidades,cap:mundoaberto}. Opera sobre as séries brutas,
+redimensionadas para 500 pontos, e aplica três algoritmos.
+
+\begin{table}[htbp]
+\centering
+\caption{Algoritmos de agrupamento do caderno 5.}
+\label{tab:pratica-agrupamento}
+\small
+\begin{tabular}{lp{4.0cm}p{5.0cm}}
+\toprule
+\textbf{Algoritmo} & \textbf{Seleção de parâmetros} & \textbf{Observação} \\
+\midrule
+$K$-médias & Cotovelo e silhueta sobre uma faixa de $K$ &
+Comparado em espaço escalonado e em 50 componentes principais \\
+\addlinespace
+MeanShift & Largura de banda estimada dos dados &
+Produz o número de grupos sem que ele seja informado \\
+\addlinespace
+DBSCAN & Varredura de $\varepsilon$ com curva de $k$-distância, $k = 4$ &
+Único que rotula pontos como ruído \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+A avaliação usa silhueta e índice de Rand ajustado, além de uma rotina de interpretação
+que associa cada grupo à classe dominante e produz uma leitura operacional.
+
+\begin{destaque}[Reconhecendo o \cref{cap:mundoaberto} em escala reduzida]
+O caderno 5 é o ciclo de mundo aberto sem a etapa de rejeição: agrupa, avalia a coesão e
+tenta interpretar cada grupo.
+
+Ao executá-lo, o leitor encontra --- em minutos, e por conta própria --- os dois achados
+que estruturam o \cref{cap:mundoaberto}: a silhueta é baixa no espaço bruto, e o número
+de grupos que os índices sugerem raramente coincide com o número de classes.
+
+O \cref{cap:mahalanobis} explica por quê. Executar antes de ler torna a explicação bem
+mais convincente.
+\end{destaque}
+
+\section{Diferenças em relação às configurações do livro}
+\label{sec:pratica-diferencas}
+
+\begin{table}[htbp]
+\centering
+\caption{Principais diferenças entre o recurso didático e os experimentos do livro.}
+\label{tab:pratica-diferencas}
+\small
+\begin{tabular}{p{3.2cm}p{3.9cm}p{4.5cm}}
+\toprule
+\textbf{Aspecto} & \textbf{Recurso} & \textbf{Livro} \\
+\midrule
+Sensores & Três (P-PDG, P-TPT, T-TPT) &
+Quatro ou cinco, conforme o capítulo \\
+\addlinespace
+Janela & 300 pontos, subamostrados a 1:5 &
+200 a 500 pontos na frequência original \\
+\addlinespace
+Instâncias por classe & Até 50 arquivos &
+Todas as disponíveis \\
+\addlinespace
+Partição & Três dobras; treino com real e simulado, teste só com real &
+Partição temporal $80/20$; simulado só em classes escassas \\
+\addlinespace
+Latente do autoencoder & 16 dimensões, 64 unidades LSTM &
+4 a 128 dimensões, conforme o capítulo \\
+\addlinespace
+Classes & Subconjunto $\{0,3,4,8\}$ &
+Todas as dez \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{destaque}[As diferenças são o próprio material didático]
+Cada linha da \cref{tab:pratica-diferencas} é uma decisão que o leitor pode reverter
+alterando \texttt{src/config.py} e reexecutando.
+
+Medir o efeito de cada reversão --- quanto se ganha ao passar de três para cinco sensores,
+quanto se perde ao subamostrar --- ensina mais sobre séries temporais multivariadas do que
+qualquer tabela de resultados prontos. É por isso que o recurso centraliza a
+parametrização em um único arquivo.
+\end{destaque}
+
+\section{Exercícios guiados}
+
+\begin{exercicios}
+\item Execute o caderno 1 com os quatro métodos de escalonamento disponíveis e compare a
+      distribuição resultante de cada sensor. Qual método preserva melhor os valores
+      extremos que caracterizam as anomalias?
+
+\item Altere \texttt{SAMPLING\_RATE} de 5 para 1 e reexecute o caderno 3. O erro de
+      reconstrução melhora ou piora? Separe o efeito do aumento de resolução do efeito da
+      mudança no tempo coberto pela janela.
+
+\item Implemente, no caderno 1, a política de procedência adotada no
+      \cref{cap:reproducao} --- excluir instâncias desenhadas e incluir simuladas apenas
+      nas classes escassas --- e compare os resultados do caderno 4 sob as duas políticas.
+
+\item Compare, no caderno 3, o limiar por percentil 95 e o limiar $\mu + 2\sigma$ sobre os
+      mesmos erros de reconstrução. Construa a curva ROC e localize os dois limiares
+      sobre ela.
+
+\item Execute o caderno 4 com \texttt{selected\_classes = None} e compare o desempenho das
+      classes 4 e 5 com o das demais. O padrão descrito no \cref{cap:sintese} se
+      reproduz?
+
+\item Substitua, no caderno 5, o espaço de entrada pelo espaço latente do autoencoder
+      treinado no caderno 3, e recalcule silhueta e índice de Rand ajustado. Compare com
+      os valores da \cref{tab:mahal-qualidade}.
+
+\item Estenda o caderno 3 para extrair a penúltima camada de um dos classificadores do
+      caderno 4 e calcular a distância de Mahalanobis nesse espaço. Você consegue
+      reproduzir, em escala reduzida, o salto descrito no \cref{cap:mahalanobis}?
+\end{exercicios}
+
+\begin{leituras}
+\item \citet{Lopes2026Intro3W} --- o recurso descrito neste apêndice, com os cinco
+      cadernos e a gravação do workshop.
+\item \citet{Petrobras3W} --- o repositório oficial, com o conjunto de dados, o 3W Toolkit
+      e os demais recursos da comunidade.
+\item \citet{VazVargas2026_3w2} --- a descrição formal da versão 2.0.0 do conjunto.
+\end{leituras}

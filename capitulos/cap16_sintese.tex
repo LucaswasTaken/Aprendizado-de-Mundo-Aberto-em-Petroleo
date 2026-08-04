@@ -1,0 +1,433 @@
+\chapter{Síntese: uma arquitetura de referência}
+\label{cap:sintese}
+
+\begin{objetivos}
+Ao final deste capítulo, você será capaz de:
+\begin{itemize}[leftmargin=*,itemsep=0.2em]
+  \item reconstruir a trajetória metodológica completa e identificar o que produziu cada
+        salto de desempenho;
+  \item consolidar resultados heterogêneos em uma visão comparável;
+  \item derivar, a partir da evidência, qual componente deve ser usado para qual tarefa;
+  \item projetar uma arquitetura de referência que integre modelos numéricos e camada de
+        linguagem;
+  \item enunciar os princípios de projeto que o percurso deste livro sustenta.
+\end{itemize}
+\end{objetivos}
+
+\section{Onde chegamos}
+
+Este livro contou uma história em quatro atos.
+
+No primeiro, um sistema dual --- regras e autoencoder --- entrou em operação em mais de
+duzentos e cinquenta poços e detectou eventos que ninguém havia catalogado. Ele
+funcionava, e não sabia dizer o que via.
+
+No segundo, o ensemble de classificadores binários trocou a pergunta ``qual das nove
+classes?'' pela pergunta ``é esta? sim ou não'', e com isso tornou expressável a resposta
+``nenhuma delas''. O experimento da classe escondida deu $89\,\%$.
+
+No terceiro, duas mudanças conceituais --- segmentar em vez de detectar, e representar
+com um classificador em vez de um autoencoder --- levaram a detecção de novidade de
+$52\,\%$ a $98{,}2\,\%$.
+
+No quarto, uma camada de linguagem recebeu as estatísticas do segmento e produziu
+hipóteses justificadas, reconstruindo descrições fisicamente corretas de eventos cujo
+nome nunca lhe foi apresentado.
+
+Este capítulo consolida o percurso e propõe a arquitetura que ele sustenta.
+
+\section{O que produziu cada ganho}
+
+\begin{table}[htbp]
+\centering
+\caption{Marcos de desempenho e a mudança conceitual responsável por cada um.}
+\label{tab:sint-marcos}
+\small
+\begin{tabular}{p{2.1cm}p{4.3cm}p{2.4cm}p{3.2cm}}
+\toprule
+\textbf{Capítulo} & \textbf{Mudança conceitual} & \textbf{Resultado} &
+\textbf{Custo} \\
+\midrule
+\cref{cap:dual} &
+Combinar regras determinísticas com aprendizado não supervisionado &
+ACC $0{,}9727 \to 0{,}9894$ &
+Duas bases de código \\
+\addlinespace
+\cref{cap:binarios} &
+Escores independentes em vez de \ing{softmax} acoplada &
+Rejeição torna-se expressável &
+$9\times$ o treinamento \\
+\addlinespace
+\cref{cap:closedworld} &
+Validar a rejeição com classe escondida &
+$89\,\%$ de rejeição &
+Nenhum \\
+\addlinespace
+\cref{cap:mundoaberto} &
+Organizar o rejeitado em classes virtuais &
+$80{,}8\,\%$ de agrupamento &
+Muita engenharia \\
+\addlinespace
+\cref{cap:segmentacao} &
+Segmentar em vez de detectar &
+ACC $0{,}500 \to 0{,}863$; desvio $0{,}187 \to 0{,}082$ &
+Anotação por amostra \\
+\addlinespace
+\cref{cap:mahalanobis} &
+Representar com classificador, não com autoencoder &
+Novidade $52 \to 98{,}2\,\%$ &
+Trocar uma linha \\
+\addlinespace
+\cref{cap:resultados-agente} &
+Descrever em linguagem natural &
+$89{,}7\,\%$ de novidade; nomes fisicamente corretos &
+Serviço externo \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{destaque}[Os dois maiores ganhos foram os mais baratos]
+Trocar o autoencoder pelo latente do classificador multiclasse elevou a detecção de
+novidade em quarenta e seis pontos percentuais. Em termos de implementação, é extrair a
+saída de uma camada diferente.
+
+Segmentar em vez de detectar elevou a acurácia em trinta e seis pontos e reduziu a
+variância entre poços em mais da metade. Exigiu uma arquitetura nova, mas nenhuma
+sofisticação --- a U-Net é de 2015.
+
+Em contraste, o ciclo de mundo aberto do \cref{cap:mundoaberto} --- estimação automática
+de $K$, interseção entre dois algoritmos de agrupamento, limiar adaptativo com três
+regimes, salvaguarda de dois terços --- exigiu esforço de engenharia desproporcional ao
+seu resultado, porque operava sobre um espaço sem estrutura de classe.
+
+A lição é geral e vale ser lembrada: \textbf{antes de sofisticar o método, verifique o
+espaço em que ele opera}.
+\end{destaque}
+
+\section{Resultados consolidados}
+
+\subsection{Detecção de novidade}
+
+\begin{table}[htbp]
+\centering
+\caption{Detecção de novidade ao longo do livro. Valores em porcentagem. Traços indicam
+que a combinação não foi avaliada.}
+\label{tab:sint-novidade}
+\small
+\begin{tabular}{lcccc}
+\toprule
+& \textbf{Ens.\ bin.} & \textbf{Mahal.} & \textbf{Mahal.} & \textbf{Agente} \\
+\textbf{Classe} & \textbf{latente AE} & \textbf{bruto} & \textbf{latente MC} & \textbf{LLM} \\
+\midrule
+1 & $22{,}8$ & $41{,}5$ & $99{,}0$ & $70{,}8$ \\
+2 & $76{,}9$ & $77{,}1$ & $96{,}5$ & $100{,}0$ \\
+3 & $48{,}1$ & $61{,}0$ & $99{,}0$ & $83{,}7$ \\
+4 & $44{,}7$ & $57{,}8$ & $96{,}0$ & --- \\
+5 & $0{,}1$  & $62{,}3$ & $67{,}5$ & --- \\
+6 & $47{,}6$ & $47{,}6$ & $99{,}0$ & $95{,}7$ \\
+7 & $36{,}5$ & $36{,}7$ & $52{,}3$ & $94{,}9$ \\
+8 & $50{,}5$ & $91{,}1$ & $99{,}0$ & $91{,}8$ \\
+9 & $51{,}9$ & $88{,}7$ & $99{,}0$ & $54{,}5$ \\
+ICV & $52{,}0$ & $67{,}5$ & $98{,}2$ & --- \\
+\midrule
+\textbf{Global} & --- & --- & $\bm{95{,}4}$ & $89{,}7$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{destaque}[A linha mais interessante da tabela é a da classe 7]
+A incrustação no PCK é o pior caso do Mahalanobis latente ($52{,}3\,\%$) --- e um dos
+melhores do agente ($94{,}9\,\%$).
+
+A explicação está na natureza da evidência. O método geométrico enxerga uma janela de
+duzentos passos e não encontra desvio suficiente, porque a incrustação se desenvolve ao
+longo de semanas. O agente recebe a \emph{tendência} --- a inclinação, a razão de
+oscilação, a comparação com o regime de base --- que já é uma síntese temporal, e
+reconhece o padrão.
+
+Não é que um método seja melhor. É que eles falham em situações diferentes, e isso é
+precisamente o que torna a combinação valiosa.
+\end{destaque}
+
+Vale registrar a simetria: para a classe 9, a relação se inverte --- $99{,}0\,\%$ do
+Mahalanobis contra $54{,}5\,\%$ do agente. A complementaridade é bidirecional.
+
+\subsection{Classificação}
+
+\begin{table}[htbp]
+\centering
+\caption{Acurácia de classificação por abordagem.}
+\label{tab:sint-classificacao}
+\small
+\begin{tabular}{llc}
+\toprule
+\textbf{Capítulo} & \textbf{Abordagem} & \textbf{Acurácia global} \\
+\midrule
+\cref{cap:binarios} & Ensemble binário (espaço bruto)      & $0{,}87$ \\
+\cref{cap:binarios} & Multiclasse (espaço bruto)           & $0{,}86$ \\
+\cref{cap:mahalanobis} & Binários no latente do multiclasse & $0{,}755 \pm 0{,}171$ \\
+\cref{cap:mundoaberto} & Binários no latente do autoencoder & $0{,}730$ \\
+\cref{cap:binarios} & OCSVM (espaço bruto)                 & $0{,}65$ \\
+\cref{cap:resultados-agente} & Agente, top-3               & $0{,}639$ \\
+\cref{cap:resultados-agente} & Agente, top-1               & $0{,}351$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+A ordenação é inequívoca: para classificar o conhecido, os métodos supervisionados
+clássicos dominam. O agente fica em último lugar, e a distância não é pequena.
+
+\subsection{As duas assimetrias}
+
+Duas comparações resumem o livro inteiro.
+
+\begin{center}
+\small
+\begin{tabular}{lcc}
+\toprule
+& \textbf{Afirmar identidade} & \textbf{Reconhecer incompatibilidade} \\
+\midrule
+Métodos numéricos & $87\,\%$   & $95{,}4\,\%$ \\
+Agente de linguagem & $35{,}1\,\%$ & $89{,}7\,\%$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{destaque}[Duas leituras de uma mesma tabela]
+\textbf{Por coluna}: reconhecer incompatibilidade é mais fácil que afirmar identidade,
+para \emph{ambas} as famílias de método. Isso é uma propriedade do problema. Basta uma
+evidência contraditória para descartar uma hipótese; afirmar identidade exige
+convergência de todas as evidências.
+
+\textbf{Por linha}: os métodos numéricos são melhores nas duas tarefas, mas a diferença é
+de cinquenta e dois pontos percentuais na primeira e de apenas seis na segunda. É onde a
+distância é pequena que a contribuição do agente pode ser aproveitada --- somada ao fato
+de que ele, e apenas ele, produz uma descrição.
+\end{destaque}
+
+\section{Divisão de trabalho por classe}
+
+A \cref{tab:sint-papeis} atribui a cada classe o papel em que cada componente é
+efetivamente bom, com base na evidência acumulada.
+
+\begin{table}[htbp]
+\centering
+\caption{Divisão de trabalho derivada dos resultados. ``Numérico'' refere-se ao pipeline
+U-Net + latente do multiclasse + Mahalanobis.}
+\label{tab:sint-papeis}
+\small
+\begin{tabular}{clp{4.4cm}p{4.0cm}}
+\toprule
+\textbf{Cl.} & \textbf{Evento} & \textbf{Papel do numérico} & \textbf{Papel do agente} \\
+\midrule
+1 & BSW & Decisor ($99{,}0\,\%$) & Segunda opinião; nomear novidade \\
+\addlinespace
+2 & DHSV & Decisor ($96{,}5\,\%$) & Confirmar, justificar e validar ($95\,\%$) \\
+\addlinespace
+3 & Golfadas & Decisor ($99{,}0\,\%$) & Segunda opinião; nomear novidade \\
+\addlinespace
+4 & Instabilidade & \textbf{Sinalizador}, não classificador & Reordenar as três candidatas para o operador \\
+\addlinespace
+5 & Perda de produtiv. & \textbf{Sinalizador}, não classificador & Reordenar as três candidatas para o operador \\
+\addlinespace
+6 & Restrição PCK & Decisor ($99{,}0\,\%$) & Segunda opinião; nomear novidade \\
+\addlinespace
+7 & Incrustação & Fraco ($52{,}3\,\%$) & \textbf{Decisor auxiliar} ($94{,}9\,\%$); rejeita $100\,\%$ dos erros \\
+\addlinespace
+8 & Hidrato prod. & Decisor ($99{,}0\,\%$) & Segunda opinião; nomear novidade \\
+\addlinespace
+9 & Hidrato serv. & Decisor ($99{,}0\,\%$) & \textbf{Cético}: acionar apenas para rejeitar ($88\,\%$) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{destaque}[Esta tabela não foi decidida; foi medida]
+Nenhuma das atribuições acima foi postulada a priori. Cada uma decorre de um número
+reportado nos capítulos anteriores.
+
+Isso é diferente da prática comum de propor uma arquitetura e depois avaliá-la. Aqui a
+avaliação por classe --- que exigiu resistir à tentação de reportar apenas médias
+globais --- produziu a arquitetura.
+
+É o argumento mais forte deste livro a favor de reportar desempenho desagregado.
+\end{destaque}
+
+\subsection{As classes sintomáticas}
+
+As classes 4 e 5 recebem, na \cref{tab:sint-papeis}, um tratamento distinto de todas as
+demais: elas deixam de ser classes.
+
+A recomendação é que o sistema, ao identificar um segmento compatível com elas, emita
+\emph{``há instabilidade de fluxo; investigue a causa''} em vez de \emph{``esta é a classe
+4''}. A primeira saída é verdadeira e útil; a segunda é uma afirmação sobre uma categoria
+que não é internamente coerente.
+
+O suporte empírico é a consistência com que essas classes falham: $0{,}69$ e $0{,}79$ nos
+ensembles binários; $67{,}5\,\%$ de detecção de novidade para a classe 5 contra mais de
+$96\,\%$ das demais; $18{,}5\,\%$ e $26{,}7\,\%$ de acerto do agente. Quatro métodos
+independentes, o mesmo resultado.
+
+\begin{destaque}[Uma recomendação para o próprio conjunto de dados]
+A conclusão que este livro sustenta é que as classes 4 e 5 deveriam ser
+\emph{redefinidas} no 3W --- por mecanismo, e não por sintoma --- ou explicitamente
+marcadas como categorias sintomáticas, para as quais métricas de classificação não são
+apropriadas.
+\end{destaque}
+
+\section{A arquitetura de referência}
+
+\subsection{Estrutura em camadas}
+
+\begin{enumerate}[leftmargin=*,itemsep=0.4em]
+
+\item \textbf{Aquisição e validação.} Diagrama de decisão do \cref{cap:dual}:
+identificação do poço, validação do dado, discriminação de transiente. Determinístico,
+auditável, funciona no primeiro segundo.
+
+\item \textbf{Segmentação.} U-Net unidimensional por sensor (\cref{cap:segmentacao}).
+Produz a delimitação de que todas as camadas seguintes dependem.
+
+\item \textbf{Representação.} Penúltima camada do classificador multiclasse
+(\cref{cap:mahalanobis}). Sessenta e quatro dimensões com estrutura de classe.
+
+\item \textbf{Decisão conhecido/novidade.} Distância de Mahalanobis com limiar no
+percentil 95.
+
+\item \textbf{Classificação.} Ensemble binário sobre o latente, para os segmentos
+julgados conhecidos.
+
+\item \textbf{Interpretação.} Métricas do \cref{cap:agente} e agente de linguagem, para
+todos os segmentos anômalos.
+
+\item \textbf{Decisão.} Operador humano, com as saídas das camadas 4 a 6 apresentadas
+separadamente.
+
+\item \textbf{Incorporação.} Ciclo de classes virtuais (\cref{cap:mundoaberto}), agora
+sobre um espaço latente com estrutura, e com nomes propostos pelo agente.
+
+\end{enumerate}
+
+\subsection{Fluxo}
+
+\begin{center}
+\small
+\begin{tabular}{ll}
+\toprule
+\textbf{Situação} & \textbf{Comportamento do sistema} \\
+\midrule
+Dado inválido & Descartado na camada 1; não gera alerta \\
+Transiente conhecido & Descartado na camada 1 \\
+Normal & Camada 4 não sinaliza; registro apenas \\
+Anomalia conhecida & Camadas 5 e 6; agente valida ou contesta \\
+Anomalia desconhecida & Camada 4 sinaliza; agente nomeia; camada 8 acumula \\
+Classes 4 ou 5 & Sinalizador; três candidatas do agente ao operador \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{destaque}[A camada 8 fecha o ciclo, agora com nome]
+O \cref{cap:mundoaberto} terminou com classes virtuais anônimas --- ``grupo 11'' --- e
+apontou isso como sua principal limitação.
+
+Nesta arquitetura, a camada 8 recebe segmentos rejeitados por um método que acerta
+$95{,}4\,\%$, agrupados em um espaço com silhueta positiva, e acompanhados de descrições
+geradas pelo agente com taxa de convergência mensurável. O especialista recebe: um grupo
+coeso, um nome proposto, uma justificativa ancorada em estatísticas verificáveis, e um
+indicador de quão consistente foi a descrição.
+
+Confirmar ou corrigir isso é trabalho de minutos. Era trabalho de horas.
+\end{destaque}
+
+\section{Sete princípios}
+
+O percurso deste livro sustenta sete afirmações que transcendem o problema de poços
+submarinos.
+
+\begin{enumerate}[leftmargin=*,itemsep=0.5em]
+
+\item \textbf{A representação determina o que é detectável.} Um mesmo escore de
+distância detecta $67{,}5\,\%$ ou $98{,}2\,\%$ da mesma anomalia, conforme o espaço.
+Antes de trocar o método, verifique o espaço.
+
+\item \textbf{Reconhecer incompatibilidade é mais fácil que afirmar identidade.} Vale
+para métodos geométricos e para modelos de linguagem. Projete sistemas que explorem essa
+assimetria em vez de ignorá-la.
+
+\item \textbf{Escores acoplados não podem expressar rejeição.} A restrição
+$\sum_k \hat{p}_k = 1$ é uma decisão de projeto com consequência epistemológica, e quase
+sempre é tomada sem que se note.
+
+\item \textbf{Reportar desempenho desagregado é o que permite projetar arquiteturas.} A
+divisão de trabalho da \cref{tab:sint-papeis} é invisível em qualquer média global.
+
+\item \textbf{Reduzir a variância vale mais que aumentar a média.} Um sistema com
+acurácia $0{,}86 \pm 0{,}08$ é implantável; um com $0{,}86 \pm 0{,}19$ não é, porque o
+operador não sabe quando confiar.
+
+\item \textbf{Resultados negativos são informação.} O empate entre autoencoder, VAE e DCN
+no \cref{cap:mundoaberto} foi o que apontou o gargalo que o \cref{cap:mahalanobis}
+resolveu.
+
+\item \textbf{Um sistema que descreve o que vê audita o conjunto de dados.} O artefato de
+telemetria do 3W só se tornou visível quando quatro classes receberam nomes contendo
+``perda de telemetria''. Nenhuma matriz de confusão o revelou.
+
+\end{enumerate}
+
+\resumocapitulo{%
+A trajetória do livro produziu ganhos cuja magnitude foi inversamente proporcional ao seu
+custo de implementação: trocar o autoencoder pelo latente do classificador multiclasse
+elevou a detecção de novidade em quarenta e seis pontos percentuais e custa extrair a
+saída de outra camada, enquanto o elaborado ciclo de agrupamento do
+\cref{cap:mundoaberto} exigiu esforço desproporcional por operar sobre um espaço sem
+estrutura de classe. Consolidados, os resultados revelam duas assimetrias: reconhecer
+incompatibilidade é mais fácil que afirmar identidade, para ambas as famílias de método;
+e a vantagem dos métodos numéricos sobre o agente é de cinquenta e dois pontos na
+classificação e de apenas seis na detecção de novidade. A avaliação desagregada por
+classe permitiu derivar --- e não postular --- uma divisão de trabalho: métodos numéricos
+decidem nas classes 1, 2, 3, 6, 8 e 9; o agente é decisor auxiliar na classe 7, onde o
+método geométrico atinge apenas $52{,}3\,\%$; é cético na classe 9; e as classes
+sintomáticas 4 e 5 devem ser tratadas como sinalizadores, não como classes. A arquitetura
+de referência resultante tem oito camadas, da validação determinística do dado ao ciclo
+de incorporação de classes virtuais --- que agora recebe grupos coesos, nomes propostos e
+justificativas verificáveis. Sete princípios generalizáveis encerram o capítulo.}
+
+\begin{exercicios}
+\item A \cref{tab:sint-novidade} mostra que a classe 7 é o pior caso do método geométrico
+      e um dos melhores do agente, enquanto a classe 9 apresenta a relação inversa.
+      Formule uma regra de seleção de método por classe e estime o desempenho global de
+      um sistema que a aplique.
+
+\item Implemente a arquitetura de referência de oito camadas e meça o desempenho
+      fim-a-fim sobre o 3W. Compare com cada componente isolado. O ganho da integração é
+      aditivo, subaditivo ou superaditivo?
+
+\item O princípio 5 afirma que reduzir variância vale mais que aumentar média. Formalize
+      essa intuição: sob que função de utilidade do operador ela é verdadeira? Construa um
+      contraexemplo em que ela seja falsa.
+
+\item Proponha uma redefinição das classes 4 e 5 do 3W baseada em mecanismo em vez de
+      sintoma. Que informação adicional seria necessária para rotular as instâncias
+      existentes sob a nova definição?
+
+\item A arquitetura é sequencial e erros se propagam. Estime a acurácia fim-a-fim em
+      função das acurácias das camadas 2, 4 e 6, sob independência. Compare com o valor
+      medido no exercício 2 e discuta a diferença.
+
+\item Projete um mecanismo de realimentação em que as correções do operador sobre as
+      classes virtuais melhorem as camadas 3 e 5. Que riscos de deriva esse laço
+      introduz?
+
+\item Escolha um dos sete princípios e teste-o em um domínio completamente diferente ---
+      diagnóstico médico, detecção de fraude, manutenção de equipamentos rotativos.
+      Ele se sustenta? Que adaptação exige?
+\end{exercicios}
+
+\begin{leituras}
+\item \citet{LopesTese2025}, \citet{Lopes2026PST}, \citet{Lopes2026OTC} e
+      \citet{Lopes2026LLM} --- os quatro trabalhos consolidados neste capítulo.
+\item \citet{Scheirer2013} --- o arcabouço teórico de mundo aberto que atravessa todo o
+      percurso.
+\item \citet{VazVargas2026_3w2} --- a evolução do 3W, relevante para a recomendação sobre as
+      classes sintomáticas.
+\end{leituras}

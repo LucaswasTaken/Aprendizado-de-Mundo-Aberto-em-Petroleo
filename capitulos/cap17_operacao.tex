@@ -1,0 +1,394 @@
+\chapter{Da bancada à plataforma}
+\label{cap:operacao}
+
+\begin{objetivos}
+Ao final deste capítulo, você será capaz de:
+\begin{itemize}[leftmargin=*,itemsep=0.2em]
+  \item enumerar os requisitos não funcionais que distinguem um protótipo de um sistema
+        implantado;
+  \item projetar uma interface que comunique incerteza sem induzir fadiga de alarme;
+  \item estruturar o laço de realimentação humana e a governança de classes virtuais;
+  \item reconhecer e monitorar deriva de conceito e de dados;
+  \item estimar o custo total de operação de um sistema de monitoramento com camada de
+        linguagem.
+\end{itemize}
+\end{objetivos}
+
+\section{O que muda quando o sistema é ligado}
+
+Todos os números deste livro foram obtidos em avaliação controlada. A exceção é o
+\cref{cap:dual}, cujo sistema opera em mais de vinte unidades flutuantes --- e é
+justamente por isso que ele é o capítulo com o menor número de tabelas e o maior número
+de decisões de engenharia aparentemente banais.
+
+Este capítulo trata dessas decisões. Elas não aparecem em artigos, e determinam se o
+sistema é usado ou desligado.
+
+\begin{destaque}[A assimetria entre pesquisa e operação]
+Em pesquisa, o critério é a métrica. Em operação, o critério é: \emph{o operador confia?}
+
+Um sistema com acurácia de $0{,}95$ que emite três alarmes falsos por turno será
+ignorado em uma semana. Um sistema com acurácia de $0{,}85$ que quase nunca alarma
+indevidamente será consultado. A métrica não captura essa diferença; o desvio padrão
+entre poços --- discutido no \cref{cap:segmentacao} --- captura parte dela.
+\end{destaque}
+
+\section{Requisitos não funcionais}
+
+\begin{table}[htbp]
+\centering
+\caption{Requisitos não funcionais e a resposta arquitetural correspondente.}
+\label{tab:oper-requisitos}
+\small
+\begin{tabular}{p{3.6cm}p{8.4cm}}
+\toprule
+\textbf{Requisito} & \textbf{Resposta no sistema descrito} \\
+\midrule
+Disponibilidade desde o primeiro segundo &
+Diagrama de decisão determinístico, que não requer treinamento
+(\cref{cap:dual}) \\
+\addlinespace
+Ausência de rotulação contínua &
+Autoencoder e ciclo de mundo aberto operam sem rótulos \\
+\addlinespace
+Heterogeneidade entre poços &
+Modelo por poço; normalização por escore-$z$; avaliação com desvio padrão entre poços
+reportado \\
+\addlinespace
+Robustez a falha de sensor &
+Camada de validação de dado; imputação; detecção de sensor congelado \\
+\addlinespace
+Robustez a manobra deliberada &
+Reinício do ciclo de treinamento na mudança de válvula \\
+\addlinespace
+Latência compatível &
+\SI{405}{\milli\second} do ensemble contra 30 min a 5 h de tempo de resposta do processo \\
+\addlinespace
+Auditabilidade &
+Métricas determinísticas verificáveis; justificativas ancoradas nelas \\
+\addlinespace
+Extensibilidade &
+Classificadores binários independentes; classes virtuais \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{destaque}[Nenhum desses requisitos é sobre acurácia]
+Vale notar o que a \cref{tab:oper-requisitos} não contém. Nenhuma linha exige acurácia
+mínima.
+
+Isso não significa que a acurácia seja irrelevante --- significa que ela é condição
+necessária e largamente insuficiente. Um sistema perfeitamente acurado que exige
+rotulação contínua, ou que leva uma semana para ficar disponível, ou cujo comportamento
+varia imprevisivelmente entre poços, não é implantável.
+\end{destaque}
+
+\section{A interface}
+
+\subsection{O que apresentar}
+
+O sistema produz, para cada segmento anômalo, quatro objetos distintos:
+
+\begin{enumerate}[leftmargin=*,itemsep=0.2em]
+  \item a delimitação temporal do evento;
+  \item a decisão conhecido/novidade, com o escore de Mahalanobis;
+  \item a classe, quando conhecida, com o escore do classificador binário;
+  \item três hipóteses ordenadas com justificativa, do agente.
+\end{enumerate}
+
+A tentação é fundir tudo em um número. O \cref{cap:closedworld} já argumentou contra, ao
+discutir o painel que exibe risco analítico e risco aprendido lado a lado
+(\cref{fig:closed-painel}).
+
+\begin{destaque}[Indicadores que discordam são informativos]
+Quando o método geométrico diz ``conhecido, classe 7'' e o agente diz ``incompatível com
+todas as classes'', essa discordância é o achado mais valioso que o sistema pode
+produzir naquele instante. Fundir os dois em um índice a destruiria.
+
+A regra de projeto: \textbf{fundir indicadores é aceitável quando eles concordam e
+inaceitável quando discordam} --- e como não se sabe de antemão qual será o caso, não se
+funde.
+\end{destaque}
+
+\subsection{Graduação em vez de binário}
+
+O \cref{cap:dual} usa três níveis de risco --- baixo, médio, alto --- em vez de um
+alarme binário. A justificativa merece ser repetida: um alarme binário força uma escolha
+entre perder eventos e cansar o operador, e essa escolha é feita por quem projeta o
+sistema, que tem menos contexto que quem o opera.
+
+A graduação transfere a decisão para onde há mais informação.
+
+\subsection{Validação de agrupamentos}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{operator_mockup_interface.png}
+\caption{Interface de validação de agrupamentos. O especialista inspeciona a projeção do
+espaço latente, seleciona um ponto e recebe as variações percentuais por sensor daquele
+segmento. Pode então reatribuir o ponto a outro agrupamento ou removê-lo da análise.}
+\label{fig:oper-validacao}
+\end{figure}
+
+A \cref{fig:oper-validacao} materializa o laço humano do ciclo de mundo aberto. Três
+decisões de projeto merecem comentário.
+
+\textbf{A projeção é interativa, não estática.} O especialista precisa explorar, não
+apenas contemplar. As ressalvas do \cref{cap:novidades} sobre projeções não lineares
+valem aqui: a interface deve ser entendida como ferramenta de navegação, não como
+representação fiel de distâncias.
+
+\textbf{Cada ponto expõe suas estatísticas.} Selecionar um ponto revela as variações
+percentuais por sensor --- as mesmas métricas do \cref{cap:agente}. O especialista julga
+sobre números verificáveis, não sobre a posição visual.
+
+\textbf{As ações são reversíveis e explícitas.} Reatribuir e remover, ambas registradas.
+A remoção é particularmente importante: nem tudo que foi rejeitado merece virar classe.
+
+\begin{destaque}[Note o valor de $15722\,\%$ na figura]
+A variação percentual de T-TPT exibida é de mais de quinze mil por cento. Isso não é um
+evento físico --- é o comportamento da \cref{eq:ag-pct} quando $\bar{b}$ é próximo de
+zero, tipicamente porque o sensor estava congelado ou zerado no regime de base.
+
+A interface expõe esse valor sem tratamento, e isso é uma virtude: o especialista
+reconhece imediatamente um artefato de instrumentação. Uma interface que ``limpasse'' o
+número o esconderia.
+
+É também mais uma manifestação do artefato de telemetria que o
+\cref{cap:resultados-agente} identificou.
+\end{destaque}
+
+\section{O laço humano}
+
+\subsection{Três papéis distintos}
+
+\begin{description}[leftmargin=0pt,style=nextline,itemsep=0.4em]
+
+\item[Operador de turno.] Recebe alertas graduados, decide se investiga, registra o
+desfecho. Precisa de latência baixa e de baixa taxa de falso alarme.
+
+\item[Especialista de disciplina.] Valida agrupamentos, nomeia classes virtuais, corrige
+perfis. Atua em escala de dias, não de minutos.
+
+\item[Responsável pelo modelo.] Monitora deriva, decide retreinamentos, versiona
+modelos e prompts.
+
+\end{description}
+
+Confundir esses papéis é um erro comum. A interface do operador não deve expor controles
+de validação de agrupamento; a do especialista não precisa de latência de segundos.
+
+\subsection{Governança de classes virtuais}
+
+Um sistema que promove classes virtuais indefinidamente acumula categorias mal definidas.
+A \cref{tab:oper-governanca} propõe uma política.
+
+\begin{table}[htbp]
+\centering
+\caption{Política de governança de classes virtuais.}
+\label{tab:oper-governanca}
+\small
+\begin{tabular}{p{3.2cm}p{8.8cm}}
+\toprule
+\textbf{Decisão} & \textbf{Critério} \\
+\midrule
+Promover a virtual &
+Grupo aprovado nos três índices internos; ao menos trinta segmentos; convergência de
+nomes acima de um limiar \\
+\addlinespace
+Encaminhar a revisão &
+Toda classe virtual, dentro de um prazo definido, com o nome e a justificativa do
+agente \\
+\addlinespace
+Fundir &
+Dois grupos cujas descrições convergem para o mesmo nome e cujos centroides distam menos
+que um limiar \\
+\addlinespace
+Descartar &
+Grupo cuja dispersão de nomes indica confabulação; grupo dominado por artefato de
+instrumentação \\
+\addlinespace
+Promover a real &
+Confirmação do especialista, com definição por mecanismo e não por sintoma \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{destaque}[A última linha é a mais importante]
+``Definição por mecanismo e não por sintoma'' é a lição que as classes 4 e 5 ensinaram ao
+longo de todo o livro. Uma política de governança que não a incorpore reproduzirá o
+problema em cada nova classe.
+\end{destaque}
+
+\section{Deriva}
+
+\subsection{Três formas}
+
+\begin{description}[leftmargin=0pt,style=nextline,itemsep=0.4em]
+
+\item[Deriva de dados.] A distribuição das entradas muda --- o poço envelhece, o BSW
+sobe, a pressão de reservatório cai. O modelo continua correto sobre o passado e
+progressivamente irrelevante sobre o presente.
+
+\item[Deriva de conceito.] A relação entre entrada e rótulo muda. Um mesmo padrão de
+sensores passa a significar outra coisa, por exemplo após uma intervenção que altera a
+completação.
+
+\item[Deriva induzida pelo próprio sistema.] O caso mais insidioso: o modelo se retreina
+sobre dados que ele mesmo classificou como normais e, gradualmente, aprende a considerar
+normal uma degradação progressiva.
+
+\end{description}
+
+\begin{destaque}[A salvaguarda do \cref{cap:dual}, revisitada]
+A regra de excluir dados anômalos do conjunto de retreinamento existe precisamente para
+impedir a terceira forma. Sem ela, uma incrustação que se desenvolve ao longo de meses
+seria progressivamente absorvida como normalidade, e o alarme se extinguiria sozinho ---
+sem que nenhuma métrica indicasse falha.
+
+É o modo de falha mais perigoso de sistemas auto-adaptativos, porque é silencioso.
+\end{destaque}
+
+\subsection{O que monitorar}
+
+\begin{itemize}[leftmargin=*,itemsep=0.3em]
+  \item \textbf{Distribuição do escore de Mahalanobis} sobre dados classificados como
+        normais. Um deslocamento sistemático indica deriva de dados.
+  \item \textbf{Taxa de rejeição.} Um aumento sustentado pode indicar deriva ou o
+        surgimento de um fenômeno novo --- e distinguir os dois é trabalho do
+        especialista.
+  \item \textbf{Taxa de confirmação do agente.} Queda na fração de decisões validadas
+        sugere que os perfis de classe estão desatualizados.
+  \item \textbf{Convergência de nomes.} Aumento de dispersão indica que o agente está
+        confabulando com mais frequência.
+  \item \textbf{Desfecho registrado pelo operador.} A única fonte de rótulo verdadeiro
+        em operação, e a mais valiosa.
+\end{itemize}
+
+\begin{destaque}[Quatro dos cinco indicadores não exigem rótulo]
+Isso é essencial. Um esquema de monitoramento que dependesse de rótulos seria inútil
+exatamente onde é mais necessário --- em operação contínua, sem anotação.
+
+O quinto indicador, o desfecho registrado, exige disciplina operacional e é o mais
+difícil de obter. Vale investir nele: é o que permite avaliar o sistema de verdade.
+\end{destaque}
+
+\section{Custo}
+
+\begin{table}[htbp]
+\centering
+\caption{Estrutura de custo por camada, em ordem de grandeza.}
+\label{tab:oper-custo}
+\small
+\begin{tabular}{p{3.4cm}p{4.2cm}p{4.4cm}}
+\toprule
+\textbf{Camada} & \textbf{Custo de inferência} & \textbf{Observação} \\
+\midrule
+Diagrama de decisão & Desprezível & Regras \\
+U-Net & Milissegundos por sensor & GPU opcional \\
+Ensemble binário & \SI{405}{\milli\second}; \SI{21}{\mega\byte} & Por poço \\
+Mahalanobis & Desprezível & Inversão de matriz $64 \times 64$ pré-computada \\
+Agente de linguagem & Segundos; custo por chamada & \textbf{Somente sobre segmentos anômalos} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{destaque}[A decisão de custo que viabiliza a camada de linguagem]
+Acionar o agente a cada janela, em duzentos e cinquenta poços, seria proibitivo em custo
+e desnecessário: a esmagadora maioria das janelas é normal.
+
+Acioná-lo apenas sobre segmentos que a camada 4 sinalizou reduz o volume em ordens de
+grandeza --- de milhões de janelas por dia para dezenas de segmentos. É por isso que a
+arquitetura do \cref{cap:sintese} coloca o agente na posição seis, e não na posição um.
+
+Generalizando: em sistemas com componentes de custo muito assimétrico, a arquitetura
+deve garantir que o componente caro só seja acionado quando o barato já filtrou.
+\end{destaque}
+
+\subsection{Custos que não aparecem na tabela}
+
+\begin{itemize}[leftmargin=*,itemsep=0.3em]
+  \item \textbf{Tempo do especialista} na validação de classes virtuais. É o custo
+        dominante do ciclo de mundo aberto, e a razão pela qual as descrições geradas
+        pelo agente têm valor econômico direto.
+  \item \textbf{Versionamento de modelos e prompts.} Um prompt é código; deve ser
+        versionado, revisado e testado.
+  \item \textbf{Dependência de serviço externo.} Disponibilidade, latência de rede,
+        mudança de modelo sem aviso.
+  \item \textbf{Governança de dados.} Enviar dados operacionais a um serviço de terceiros
+        exige avaliação de conformidade.
+\end{itemize}
+
+\section{Uma lista de verificação}
+
+\begin{enumerate}[leftmargin=*,itemsep=0.3em]
+  \item O sistema funciona no primeiro segundo, antes de qualquer treinamento?
+  \item Ele informa explicitamente quando não sabe?
+  \item Ele degrada graciosamente quando um sensor falha?
+  \item Manobras deliberadas geram alarme?
+  \item O desempenho foi reportado com desvio padrão entre poços?
+  \item Cada afirmação do sistema pode ser rastreada a um número verificável?
+  \item Indicadores discordantes são apresentados separadamente?
+  \item Existe caminho para o operador registrar o desfecho?
+  \item Existe política escrita de governança de classes novas?
+  \item O monitoramento de deriva dispensa rótulos?
+  \item O componente caro só é acionado após filtragem pelo barato?
+  \item Prompts e modelos estão versionados?
+\end{enumerate}
+
+\resumocapitulo{%
+A distância entre um protótipo e um sistema implantado é feita de requisitos não
+funcionais que nenhuma métrica captura: disponibilidade desde o primeiro segundo,
+operação sem rotulação contínua, robustez a falha de sensor e a manobra deliberada,
+auditabilidade e extensibilidade. A interface deve apresentar separadamente a
+delimitação, a decisão conhecido/novidade, a classe e as hipóteses do agente --- fundir
+indicadores é aceitável quando concordam e inaceitável quando discordam, e como não se
+sabe de antemão, não se funde. O laço humano envolve três papéis com necessidades
+distintas: operador de turno, especialista de disciplina e responsável pelo modelo. A
+governança de classes virtuais define quando promover, fundir, descartar e --- crucialmente
+--- exige que a promoção a classe real seja feita por mecanismo, não por sintoma. Das
+três formas de deriva, a mais perigosa é a induzida pelo próprio sistema, contra a qual a
+exclusão de dados anômalos do retreinamento é a salvaguarda. Quatro dos cinco indicadores
+de deriva propostos dispensam rótulos. Por fim, a camada de linguagem só é
+economicamente viável porque é acionada apenas sobre segmentos já filtrados: em sistemas
+com custos assimétricos, o componente caro deve vir depois do barato.}
+
+\begin{exercicios}
+\item Estime o volume diário de janelas processadas em duzentos e cinquenta poços com
+      inferência a cada minuto, e o número esperado de segmentos anômalos com taxa de
+      falso alarme de $5\,\%$. Quantas chamadas ao agente isso representa por dia?
+
+\item Projete a interface do operador de turno com os quatro objetos produzidos pelo
+      sistema. Justifique cada elemento visual em termos de carga cognitiva e de risco de
+      fadiga de alarme.
+
+\item Implemente os cinco indicadores de deriva propostos. Simule uma deriva de dados
+      lenta sobre um poço do 3W e verifique quais indicadores a detectam e com quanta
+      antecedência.
+
+\item Construa um cenário concreto de deriva induzida pelo próprio sistema e demonstre,
+      por simulação, que a salvaguarda de exclusão de dados anômalos a impede. O que
+      acontece se a salvaguarda tiver falsos negativos?
+
+\item A \cref{fig:oper-validacao} exibe uma variação percentual de mais de quinze mil por
+      cento. Proponha três formas de apresentar esse valor ao especialista --- exibir sem
+      tratamento, limitar a uma faixa, ou substituir por uma marca de artefato --- e
+      discuta os riscos de cada uma.
+
+\item Redija a política de governança de classes virtuais como documento operacional,
+      com critérios numéricos concretos, prazos e responsáveis. Aplique-a
+      retrospectivamente aos agrupamentos do \cref{cap:mundoaberto}.
+
+\item Percorra a lista de verificação para um sistema de aprendizado de máquina com que
+      você tenha trabalhado. Quantos itens ele satisfaz? Para cada item não satisfeito,
+      estime o custo de corrigi-lo.
+\end{exercicios}
+
+\begin{leituras}
+\item \citet{aranha2023system} e \citet{Aranha2024} --- descrições de sistemas de
+      monitoramento em operação real.
+\item \citet{LopesTese2025} --- o contexto operacional completo do sistema dual.
+\item \citet{nodered} --- a ferramenta de orquestração usada na implantação.
+\item \citet{gatta2022predictive} e \citet{soriano2021visual} --- aspectos operacionais e
+      de visualização em monitoramento de poços.
+\end{leituras}

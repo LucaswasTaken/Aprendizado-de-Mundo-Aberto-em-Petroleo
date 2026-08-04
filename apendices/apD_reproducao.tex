@@ -1,0 +1,312 @@
+\chapter{Reprodução dos experimentos}
+\label{cap:reproducao}
+
+Este apêndice reúne as informações necessárias para reproduzir os experimentos
+descritos no livro: origem dos dados, ambiente computacional, hiperparâmetros e
+protocolos de avaliação.
+
+\section{Dados}
+
+\subsection{O 3W}
+
+O conjunto 3W é público e mantido pela Petrobras. Contém instâncias reais, simuladas e
+desenhadas de eventos indesejáveis em poços de petróleo, rotuladas em dez classes
+(\cref{tab:notb-classes}).
+
+\begin{table}[htbp]
+\centering
+\caption{Procedência das instâncias do 3W e uso neste livro.}
+\label{tab:rep-instancias}
+\small
+\begin{tabular}{lp{5.0cm}p{4.6cm}}
+\toprule
+\textbf{Tipo} & \textbf{Origem} & \textbf{Uso} \\
+\midrule
+\emph{WELL} & Poços reais &
+Sempre incluído. Base de todos os resultados \\
+\addlinespace
+\emph{SIMULATED} & Simulador de escoamento &
+Incluído apenas quando a classe tem menos de trinta instâncias reais \\
+\addlinespace
+\emph{DRAWN} & Traçado manualmente por especialista &
+Sempre excluído \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{destaque}[Por que excluir as instâncias desenhadas]
+Instâncias \emph{DRAWN} são construções idealizadas do especialista. Elas representam o
+que o evento \emph{deveria} parecer, não o que os sensores registraram.
+
+Incluí-las eleva artificialmente as métricas, porque o modelo aprende a reconhecer a
+idealização em vez do fenômeno. A exclusão é uma decisão de honestidade metodológica, e
+custa desempenho reportado.
+\end{destaque}
+
+\subsection{Dados operacionais}
+
+Os resultados do \cref{cap:dual} foram obtidos sobre dados de poços reais de um operador,
+não públicos. Os três poços caracterizados naquele capítulo --- dois produtores e um
+injetor com injeção alternada de água e gás, em lâminas d'água entre \num{1946} e
+\num{2125} metros --- não podem ser disponibilizados.
+
+As demais informações do capítulo --- arquitetura, hiperparâmetros, limiares e
+protocolo --- são suficientes para reproduzir o método sobre outro conjunto.
+
+\section{Ambiente computacional}
+
+\begin{table}[htbp]
+\centering
+\caption{Ambiente computacional utilizado.}
+\label{tab:rep-ambiente}
+\small
+\begin{tabular}{ll}
+\toprule
+\textbf{Componente} & \textbf{Especificação} \\
+\midrule
+Processador & Intel Xeon, 2 vCPU \\
+Memória & \SI{13}{\giga\byte} \\
+Aceleração & NVIDIA T4 \\
+Linguagem & Python 3.7 (sistema em operação) e 3.10 (experimentos) \\
+Aprendizado profundo & Keras sobre TensorFlow \\
+Aprendizado clássico & scikit-learn \\
+Orquestração em operação & Node-RED \\
+Camada de linguagem & Qwen3.5-397B-A17B via NVIDIA NIM \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{destaque}[O hardware é modesto de propósito]
+Duas vCPU, treze gigabytes e uma T4 não constituem uma configuração de pesquisa
+ambiciosa. É deliberado: um sistema destinado a operar em unidade flutuante precisa
+caber em infraestrutura disponível a bordo ou em nuvem de custo controlado.
+
+O ensemble completo ocupa \SI{21}{\mega\byte} e responde em \SI{405}{\milli\second}
+(\cref{cap:closedworld}). Nenhum resultado do livro depende de escala computacional.
+\end{destaque}
+
+\section{Hiperparâmetros}
+
+\subsection{Sistema dual (\cref{cap:dual})}
+
+\begin{table}[htbp]
+\centering
+\caption{Configuração do autoencoder do sistema dual.}
+\label{tab:rep-dual}
+\small
+\begin{tabular}{lp{9.4cm}}
+\toprule
+\textbf{Item} & \textbf{Valor} \\
+\midrule
+Entrada & $(500, 5)$ \\
+Arquitetura & LSTM 16 $\to$ LSTM 4 $\to$ RepeatVector(500) $\to$ LSTM 16 $\to$
+TimeDistributed Dense(5) \\
+Compressão & $2500 \to 4$, fator $625$ \\
+Perda & SMAPE \\
+Otimizador & Adam \\
+Épocas & 500 \\
+Tamanho de lote & 100 \\
+Ativação & ReLU \\
+Normalização & Min-Max \\
+Ruído de aumento & 0 a $0{,}5\,\%$ \\
+Amostras de treinamento & $\approx 500$ janelas normais ($\approx \SI{5000}{\second}$) \\
+Limiar & $\mu + 3\sigma$ sobre o SMAPE de treinamento \\
+Níveis de risco & baixo $< 30\,\%$; médio $30$--$70\,\%$; alto $> 70\,\%$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Ensemble binário (\cref{cap:binarios})}
+
+\begin{table}[htbp]
+\centering
+\caption{Configuração dos classificadores binários um-contra-todos.}
+\label{tab:rep-binarios}
+\small
+\begin{tabular}{lp{9.4cm}}
+\toprule
+\textbf{Item} & \textbf{Valor} \\
+\midrule
+Arquitetura & Entrada $(T,S)$ $\to$ LSTM 32--128 $\to$ Dropout 0,1--0,5 $\to$
+Dense 32--64 ReLU $\to$ Dense 1 sigmoide \\
+Busca de hiperparâmetros & Busca aleatória, 100 combinações por classe \\
+Épocas & 25, com parada antecipada e paciência 5 \\
+Tamanho de lote & 64 \\
+Otimizador & Adam \\
+Perda & Entropia cruzada binária \\
+Partição & Temporal, $80/20$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{destaque}[A partição temporal não é detalhe]
+Partição aleatória sobre janelas deslizantes vaza informação: janelas consecutivas se
+sobrepõem, e uma janela do conjunto de teste pode compartilhar amostras com uma de
+treinamento.
+
+A partição temporal --- primeiros $80\,\%$ para treinamento, últimos $20\,\%$ para teste
+--- elimina o vazamento e produz números menores e honestos. Comparações com trabalhos
+que usam partição aleatória são, por isso, desfavoráveis a este.
+\end{destaque}
+
+\subsection{Ciclo de mundo aberto (\cref{cap:mundoaberto})}
+
+\begin{table}[htbp]
+\centering
+\caption{Configuração do ciclo de mundo aberto.}
+\label{tab:rep-aberto}
+\small
+\begin{tabular}{lp{9.4cm}}
+\toprule
+\textbf{Item} & \textbf{Valor} \\
+\midrule
+Autoencoder & Entrada $(200,4)$ $\to$ LSTM 32 $\to$ LSTM 8 $\to$ Dense 16 (latente)
+$\to$ LSTM 8 $\to$ LSTM 32 $\to$ Dense$(4 \times 200)$ \\
+Compressão & $800 \to 16$, fator $50$ \\
+Classificador latente & Dense 64 $\to$ Dropout 0,3 $\to$ Dense 32 $\to$ Dropout 0,2
+$\to$ Dense 1 sigmoide \\
+Limiar do voto & $\tau = 0{,}65$ \\
+Estimador de $K$ & Floresta aleatória com oito atributos \\
+Salvaguarda & Dois terços \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Segmentação (\cref{cap:segmentacao})}
+
+\begin{table}[htbp]
+\centering
+\caption{Configuração da U-Net unidimensional.}
+\label{tab:rep-unet}
+\small
+\begin{tabular}{lp{9.4cm}}
+\toprule
+\textbf{Item} & \textbf{Valor} \\
+\midrule
+Entrada & $(L, 1)$, um modelo por sensor \\
+Codificador 1 & Conv1D(32,5) + BN, $\times 2$; MaxPool(2); Dropout 0,2 \\
+Codificador 2 & Conv1D(64,5) + BN, $\times 2$; MaxPool(2); Dropout 0,2 \\
+Gargalo & Conv1D(128,5) + BN, $\times 2$ \\
+Decodificador 1 & UpSampling(2); concatenação com 64; Conv1D(64,5) + BN, $\times 2$ \\
+Decodificador 2 & UpSampling(2); concatenação com 32; Conv1D(32,5) + BN, $\times 2$ \\
+Saída & Conv1D(1,1) sigmoide; limiar 0,5 \\
+Janela & 200 passos $\times$ 4 variáveis; deslizamento de 100 passos, passo
+\SI{5}{\second} \\
+Pré-processamento & Imputação; padronização; remoção de ruído por ondaletas \\
+Validação & Cruzada estratificada, cinco dobras \\
+Otimizador & Adam; 30 a 50 épocas \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Representação e Mahalanobis (\cref{cap:mahalanobis})}
+
+\begin{table}[htbp]
+\centering
+\caption{Configuração dos espaços de representação avaliados.}
+\label{tab:rep-mahal}
+\small
+\begin{tabular}{lp{9.4cm}}
+\toprule
+\textbf{Espaço} & \textbf{Definição} \\
+\midrule
+Bruto & 800 dimensões (200 passos $\times$ 4 variáveis) \\
+Latente do autoencoder & 128 dimensões; Entrada $\to$ LSTM 256 $\to$ LSTM 128 $\to$
+Dense 128 \\
+Latente do multiclasse & 64 dimensões; penúltima camada do classificador \\
+Cabeça binária & Latente(128) $\to$ Dense 64 ReLU $\to$ Dense 32 ReLU $\to$
+Dense 2 \ing{softmax} \\
+Limiar de novidade & Percentil 95 das distâncias de referência \\
+Limiar binário & 0,3 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Camada de linguagem (\cref{cap:llm,cap:agente})}
+
+\begin{table}[htbp]
+\centering
+\caption{Configuração da camada de linguagem.}
+\label{tab:rep-llm}
+\small
+\begin{tabular}{lp{9.4cm}}
+\toprule
+\textbf{Item} & \textbf{Valor} \\
+\midrule
+Modelo & Qwen3.5-397B-A17B (mistura de especialistas) \\
+Serviço & NVIDIA NIM \\
+Modo de raciocínio & Ativado \\
+Temperatura & 0,2 \\
+Top-$p$ & 0,7 \\
+Máximo de \ing{tokens} & 4096 \\
+Formato de saída & JSON validado \\
+Candidatas por consulta & 3, ordenadas \\
+Pré-processamento & Escore-$z$; Min-Max $[0,1]$; ondaleta db4 nível 3, limiar suave;
+tratamento de ausentes \\
+Perfis de classe & Remoção de discrepantes por IQR em duas passagens, $k = 3{,}0$ e
+depois $k = 1{,}5$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{destaque}[O que não foi feito]
+Sem ajuste fino. Sem exemplos no prompt. Sem múltiplas passagens com agregação. Sem
+acesso a ferramentas externas.
+
+Cada uma dessas técnicas tende a melhorar o desempenho. Os resultados do
+\cref{cap:resultados-agente} devem, portanto, ser lidos como piso, e não como teto.
+\end{destaque}
+
+\section{Protocolos de avaliação}
+
+\begin{description}[leftmargin=0pt,style=nextline,itemsep=0.4em]
+
+\item[Classe escondida (\cref{cap:closedworld}).] Treina-se o sistema com $|\mathcal{K}|
+- 1$ classes, omitindo uma. Avaliam-se as instâncias da classe omitida: acerto significa
+rejeição. Repete-se para cada classe.
+
+\item[Comparação de arquiteturas (\cref{cap:mundoaberto}).] Mesma partição, mesmo
+protocolo, mesma métrica; varia-se apenas o gerador da representação.
+
+\item[Varredura de janela (\cref{cap:closedworld}).] Repete-se o protocolo de classe
+escondida para comprimentos de janela de 150 a 7500 passos.
+
+\item[Validação (\cref{cap:resultados-agente}).] Apresentam-se ao agente decisões
+corretas e incorretas de um classificador; mede-se precisão e revocação no julgamento.
+
+\item[Novidade com agente (\cref{cap:resultados-agente}).] Apresentam-se os perfis de
+todas as classes exceto a do segmento; acerto significa declarar incompatibilidade.
+
+\item[Intervalos de confiança.] Wilson a $95\,\%$ (\cref{eq:for-wilson}) em todas as
+proporções reportadas.
+
+\item[Desvio entre poços.] Sempre que a avaliação é por poço, reporta-se média e desvio
+padrão entre poços, e não apenas a média agregada.
+
+\end{description}
+
+\begin{destaque}[O item mais fácil de esquecer]
+Reportar o desvio padrão entre poços foi o que tornou visível o principal ganho do
+\cref{cap:segmentacao}: a acurácia subiu de $0{,}500$ para $0{,}863$, mas o desvio caiu
+de $0{,}187$ para $0{,}082$.
+
+Um sistema com desvio de $0{,}187$ entre poços não é implantável, ainda que sua média
+seja aceitável, porque o operador não tem como saber em qual regime está.
+\end{destaque}
+
+\section{Lista de verificação para reprodução}
+
+\begin{enumerate}[leftmargin=*,itemsep=0.25em]
+  \item Obter o 3W e verificar a versão utilizada.
+  \item Excluir instâncias \emph{DRAWN}; incluir \emph{SIMULATED} apenas nas classes com
+        menos de trinta instâncias reais.
+  \item Usar partição temporal, nunca aleatória, sobre janelas deslizantes.
+  \item Normalizar por poço, não globalmente.
+  \item Fixar sementes e registrá-las.
+  \item Reportar métricas por classe, não apenas a média global.
+  \item Reportar desvio padrão entre poços.
+  \item Usar intervalo de Wilson para todas as proporções.
+  \item Registrar entradas e saídas da camada de linguagem, dado que o modelo servido por
+        interface externa não é estritamente reprodutível.
+  \item Documentar o prompt como código versionado.
+\end{enumerate}

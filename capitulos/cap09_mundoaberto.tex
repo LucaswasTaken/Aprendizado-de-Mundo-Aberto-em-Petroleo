@@ -1,0 +1,584 @@
+\chapter{O ciclo de aprendizado de mundo aberto}
+\label{cap:mundoaberto}
+
+\begin{objetivos}
+Ao final deste capítulo, você será capaz de:
+\begin{itemize}[leftmargin=*,itemsep=0.2em]
+  \item descrever as seis etapas do ciclo de aprendizado de mundo aberto e o papel de
+        cada uma;
+  \item construir um espaço latente por autoencoder recorrente e justificar sua escolha
+        frente a alternativas variacionais e de \ing{clustering} profundo;
+  \item combinar classificadores binários e OCSVM em um voto ponderado por classe;
+  \item estimar automaticamente o número de agrupamentos com uma floresta aleatória
+        treinada sobre índices internos de qualidade;
+  \item avaliar criticamente o desempenho do ciclo completo sobre uma anomalia
+        genuinamente inédita.
+\end{itemize}
+\end{objetivos}
+
+\section{A questão em aberto}
+
+O \cref{cap:binarios} entregou um sistema capaz de dizer ``nenhuma das classes que
+conheço''. É um avanço real e, ao mesmo tempo, uma resposta insatisfatória. Se todo
+evento inédito recebe o mesmo rótulo --- \texttt{desconhecido} --- então, após alguns
+meses de operação, o sistema terá acumulado milhares de janelas rejeitadas em um único
+balde indistinto, sem qualquer estrutura.
+
+O problema tem nome: \emph{rejeitar não é aprender}. Este capítulo fecha o ciclo.
+
+\begin{definicao}{Aprendizado de mundo aberto}
+Processo iterativo em que um sistema (i) reconhece o que sabe, (ii) rejeita o que não
+sabe, (iii) organiza o material rejeitado em categorias candidatas, (iv) as caracteriza
+e valida, e (v) as incorpora ao seu repertório, retornando a (i) com um conjunto de
+classes maior.
+\end{definicao}
+
+A diferença em relação ao aprendizado incremental clássico é que aqui \emph{as classes
+novas não são fornecidas por um professor}: elas emergem dos dados.
+
+\section{As seis etapas}
+
+\begin{enumerate}[leftmargin=*,itemsep=0.4em]
+  \item \textbf{Representação.} Um autoencoder recorrente comprime a janela bruta em um
+        espaço latente de baixa dimensão.
+  \item \textbf{Reconhecimento.} Classificadores binários operando \emph{sobre o espaço
+        latente} identificam as classes conhecidas.
+  \item \textbf{Rejeição.} Um voto ponderado entre o escore binário e uma OCSVM decide
+        o que é desconhecido.
+  \item \textbf{Agrupamento.} O material rejeitado é particionado em grupos candidatos.
+  \item \textbf{Refinamento e validação.} Os grupos são depurados por um limiar
+        adaptativo e avaliados por índices internos.
+  \item \textbf{Incorporação.} Grupos validados tornam-se \emph{classes virtuais}, sobre
+        as quais novos classificadores binários são treinados.
+\end{enumerate}
+
+\begin{destaque}[Onde está o humano]
+Em nenhuma das seis etapas o ciclo exige rotulação humana para operar. Ele exige um
+humano para \emph{nomear} as classes virtuais --- e é precisamente essa lacuna que a
+\cref{parte:explicabilidade} atacará, propondo que um modelo de linguagem produza a
+descrição inicial que o especialista então valida ou corrige.
+\end{destaque}
+
+\section{Etapa 1: a representação latente}
+
+\subsection{Arquitetura}
+
+O autoencoder recebe quatro sensores amostrados em duzentos passos de tempo:
+
+\begin{center}
+\small
+\begin{tabular}{lll}
+\toprule
+\textbf{Camada} & \textbf{Saída} & \textbf{Papel} \\
+\midrule
+Entrada                        & $(200, 4)$ & janela bruta \\
+LSTM(32)                       & $(200, 32)$ & codificação \\
+LSTM(8)                        & $(8)$       & compressão temporal \\
+Densa(16)                      & $(16)$      & \textbf{espaço latente} \\
+LSTM(8) $\to$ LSTM(32)         & $(200, 32)$ & decodificação \\
+Densa$(4 \times 200)$          & $(200, 4)$  & reconstrução \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+A compressão é de $800$ para $16$ valores, um fator de $50$ --- bem menos agressiva que
+a do \cref{cap:dual}, porque aqui o latente não serve apenas para detectar desvio: ele
+precisa \emph{discriminar} entre classes.
+
+\subsection{Por que não um VAE ou um DCN}
+
+A pergunta é legítima. Um autoencoder variacional impõe estrutura probabilística ao
+latente; um \ing{deep clustering network} otimiza simultaneamente reconstrução e
+separabilidade de agrupamentos. Ambos parecem, no papel, mais adequados à tarefa.
+
+\begin{table}[htbp]
+\centering
+\caption{Acurácia do ciclo completo em função da arquitetura de representação.}
+\label{tab:aberto-arquiteturas}
+\begin{tabular}{lc}
+\toprule
+\textbf{Arquitetura da representação} & \textbf{Acurácia} \\
+\midrule
+Autoencoder LSTM              & $\bm{0{,}730}$ \\
+Autoencoder variacional (VAE) & $0{,}727$ \\
+\ing{Deep clustering network} (DCN) & $0{,}725$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{resultadochave}
+A diferença entre as três arquiteturas é de meio ponto percentual. O autoencoder mais
+simples é o melhor dos três, e a sofisticação adicional do VAE e do DCN não se converteu
+em desempenho.
+\end{resultadochave}
+
+Esse é um resultado negativo, e ele foi mantido no livro deliberadamente. Duas
+interpretações são possíveis. A primeira: o gargalo do sistema não está na
+representação, mas em outro ponto da cadeia --- e as etapas seguintes mostrarão que ele
+está no agrupamento. A segunda: métodos que impõem estrutura ao latente (gaussianidade,
+no VAE; agrupamento, no DCN) só ajudam quando essa estrutura corresponde à realidade dos
+dados, e séries multivariadas de poços não são obviamente gaussianas nem obviamente
+agrupáveis em esferas.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{autoencoder_clustering.png}
+\caption{Projeção t-SNE do espaço latente do codificador. À esquerda, os pontos coloridos
+pelos oito rótulos originais do 3W; à direita, pelos agrupamentos obtidos com $K$-médias
+sobre a mesma representação. A correspondência entre as duas partições é parcial: alguns
+rótulos ocupam regiões bem definidas, outros se dispersam por vários agrupamentos.}
+\label{fig:aberto-agrupamento-latente}
+\end{figure}
+
+A \cref{fig:aberto-agrupamento-latente} antecipa esse diagnóstico. Se a representação
+fosse o gargalo, o painel da direita seria uma versão embaralhada do da esquerda. Não é:
+a estrutura existe, e o agrupamento a recupera em boa parte. O que falha é a
+\emph{fronteira} entre classes vizinhas --- e nenhuma variante de autoencoder resolve
+isso, porque todas otimizam reconstrução, e reconstrução não distingue vizinhos.
+
+\begin{destaque}[A releitura pelo \cref{cap:mahalanobis}]
+Há uma terceira interpretação, que só ficará disponível quando a evolução narrada na
+\cref{parte:evolucao} for apresentada: talvez o problema não seja \emph{qual}
+autoencoder, mas o fato de usar um autoencoder. O \cref{cap:mahalanobis} mostrará que o
+espaço latente extraído da penúltima camada de um classificador multiclasse é
+substancialmente melhor --- silhueta de $0{,}2299$ contra $-0{,}0149$ do autoencoder.
+A razão é intuitiva em retrospecto: um autoencoder é treinado para \emph{reconstruir},
+não para \emph{separar}.
+\end{destaque}
+
+\section{Etapas 2 e 3: reconhecer e rejeitar}
+
+\subsection{Classificadores binários no espaço latente}
+
+Sobre o vetor latente, um classificador binário por classe:
+
+\begin{center}
+\small
+\begin{tabular}{ll}
+\toprule
+\textbf{Camada} & \textbf{Configuração} \\
+\midrule
+Entrada        & vetor latente \\
+Densa(64)      & ReLU \\
+\ing{Dropout}  & $0{,}3$ \\
+Densa(32)      & ReLU \\
+\ing{Dropout}  & $0{,}2$ \\
+Densa(1)       & sigmoide \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Note a diferença em relação ao \cref{cap:binarios}: lá os classificadores recebiam a
+série bruta e precisavam de camadas recorrentes; aqui recebem um vetor de dezesseis
+dimensões e bastam camadas densas. O trabalho de extrair estrutura temporal foi
+transferido para o autoencoder --- o que é, ao mesmo tempo, uma economia e um risco: o
+que o autoencoder descartou está perdido para sempre.
+
+\subsection{O voto ponderado}
+
+Cada classe dispõe de dois escores: o do classificador binário, $s_i^{(b)}$, e o da
+OCSVM ajustada aos dados daquela classe no latente, $s_i^{(o)}$. A decisão combina os
+dois:
+\begin{equation}
+  S_i = w_i^{(b)} \, s_i^{(b)} + w_i^{(o)} \, s_i^{(o)},
+  \qquad w_i^{(b)} + w_i^{(o)} = 1,
+  \label{eq:aberto-voto}
+\end{equation}
+com rejeição quando $\max_i S_i < \tau$, $\tau = 0{,}65$.
+
+Os pesos foram ajustados por classe, no conjunto de validação
+(\cref{tab:aberto-pesos}).
+
+\begin{table}[htbp]
+\centering
+\caption{Pesos do voto ponderado por classe. $w^{(b)}$ é o peso do classificador
+binário e $w^{(o)}$ o da OCSVM.}
+\label{tab:aberto-pesos}
+\small
+\begin{tabular}{lcc}
+\toprule
+\textbf{Classe} & $\bm{w^{(b)}}$ & $\bm{w^{(o)}}$ \\
+\midrule
+1 --- Aumento de BSW          & $0{,}65$ & $0{,}35$ \\
+2 --- Fechamento de DHSV      & $0{,}54$ & $0{,}46$ \\
+3 --- Golfadas severas        & $0{,}75$ & $0{,}25$ \\
+4 --- Instabilidade de fluxo  & $0{,}52$ & $0{,}48$ \\
+5 --- Perda de produtividade  & $0{,}58$ & $0{,}42$ \\
+6 --- Restrição rápida no PCK & $0{,}77$ & $0{,}23$ \\
+7 --- Incrustação no PCK      & $0{,}62$ & $0{,}38$ \\
+8 --- Hidrato na produção     & $0{,}53$ & $0{,}47$ \\
+9 --- Hidrato no serviço      & $0{,}54$ & $0{,}46$ \\
+\midrule
+Nenhuma (rejeição)            & $0{,}26$ & $\bm{0{,}74}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{destaque}[A linha mais informativa da tabela]
+É a última. Para decidir que uma janela \emph{não pertence a nenhuma classe conhecida}, o
+peso ótimo da OCSVM é $0{,}74$ --- quase três vezes o do classificador binário. Para
+todas as outras decisões, a proporção se inverte.
+
+A interpretação é direta e generaliza para além deste sistema: \textbf{classificadores
+discriminativos são bons para dizer o que algo é; modelos de suporte, treinados apenas
+sobre dados de uma classe, são bons para dizer o que algo não é}. Cada família de método
+tem o seu papel, e tentar que uma delas cumpra os dois é o erro que o
+\cref{cap:introducao} descreveu.
+\end{destaque}
+
+\subsection{Desempenho dos classificadores binários latentes}
+
+A \cref{tab:aberto-binarios} reporta o desempenho por classe em dois níveis de
+granularidade discutidos no \cref{cap:aprendizado}.
+
+\begin{table}[htbp]
+\centering
+\caption{Desempenho dos classificadores binários no espaço latente. As duas primeiras
+colunas referem-se ao experimento consolidado; as duas últimas, à média e ao desvio
+padrão entre execuções, por amostra e por instância.}
+\label{tab:aberto-binarios}
+\small
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Classe} & \textbf{ACC} & $\bm{F_1}$ & \textbf{ACC (méd.\,$\pm$\,dp)} &
+\textbf{Instância (méd.\,$\pm$\,dp)} \\
+\midrule
+1 & $0{,}92$ & $0{,}93$ & $0{,}82 \pm 0{,}04$ & $1{,}00$ \\
+2 & $0{,}90$ & $0{,}90$ & $0{,}85 \pm 0{,}03$ & $0{,}98 \pm 0{,}05$ \\
+3 & $0{,}85$ & $0{,}87$ & $0{,}89 \pm 0{,}02$ & $1{,}00$ \\
+4 & $0{,}69$ & $0{,}68$ & $0{,}64 \pm 0{,}03$ & $1{,}00$ \\
+5 & $0{,}82$ & $0{,}83$ & $0{,}75 \pm 0{,}03$ & $0{,}76 \pm 0{,}05$ \\
+6 & $0{,}94$ & $0{,}95$ & $0{,}75 \pm 0{,}13$ & $0{,}34 \pm 0{,}42$ \\
+7 & $0{,}79$ & $0{,}83$ & $0{,}80 \pm 0{,}01$ & $1{,}00$ \\
+8 & $0{,}90$ & $0{,}91$ & $0{,}80 \pm 0{,}06$ & $0{,}94 \pm 0{,}12$ \\
+9 & $0{,}92$ & $0{,}92$ & $0{,}81 \pm 0{,}05$ & $1{,}00$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Três observações.
+
+A classe 4 permanece a pior, com $0{,}69$ --- \emph{exatamente} o mesmo valor obtido no
+\cref{cap:binarios} sobre o espaço bruto. Mudar a representação não mudou nada, o que
+reforça o diagnóstico de que o problema está no rótulo.
+
+A classe 6 exibe a patologia mais interessante da tabela: acurácia por amostra de
+$0{,}75 \pm 0{,}13$, mas acurácia por instância de $0{,}34 \pm 0{,}42$. Um desvio padrão
+de $0{,}42$ sobre uma média de $0{,}34$ significa que o classificador acerta a instância
+inteira ou erra a instância inteira, sem meio-termo, dependendo da execução. É um
+classificador instável, e a métrica por amostra o esconde.
+
+\begin{destaque}[Por que reportar os dois níveis]
+Sete das nove classes atingem acurácia por instância de $0{,}94$ ou mais, contra
+acurácias por amostra entre $0{,}64$ e $0{,}89$. Reportar apenas o nível de instância
+sugeriria um sistema quase perfeito; reportar apenas o nível de amostra sugeriria um
+sistema medíocre. Ambos são verdadeiros e respondem a perguntas operacionais
+diferentes: ``o sistema identifica o evento?'' e ``o sistema delimita o evento?''.
+\end{destaque}
+
+\section{O teste real: a anomalia de ICV}
+
+Toda a discussão anterior seria acadêmica sem uma anomalia genuinamente inédita. Ela
+existe: a falha em válvula de controle de intervalo (ICV), descrita no
+\cref{cap:dominio}, que \emph{não pertence a nenhuma das nove classes do 3W} e cujos
+dados são de poços reais.
+
+\subsection{Como o ensemble reage}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{classifier_with_ICV_improved.png}
+\caption{Distribuição dos escores dos nove classificadores binários quando apresentados
+a janelas da anomalia de ICV --- uma classe que nenhum deles conhece. Seis dos nove
+(1, 3, 4, 6, 8 e 9) produzem escore identicamente nulo. O classificador da classe 2
+concentra-se em torno do limiar $0{,}5$, sem decidir. Os classificadores das classes 5 e
+7 distribuem massa acima do limiar. A linha tracejada indica o limiar de decisão.}
+\label{fig:aberto-icv-classificadores}
+\end{figure}
+
+A \cref{fig:aberto-icv-classificadores} é uma das figuras mais informativas deste livro,
+porque mostra simultaneamente o sucesso e o limite da rejeição.
+
+O sucesso: seis dos nove classificadores respondem \emph{zero absoluto}. Não é
+incerteza --- é recusa. O comportamento é exatamente o que a formulação um-contra-todos
+do \cref{cap:binarios} prometia e que uma \ing{softmax} jamais poderia produzir, já que
+os escores somariam um por construção.
+
+O limite: os classificadores das classes 5 e 7 --- perda de produtividade e incrustação
+--- atribuem probabilidade alta a parte das janelas. E a explicação, novamente, é
+física, não algorítmica: uma ICV com falha \emph{de fato} restringe fluxo e \emph{de
+fato} reduz produtividade. A assinatura sintomática é compartilhada. O classificador não
+está errado no que observa; o rótulo é que não distingue causa de efeito.
+
+\begin{resultadochave}
+Do total de janelas de ICV, $\bm{48\,\%}$ foram atribuídas a alguma classe conhecida ---
+majoritariamente 5 e 7 --- e $\bm{52\,\%}$ foram corretamente rejeitadas e encaminhadas
+ao agrupamento.
+\end{resultadochave}
+
+Metade de uma anomalia genuinamente nova é reconhecida como nova. É simultaneamente um
+resultado forte --- comparado a zero, que é o que um classificador de mundo fechado
+entregaria --- e um resultado que deixa clara a distância até um sistema confiável.
+
+\section{Etapas 4 e 5: agrupar, refinar, validar}
+
+\subsection{Estimar o número de grupos}
+
+Antes de agrupar é preciso decidir em quantos grupos. A solução adotada evita tanto o
+arbítrio quanto a inspeção visual do cotovelo: uma \textbf{floresta aleatória} treinada
+para prever $K$ a partir de oito características do próprio conjunto de dados.
+
+\begin{center}
+\small
+\begin{tabular}{ll}
+\toprule
+\textbf{Característica} & \textbf{Descrição} \\
+\midrule
+$n$                    & número de amostras \\
+Silhueta               & \cref{eq:silhueta} \\
+Davies-Bouldin         & \cref{eq:db} \\
+Calinski-Harabasz      & razão de dispersão entre e intra grupos \\
+Inércia                & soma dos quadrados intra grupo \\
+\texttt{avg\_k}        & estimativa por média de índices \\
+\texttt{entropy\_k}    & estimativa por entropia da distribuição \\
+Volume do envoltório   & hipervolume da caixa delimitadora dos dados \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+A estimativa final é a média de duas delas:
+\begin{equation}
+  \hat{K} = \frac{\texttt{avg\_k} + \texttt{entropy\_k}}{2}.
+  \label{eq:aberto-k}
+\end{equation}
+
+\begin{table}[htbp]
+\centering
+\caption{Desempenho da floresta aleatória estimadora do número de agrupamentos.}
+\label{tab:aberto-rf}
+\begin{tabular}{lc}
+\toprule
+\textbf{Métrica} & \textbf{Valor} \\
+\midrule
+Acurácia                 & $98{,}3\,\%$ \\
+Precisão                 & $0{,}98$ \\
+Revocação                & $0{,}86$ \\
+Medida $F_1$             & $0{,}87$ \\
+Erro médio absoluto em $K$ & $1{,}12$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{destaque}[Leia a tabela com atenção]
+Acurácia de $98{,}3\,\%$ e erro médio absoluto de $1{,}12$ agrupamentos parecem
+inconsistentes --- e não são. A acurácia mede o acerto exato de $K$; o erro médio
+absoluto é dominado por poucos casos em que o estimador erra por muito.
+
+Em termos operacionais, um erro de mais ou menos um agrupamento significa que
+ocasionalmente uma classe nova é dividida em duas ou duas são fundidas em uma. É um erro
+tolerável, porque as etapas seguintes --- refinamento e validação por índices internos
+--- têm chance de corrigi-lo, e porque o humano no laço é a última instância. Um erro de
+mais ou menos cinco não seria tolerável.
+\end{destaque}
+
+\subsection{Interseção entre dois algoritmos}
+
+O agrupamento não é confiado a um único método. Executam-se \textbf{K-means} --- com o
+$K$ estimado --- e \textbf{MeanShift}, cuja largura de banda é determinada pelos próprios
+dados, e retêm-se as amostras em que os dois concordam.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.85\textwidth]{latent_space_with_ICV_corrected.png}
+\caption{Projeção t-SNE do espaço latente. Cada cor corresponde a um agrupamento
+identificado pelo K-means sobre as classes conhecidas; os círculos vermelhos são as
+janelas de ICV rejeitadas, e a região sombreada é o envoltório convexo que elas ocupam.
+Note que as janelas de ICV não formam um grupo compacto: elas se distribuem em subgrupos
+separados, no limite entre agrupamentos existentes.}
+\label{fig:aberto-latente}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.85\textwidth]{meanshift_with_ICV_corrected.png}
+\caption{Agrupamento das janelas de ICV rejeitadas por MeanShift, projetado por t-SNE.
+O algoritmo identifica dois grupos e marca como ruído as amostras que não pertencem a
+nenhum deles --- comportamento desejável, já que a rejeição inevitavelmente arrasta
+janelas de transição.}
+\label{fig:aberto-meanshift}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.85\textwidth]{dbscan_with_ICV_corrected.png}
+\caption{Agrupamento das mesmas janelas por DBSCAN. O algoritmo não exige que se declare
+o número de grupos, mas transfere a dificuldade para os parâmetros $\varepsilon$ e
+$\mathit{minPts}$: com a densidade heterogênea do espaço latente, ele ou funde os
+subgrupos ou classifica a maior parte das amostras como ruído.}
+\label{fig:aberto-dbscan}
+\end{figure}
+
+A comparação entre as \cref{fig:aberto-latente,fig:aberto-meanshift} explica por que a
+interseção é necessária. Os dois algoritmos partem de premissas diferentes --- o K-means
+supõe grupos esféricos de tamanho comparável; o MeanShift, modos de densidade --- e a
+concordância entre eles é um indício de estrutura genuína, não de artefato do método.
+A \cref{fig:aberto-dbscan} mostra o terceiro candidato descartado: o DBSCAN é o método
+teoricamente mais adequado a grupos de forma arbitrária, mas neste espaço latente sua
+sensibilidade a $\varepsilon$ o torna instável demais para uso automático.
+
+\begin{destaque}[Uma advertência sobre o t-SNE]
+As \cref{fig:aberto-latente,fig:aberto-meanshift} são projeções t-SNE, e o
+\cref{cap:novidades} advertiu: distâncias no t-SNE não são distâncias no latente, e o
+algoritmo produz agrupamentos visualmente convincentes mesmo em ruído puro. Estas
+figuras servem para \emph{ilustrar}, nunca para \emph{provar}. A evidência quantitativa
+está nos índices internos e nas taxas de acerto.
+\end{destaque}
+
+\subsection{Refinamento por limiar adaptativo}
+
+Nem toda amostra atribuída a um grupo pertence a ele. Aplica-se, dentro de cada grupo,
+um limiar sobre a distância ao centroide:
+\[
+  T = \mu + k\sigma,
+\]
+com $k$ determinado pela razão $R = \mu / \sigma$ da distribuição de distâncias:
+\begin{equation}
+  k = \begin{cases}
+    2, & \text{se } R \geq 4, \\[0.2em]
+    1 + \dfrac{R-2}{2}, & \text{se } 2 \leq R < 4, \\[0.5em]
+    0, & \text{se } R < 2.
+  \end{cases}
+  \label{eq:aberto-kadaptativo}
+\end{equation}
+
+A lógica é a seguinte. $R$ alto indica grupo compacto e homogêneo, e nesse caso pode-se
+ser tolerante ($k = 2$). $R$ baixo indica grupo disperso, provavelmente contaminado, e
+exige rigor ($k = 0$, ou seja, retém-se apenas o que está abaixo da distância média).
+Entre os dois extremos, interpola-se linearmente.
+
+Uma salvaguarda final: se o critério eliminar mais de dois terços do grupo, ele é
+descartado e mantêm-se os dois terços mais próximos do centroide. Sem essa proteção, um
+grupo mal formado poderia ser reduzido a um punhado de amostras e ainda assim promovido
+a classe.
+
+\subsection{Validação}
+
+Grupos sobreviventes são avaliados pelos índices internos do \cref{cap:novidades}:
+silhueta, Davies-Bouldin e Calinski-Harabasz. Um grupo só é promovido a classe virtual
+se apresentar coesão e separação adequadas segundo os três.
+
+\section{Etapa 6: classes virtuais}
+
+\begin{definicao}{Classe virtual}
+Agrupamento validado que passa a ser tratado como classe pelo sistema, recebendo seu
+próprio classificador binário, mas que ainda não foi nomeado nem confirmado por um
+especialista.
+\end{definicao}
+
+A promoção a classe virtual é a etapa que fecha o ciclo, e ela é barata precisamente por
+causa da propriedade de extensibilidade incremental estabelecida no \cref{cap:binarios}:
+treina-se um novo classificador binário, e nenhum dos existentes é tocado.
+
+\begin{resultadochave}
+Sobre o conjunto de janelas rejeitadas, o ciclo de agrupamento e refinamento atinge
+acurácia de $\bm{80{,}8\,\%}$ no nível de amostra na atribuição a grupos coerentes.
+\end{resultadochave}
+
+\section{Balanço}
+
+O ciclo funciona, e funciona parcialmente. Vale enunciar as duas metades com igual
+clareza.
+
+\textbf{O que funciona.} A rejeição não é uma promessa teórica: $52\,\%$ de uma anomalia
+genuinamente inédita foram identificados como tal, com seis de nove classificadores
+respondendo zero absoluto. O agrupamento subsequente organiza esse material com
+$80{,}8\,\%$ de acurácia. A estimativa automática de $K$ dispensa arbítrio. E o
+mecanismo de classes virtuais permite crescimento do repertório sem retreinamento
+global.
+
+\textbf{O que não funciona.} Quase metade das janelas de ICV foi absorvida pelas classes
+sintomáticas 5 e 7. A escolha da representação --- autoencoder, VAE ou DCN --- é
+irrelevante, o que sugere que o gargalo não foi identificado. As classes 4 e 5 falham
+sistematicamente. E, sobretudo, \textbf{as classes virtuais não têm nome}: o sistema
+produz ``grupo 11'', não ``falha de ICV''.
+
+\begin{destaque}[As três portas que este capítulo abre]
+Cada uma dessas limitações define uma das partes seguintes do livro.
+
+A representação inadequada leva ao \cref{cap:mahalanobis}: o latente do classificador
+multiclasse supera o do autoencoder por uma margem que torna o resultado da
+\cref{tab:aberto-arquiteturas} compreensível em retrospecto.
+
+A detecção grosseira, no nível de janela inteira, leva ao \cref{cap:segmentacao}: uma
+U-Net que segmenta ponto a ponto, elevando a acurácia de $0{,}500$ para $0{,}863$.
+
+E a ausência de nomes leva à \cref{parte:explicabilidade}, onde um modelo de linguagem
+recebe as estatísticas do segmento anômalo e produz uma descrição em linguagem natural
+--- que, para a maioria das classes, converge para um nome consistente.
+\end{destaque}
+
+\resumocapitulo{%
+O ciclo de aprendizado de mundo aberto tem seis etapas: representação, reconhecimento,
+rejeição, agrupamento, refinamento e incorporação. A representação é um autoencoder LSTM
+que comprime $200 \times 4$ valores em dezesseis dimensões; alternativas variacionais e
+de \ing{clustering} profundo produzem desempenho estatisticamente indistinguível
+($0{,}730$, $0{,}727$ e $0{,}725$), o que indica que o gargalo está em outro lugar. A
+rejeição combina classificadores binários e OCSVM em um voto ponderado por classe, e o
+peso ótimo da OCSVM na decisão de rejeitar é $0{,}74$ contra $0{,}26$ do classificador
+--- evidência de que reconhecer e rejeitar são tarefas para famílias distintas de
+método. Sobre uma anomalia genuinamente inédita, a falha de ICV, seis dos nove
+classificadores produzem escore nulo e $52\,\%$ das janelas são corretamente rejeitadas;
+os $48\,\%$ restantes são absorvidos pelas classes sintomáticas 5 e 7. O agrupamento usa
+a interseção entre K-means e MeanShift, com $K$ estimado por uma floresta aleatória
+sobre oito índices ($98{,}3\,\%$ de acurácia, erro médio de $1{,}12$), seguida de
+refinamento por limiar adaptativo $\mu + k\sigma$ com $k$ dependente da razão
+$R = \mu/\sigma$. A acurácia do ciclo de agrupamento é de $80{,}8\,\%$ no nível de
+amostra. Os grupos validados tornam-se classes virtuais --- que ainda não têm nome.}
+
+\begin{exercicios}
+\item O peso ótimo da OCSVM na decisão de rejeição é $0{,}74$, contra valores entre
+      $0{,}23$ e $0{,}48$ nas decisões de reconhecimento. Explique essa assimetria em
+      termos da natureza discriminativa dos classificadores binários e da natureza
+      generativa dos modelos de suporte.
+
+\item Implemente o limiar adaptativo da \cref{eq:aberto-kadaptativo}. Gere conjuntos
+      sintéticos com diferentes graus de dispersão e verifique se o comportamento de $k$
+      corresponde à intenção declarada. Proponha e avalie uma alternativa contínua e
+      diferenciável.
+
+\item A floresta aleatória atinge $98{,}3\,\%$ de acurácia com erro médio absoluto de
+      $1{,}12$. Construa uma distribuição de erros compatível com esse par de valores.
+      O que ela revela sobre o comportamento do estimador nos casos em que erra?
+
+\item Reproduza a \cref{tab:aberto-arquiteturas} substituindo o autoencoder por um
+      \ing{transformer} de séries temporais. A conclusão de que a escolha da
+      representação é irrelevante se mantém? Se sim, o que isso implica sobre onde
+      concentrar esforço de engenharia?
+
+\item A interseção entre K-means e MeanShift descarta amostras em que os dois algoritmos
+      discordam. Quantifique, sobre o 3W, a fração descartada. Discuta o compromisso
+      entre pureza dos grupos e cobertura, e proponha um critério para decidir quando a
+      interseção é preferível à união.
+
+\item Argumenta-se que $48\,\%$ das janelas de ICV foram absorvidas pelas classes 5 e 7
+      por compartilharem assinatura sintomática. Projete um experimento que teste essa
+      hipótese contra a alternativa de que se trata de simples limitação do
+      classificador.
+
+\item Uma classe virtual é promovida sem nome nem confirmação humana. Discuta os riscos
+      operacionais de acumular classes virtuais indefinidamente e proponha uma política
+      de governança: quando promover, quando fundir, quando descartar, e com que
+      frequência solicitar revisão humana.
+\end{exercicios}
+
+\begin{leituras}
+\item \citet{LopesTese2025} --- a tese que originou este capítulo, com detalhamento
+      completo do ciclo.
+\item \citet{openworld1}, \citet{openworld2} e \citet{openworld3} --- os fundamentos do
+      aprendizado de mundo aberto.
+\item \citet{Pimentel2014review} --- revisão abrangente de detecção de novidade.
+\item \citet{Breiman2001} --- florestas aleatórias, aqui usadas de forma incomum, como
+      estimador de metaparâmetro.
+\item \citet{maaten2008visualizing} --- o t-SNE, com a discussão original sobre o que
+      suas projeções podem e não podem sustentar.
+\end{leituras}

@@ -1,0 +1,38 @@
+cff-version: 1.2.0
+message: "Se este livro for util em seu trabalho, por favor cite-o conforme abaixo."
+type: book
+title: "Aprendizado de Mundo Aberto em Pocos de Petroleo: da deteccao baseada em regras a explicabilidade por agentes de linguagem"
+abstract: >-
+  Livro em portugues sobre deteccao, segmentacao e explicacao de eventos indesejaveis em
+  pocos de petroleo. Percorre o caminho que vai da deteccao baseada em regras ao
+  aprendizado de mundo aberto e, deste, a explicabilidade por agentes de modelos de
+  linguagem, com resultados experimentais sobre o conjunto de dados publico 3W e sobre
+  dados reais de operacao. Inclui um roteiro pratico ancorado nos cadernos didaticos do
+  repositorio 3W.
+authors:
+  - family-names: "Lopes"
+    given-names: "Lucas Gouveia Omena"
+    affiliation: "Laboratorio de Computacao Cientifica e Visualizacao, Universidade Federal de Alagoas"
+  - family-names: "Vieira"
+    given-names: "Thales Miranda de Almeida"
+    affiliation: "Universidade Federal de Alagoas"
+  - family-names: "Lima Junior"
+    given-names: "Eduardo Toledo de"
+    affiliation: "Laboratorio de Computacao Cientifica e Visualizacao, Universidade Federal de Alagoas"
+  - family-names: "Lira"
+    given-names: "William Wagner Matos"
+    affiliation: "Laboratorio de Computacao Cientifica e Visualizacao, Universidade Federal de Alagoas"
+year: 2026
+publisher:
+  name: "Laboratorio de Computacao Cientifica e Visualizacao, Universidade Federal de Alagoas"
+  city: "Maceio"
+  country: BR
+license: CC-BY-4.0
+keywords:
+  - aprendizado de mundo aberto
+  - deteccao de anomalias
+  - series temporais multivariadas
+  - pocos de petroleo
+  - conjunto de dados 3W
+  - modelos de linguagem
+  - explicabilidade

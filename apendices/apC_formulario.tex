@@ -1,0 +1,259 @@
+\chapter{Formulário}
+\label{cap:formulario}
+
+Este apêndice reúne, em um só lugar, as expressões usadas ao longo do livro. Cada uma
+remete ao capítulo em que foi introduzida e discutida.
+
+\section{Métricas de classificação}
+
+Com VP, VN, FP e FN denotando verdadeiros positivos, verdadeiros negativos, falsos
+positivos e falsos negativos (\cref{cap:aprendizado}):
+
+\begin{align}
+\text{ACC} &= \frac{\text{VP} + \text{VN}}{\text{VP} + \text{VN} + \text{FP} + \text{FN}}
+\label{eq:for-acc} \\[0.4em]
+\text{REC} &= \frac{\text{VP}}{\text{VP} + \text{FN}}
+\label{eq:for-rec} \\[0.4em]
+\text{SP} &= \frac{\text{VN}}{\text{VN} + \text{FP}}
+\label{eq:for-sp} \\[0.4em]
+\text{PR} &= \frac{\text{VP}}{\text{VP} + \text{FP}}
+\label{eq:for-pr} \\[0.4em]
+F_1 &= 2 \cdot \frac{\text{PR} \cdot \text{REC}}{\text{PR} + \text{REC}}
+\label{eq:for-f1} \\[0.4em]
+\text{ACC}_b &= \frac{1}{|\mathcal{K}|} \sum_{k \in \mathcal{K}} \text{REC}_k
+\label{eq:for-accb}
+\end{align}
+
+Para segmentação, com $A$ e $B$ os conjuntos de instantes preditos e anotados:
+
+\begin{equation}
+\text{IoU} = \frac{|A \cap B|}{|A \cup B|}
+\label{eq:for-iou}
+\end{equation}
+
+Para listas ordenadas de $N$ segmentos, com $\rho_i$ a posição da classe correta:
+
+\begin{equation}
+\text{top-}k = \frac{1}{N} \sum_{i=1}^{N} \mathbb{1}[\rho_i \le k]
+\label{eq:for-topk}
+\end{equation}
+
+\section{Erro de reconstrução e limiar}
+
+Erro percentual absoluto médio simétrico, usado como perda e como escore de anomalia
+(\cref{cap:dual}):
+
+\begin{equation}
+\text{SMAPE} = \frac{100}{n} \sum_{i=1}^{n}
+\frac{|\hat{x}_i - x_i|}{(|x_i| + |\hat{x}_i|)/2}
+\label{eq:for-smape}
+\end{equation}
+
+Limiar sobre o erro de reconstrução, com $\mu$ e $\sigma$ estimados no conjunto de
+treinamento e $k = 3$:
+
+\begin{equation}
+\tau = \mu + k\,\sigma
+\label{eq:for-limiar}
+\end{equation}
+
+\section{Detecção de novidade}
+
+Distância de Mahalanobis de um ponto $\vect{x}$ à distribuição de média $\bm{\mu}$ e
+covariância $\bm{\Sigma}$ (\cref{cap:mahalanobis}):
+
+\begin{equation}
+d_M(\vect{x}) = \sqrt{(\vect{x} - \bm{\mu})^{\top}\,
+\bm{\Sigma}^{-1}\,(\vect{x} - \bm{\mu})}
+\label{eq:for-mahalanobis}
+\end{equation}
+
+Regularização da covariância, necessária quando a dimensão é comparável ao número de
+amostras:
+
+\begin{equation}
+\bm{\Sigma}_{\text{reg}} = \bm{\Sigma} + \lambda \mat{I}
+\label{eq:for-sigmareg}
+\end{equation}
+
+Decisão de novidade, com $\tau_{95}$ o percentil 95 das distâncias no conjunto de
+referência:
+
+\begin{equation}
+\text{novidade}(\vect{x}) =
+\begin{cases}
+1, & d_M(\vect{x}) > \tau_{95} \\
+0, & \text{caso contrário}
+\end{cases}
+\label{eq:for-decisao}
+\end{equation}
+
+Rejeição por ensemble binário (\cref{cap:binarios}), com $s_k$ o escore do classificador
+da classe $k$:
+
+\begin{equation}
+\text{rejeitar} \iff \max_{k \in \mathcal{K}} s_k < \tau
+\label{eq:for-rejeicao}
+\end{equation}
+
+Voto ponderado entre classificador latente e OCSVM (\cref{cap:mundoaberto}):
+
+\begin{equation}
+v = w_{\text{bin}}\, s_{\text{bin}} + w_{\text{ocsvm}}\, s_{\text{ocsvm}},
+\qquad w_{\text{bin}} + w_{\text{ocsvm}} = 1
+\label{eq:for-voto}
+\end{equation}
+
+\section{Agrupamento}
+
+Objetivo do $K$-médias:
+
+\begin{equation}
+\min_{\{C_j\}} \sum_{j=1}^{K} \sum_{\vect{x} \in C_j}
+\|\vect{x} - \bm{\mu}_j\|^2
+\label{eq:for-kmeans}
+\end{equation}
+
+Silhueta de uma amostra, com $a$ a distância média ao próprio grupo e $b$ a distância
+média ao grupo vizinho mais próximo:
+
+\begin{equation}
+s = \frac{b - a}{\max(a, b)}
+\label{eq:for-silhueta}
+\end{equation}
+
+Índice de Calinski-Harabasz, com $B$ e $W$ as dispersões entre e dentro dos grupos e $n$
+o número de amostras:
+
+\begin{equation}
+\text{CH} = \frac{\operatorname{tr}(B)}{\operatorname{tr}(W)} \cdot
+\frac{n - K}{K - 1}
+\label{eq:for-ch}
+\end{equation}
+
+Índice de Davies-Bouldin, com $\sigma_j$ a dispersão do grupo $j$ e $d_{ij}$ a distância
+entre centroides:
+
+\begin{equation}
+\text{DB} = \frac{1}{K} \sum_{i=1}^{K}
+\max_{j \ne i} \frac{\sigma_i + \sigma_j}{d_{ij}}
+\label{eq:for-db}
+\end{equation}
+
+Limiar adaptativo do ciclo de mundo aberto, com $R = \mu/\sigma$ das distâncias
+intragrupo (\cref{cap:mundoaberto}):
+
+\begin{equation}
+k(R) =
+\begin{cases}
+2, & R \ge 4 \\[0.2em]
+1 + \dfrac{R - 2}{2}, & 2 \le R < 4 \\[0.6em]
+0, & R < 2
+\end{cases}
+\label{eq:for-kadapt}
+\end{equation}
+
+\section{Formação de hidrato}
+
+Temperatura de formação de hidrato pela correlação de Motiee, com $P$ em unidades de
+pressão e $\gamma$ a densidade relativa do gás (\cref{cap:closedworld}):
+
+\begin{equation}
+T_{\text{hid}} = a_0 + a_1 \log_{10} P + a_2 (\log_{10} P)^2
++ a_3 \gamma + a_4 \gamma \log_{10} P + a_5 \gamma^2
+\label{eq:for-motiee}
+\end{equation}
+
+Índice de risco analítico, com $T$ a temperatura medida:
+
+\begin{equation}
+C_{\text{hid}} = \max\!\left(0,\;
+\frac{T_{\text{hid}} - T}{T_{\text{hid}}}\right) \times 100\,\%
+\label{eq:for-chid}
+\end{equation}
+
+\section{As treze métricas do agente}
+
+Com $\vect{b}$ a janela de linha de base e $\vect{e}$ a janela de evento
+(\cref{cap:agente}), para cada sensor:
+
+\begin{align}
+\delta &= \bar{e} - \bar{b}
+\label{eq:for-delta} \\[0.3em]
+\text{pct} &= 100 \cdot \frac{\delta}{|\bar{b}|}
+\label{eq:for-pct} \\[0.3em]
+z &= \frac{|\delta|}{\max(\sigma_b,\, 10^{-6})}
+\label{eq:for-z} \\[0.3em]
+\text{noise\_ratio} &= \frac{\sigma_e}{\sigma_b}
+\label{eq:for-noise}
+\end{align}
+
+Categorizações derivadas:
+
+\begin{table}[htbp]
+\centering
+\caption{Categorizações das métricas do agente.}
+\label{tab:for-categorias}
+\small
+\begin{tabular}{llp{6.2cm}}
+\toprule
+\textbf{Métrica} & \textbf{Valor} & \textbf{Condição} \\
+\midrule
+\multirow{3}{*}{Direção}
+& aumento    & $\delta > 0{,}5\,\sigma_b$ \\
+& redução    & $\delta < -0{,}5\,\sigma_b$ \\
+& estável    & caso contrário \\
+\midrule
+\multirow{3}{*}{Magnitude}
+& pequena    & $z < 1$ \\
+& moderada   & $1 \le z < 3$ \\
+& grande     & $z \ge 3$ \\
+\midrule
+\multirow{3}{*}{Taxa}
+& súbita     & $|\text{inclinação}| > 0{,}01$ \\
+& rápida     & $|\text{inclinação}| > 0{,}002$ \\
+& gradual    & caso contrário \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Métricas restantes: inclinação, comportamento, razão de oscilação, amplitude do evento,
+média da linha de base, média do evento, relação entre P-PDG e P-TPT, e sensor mais
+afetado.
+
+\section{Intervalo de confiança}
+
+Intervalo de Wilson para uma proporção $\hat{p}$ observada em $n$ ensaios, com
+$z_{\alpha/2} = 1{,}96$ para $95\,\%$ (\cref{cap:aprendizado}):
+
+\begin{equation}
+\frac{\hat{p} + \dfrac{z^2}{2n} \pm
+z \sqrt{\dfrac{\hat{p}(1-\hat{p})}{n} + \dfrac{z^2}{4n^2}}}
+{1 + \dfrac{z^2}{n}}
+\label{eq:for-wilson}
+\end{equation}
+
+\begin{destaque}[Por que Wilson e não a aproximação normal]
+Vários resultados do livro envolvem amostras pequenas --- $n = 11$ para a classe 9 no
+estudo de novidade --- e proporções próximas de 1, como os $100\,\%$ da classe 2.
+
+A aproximação normal produz, nesses casos, intervalos que ultrapassam os limites $[0,1]$
+ou colapsam a largura zero. O intervalo de Wilson permanece válido em ambos os regimes, e
+por isso foi usado uniformemente.
+\end{destaque}
+
+\section{Normalizações}
+
+Padronização por escore-$z$:
+
+\begin{equation}
+x' = \frac{x - \mu}{\sigma}
+\label{eq:for-zscore}
+\end{equation}
+
+Normalização Min-Max para o intervalo $[0,1]$:
+
+\begin{equation}
+x' = \frac{x - \min(x)}{\max(x) - \min(x)}
+\label{eq:for-minmax}
+\end{equation}

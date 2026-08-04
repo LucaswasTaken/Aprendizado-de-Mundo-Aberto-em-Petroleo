@@ -1,0 +1,497 @@
+\chapter{Detecção de novidade e mundo aberto}
+\label{cap:novidades}
+
+\begin{objetivos}
+Ao final deste capítulo, você será capaz de:
+\begin{itemize}[leftmargin=*,itemsep=0.2em]
+  \item distinguir formalmente classificação de mundo fechado, reconhecimento em
+        conjunto aberto e aprendizado de mundo aberto;
+  \item calcular o risco de espaço aberto e explicar por que classificadores
+        discriminativos convencionais o ignoram;
+  \item aplicar e comparar quatro famílias de escore de novidade: erro de reconstrução,
+        máquina de vetores de suporte de uma classe, distância de Mahalanobis e rejeição
+        por ensemble binário;
+  \item aplicar os algoritmos K-means, MeanShift e DBSCAN, e escolher entre eles a partir
+        das hipóteses que cada um faz;
+  \item avaliar a qualidade de um agrupamento sem rótulos usando os índices de silhueta,
+        Davies-Bouldin e Calinski-Harabasz;
+  \item usar PCA, t-SNE e UMAP para inspeção visual, reconhecendo os limites de cada um.
+\end{itemize}
+\end{objetivos}
+
+\section{Três níveis de abertura}
+
+\begin{definicao}{Classificação de mundo fechado}
+Dado um conjunto de classes conhecidas $\mathcal{K} = \{1, \dots, K\}$, busca-se
+$f: \mathcal{X} \to \mathcal{K}$. Pressupõe-se que toda entrada pertence a
+$\mathcal{K}$.
+\end{definicao}
+
+\begin{definicao}{Reconhecimento em conjunto aberto}
+Busca-se $f: \mathcal{X} \to \mathcal{K} \cup \{\texttt{desconhecido}\}$. O sistema pode
+recusar-se a classificar, mas não faz nada com o que recusou \citep{Scheirer2013}.
+\end{definicao}
+
+\begin{definicao}{Aprendizado de mundo aberto}
+Além de recusar, o sistema \emph{agrupa} as instâncias rejeitadas, propõe novas classes,
+submete-as a validação e incorpora as validadas a $\mathcal{K}$, de modo que
+$\mathcal{K}_{t+1} \supseteq \mathcal{K}_{t}$. O ciclo se repete indefinidamente.
+\end{definicao}
+
+Os três níveis correspondem, quase exatamente, aos capítulos da \cref{parte:base}: o
+\cref{cap:dual} opera em mundo fechado com um mecanismo de detecção acoplado; o
+\cref{cap:binarios} realiza reconhecimento em conjunto aberto; o \cref{cap:mundoaberto}
+fecha o ciclo completo de aprendizado de mundo aberto.
+
+\subsection{Risco de espaço aberto}
+
+\citet{Scheirer2013} formalizam por que classificadores discriminativos falham em
+conjunto aberto. Seja $f$ uma função de decisão para a classe $k$ e seja
+$\mathcal{S}_o$ uma região limitada do espaço de características contendo todos os
+exemplos de treinamento. Define-se o \termo{risco de espaço aberto}{open space risk}
+como
+\begin{equation}
+  R_{\mathcal{O}}(f) = \frac{\displaystyle\int_{\mathcal{O}} f(\vect{x})\, d\vect{x}}
+                             {\displaystyle\int_{\mathcal{S}_o} f(\vect{x})\, d\vect{x}},
+  \label{eq:open-space-risk}
+\end{equation}
+onde $\mathcal{O} = \mathcal{S}_o \setminus \mathcal{S}_{\text{treino}}$ é o espaço
+aberto --- a região do espaço de características arbitrariamente longe de qualquer
+exemplo visto.
+
+A leitura é simples e devastadora. Um hiperplano separador, como o de uma regressão
+logística ou de uma SVM linear, produz $f(\vect{x}) = 1$ em um semiespaço \emph{de
+volume infinito}. Seu risco de espaço aberto é ilimitado: existem regiões
+arbitrariamente distantes de qualquer dado de treinamento em que o modelo declara,
+com confiança máxima, pertinência à classe.
+
+\begin{destaque}[A geometria da rejeição]
+A conclusão prática é que \emph{funções de decisão que declaram pertinência devem ser
+limitadas}. As quatro abordagens da \cref{sec:novidades-escores} são, cada uma à sua
+maneira, formas de impor essa limitação: uma esfera no espaço latente (Mahalanobis), um
+envelope em torno dos dados (OCSVM), um limiar sobre o erro de reconstrução, ou a
+conjunção de $K$ decisões binárias independentes.
+\end{destaque}
+
+\section{Quatro escores de novidade}
+\label{sec:novidades-escores}
+
+\subsection{Erro de reconstrução}
+
+Já apresentado no \cref{cap:profundo}: treina-se um autoencoder sobre dados normais e
+usa-se $a(\mat{X}) = \mathcal{D}(\mat{X}, h_{\psi}(g_{\phi}(\mat{X})))$ como escore.
+
+\textbf{Vantagem.} Não requer rótulos de anomalia --- é a única das quatro que
+funciona quando não há um único exemplo de anomalia disponível.
+
+\textbf{Desvantagem.} Depende criticamente da capacidade do modelo. Um autoencoder
+muito expressivo generaliza demais e reconstrói bem entradas anômalas; um autoencoder
+pouco expressivo reconstrói mal tudo. Não há critério simples para acertar o ponto.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.86\textwidth]{distribution_comparison.png}
+\caption{Densidade interpolada do erro de reconstrução para dados normais e para janelas
+de falha de ICV, com o limiar probabilístico assinalado. A área sob cada curva soma um.}
+\label{fig:novidades-limiar}
+\end{figure}
+
+A \cref{fig:novidades-limiar} mostra o formato típico do problema. As duas distribuições
+se sobrepõem, e o limiar é uma linha vertical que escolhe onde pagar o custo: mais à
+esquerda, capturam-se quase todas as anomalias ao preço de falsos alarmes; mais à
+direita, o oposto.
+
+Essa figura também explica por que a escolha do limiar costuma importar mais que a
+escolha da arquitetura. Deslocar a linha percorre toda a curva ROC; trocar o autoencoder
+move as duas distribuições apenas alguns por cento uma em relação à outra.
+
+\subsection{Máquina de vetores de suporte de uma classe}
+
+A OCSVM \citep{Smola2004} busca a hiperesfera de raio mínimo (ou o hiperplano de margem
+máxima em relação à origem, no espaço de características induzido pelo núcleo) que
+contenha uma fração $1 - \nu$ dos dados de treinamento:
+\begin{equation}
+  \min_{\vect{w}, \rho, \vect{\xi}} \quad
+  \frac{1}{2}\|\vect{w}\|^2 + \frac{1}{\nu n}\sum_i \xi_i - \rho
+  \quad \text{s.a.} \quad
+  \langle \vect{w}, \varphi(\vect{x}_i)\rangle \ge \rho - \xi_i,\ \ \xi_i \ge 0.
+  \label{eq:ocsvm}
+\end{equation}
+
+\textbf{Vantagem.} Fronteira de decisão limitada por construção; risco de espaço aberto
+controlado.
+
+\textbf{Desvantagem.} Escala mal com o número de amostras e é sensível à escolha do
+núcleo e de $\nu$. No \cref{cap:closedworld}, uma OCSVM aplicada diretamente aos dados
+brutos atinge apenas $0{,}65$ de acurácia global, contra $0{,}87$ do ensemble binário.
+A OCSVM reaparece, contudo, no \cref{cap:mundoaberto} como \emph{componente} de um voto
+ponderado --- e ali contribui, porque erra de forma diferente do ensemble.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.86\textwidth]{SVM_Decision.png}
+\caption{Fronteira de decisão de uma OCSVM treinada sobre o espaço latente, projetada por
+t-SNE. O gradiente representa o valor da função de decisão: regiões escuras são
+classificadas com confiança como conhecidas; regiões claras, como não-classe. Os pontos
+sobrepostos distinguem dados de validação, dados de ICV e amostras de não-classe.}
+\label{fig:novidades-ocsvm}
+\end{figure}
+
+A \cref{fig:novidades-ocsvm} torna visível o que a \cref{eq:ocsvm} formaliza: a fronteira
+envolve o suporte dos dados conhecidos em vez de separar duas classes. É a diferença
+entre \emph{onde os dados estão} e \emph{o que os separa} --- e é exatamente essa
+diferença que limita o risco de espaço aberto da \cref{eq:open-space-risk}.
+
+\subsection{Distância de Mahalanobis}
+
+\begin{definicao}{Distância de Mahalanobis}
+Para uma distribuição com média $\vect{\mu}$ e covariância $\mat{\Sigma}$,
+\begin{equation}
+  d_M(\vect{x}) = \sqrt{ (\vect{x} - \vect{\mu})^{\top} \mat{\Sigma}^{-1} (\vect{x} - \vect{\mu}) }.
+  \label{eq:mahalanobis}
+\end{equation}
+\end{definicao}
+
+A distância de Mahalanobis é a distância euclidiana medida no sistema de coordenadas em
+que a distribuição é esférica: ela normaliza pela variância em cada direção e
+descorrelaciona os eixos. Um ponto a duas unidades de distância ao longo de uma direção
+de alta variância é menos surpreendente que um ponto a duas unidades ao longo de uma
+direção de baixa variância, e a \cref{eq:mahalanobis} captura exatamente isso.
+
+Em alta dimensão, $\mat{\Sigma}$ é frequentemente mal condicionada ou singular. A
+contramedida padrão, adotada no \cref{cap:mahalanobis}, é a regularização
+\begin{equation}
+  \mat{\Sigma}_{\text{reg}} = \mat{\Sigma} + \lambda \mat{I}.
+  \label{eq:sigma-reg}
+\end{equation}
+
+\textbf{Vantagem.} Fechada, barata, com uma única hipótese explícita (aproximação
+gaussiana por classe) e um limiar natural via quantil da distribuição
+$\chi^2$ --- ou, empiricamente, o percentil 95 dos dados de treinamento.
+
+\textbf{Desvantagem.} A hipótese gaussiana. Aplicada ao espaço bruto, ela é
+grosseiramente violada, e o desempenho reflete isso. Aplicada a um espaço latente
+discriminativo, torna-se aceitável --- e o desempenho salta. Esse é, em uma frase, o
+achado central do \cref{cap:mahalanobis}.
+
+\begin{exemplo}{A diferença que o espaço faz}
+O \cref{cap:mahalanobis} reporta, para a classe 8 (hidrato na linha de produção), uma
+razão de separação --- distância média das instâncias desconhecidas dividida pela
+distância média das conhecidas --- de menos de $1{,}0$ no espaço bruto e de
+$186{,}5$ no espaço latente do classificador multiclasse.
+
+Não é um ganho incremental. No espaço bruto, as instâncias desconhecidas estão
+\emph{mais próximas} do centro da distribuição que as conhecidas: o escore é
+anti-informativo. No espaço latente, a separação é tão grande que qualquer limiar
+razoável funciona.
+\end{exemplo}
+
+\subsection{Rejeição por ensemble binário}
+
+A quarta abordagem é a que dá nome ao \cref{cap:binarios}. Em vez de um classificador
+multiclasse, treinam-se $K$ classificadores binários independentes, um por classe, cada
+um respondendo ``esta janela é da classe $k$?''. A decisão final é
+\begin{equation}
+  \hat{y} = \begin{cases}
+    \argmax_{k} s_k(\mat{X}), & \text{se } \max_k s_k(\mat{X}) > \tau, \\[0.3em]
+    \texttt{desconhecido},    & \text{caso contrário.}
+  \end{cases}
+  \label{eq:ensemble-rejeicao}
+\end{equation}
+
+A diferença em relação a aplicar um limiar sobre a \ing{softmax} de um classificador
+multiclasse é estrutural, não cosmética. Os escores $s_k$ são produzidos por modelos
+independentes, cada um com sua própria sigmoide, e \emph{não somam um}. Nada impede que
+todos sejam simultaneamente baixos --- e ``todos baixos'' é precisamente a assinatura de
+uma classe desconhecida.
+
+\begin{destaque}[O preço da independência]
+Nove modelos custam nove vezes mais em memória e tempo. O \cref{cap:closedworld}
+quantifica: um classificador ocupa cerca de \SI{2,3}{\mega\byte} e leva
+\SI{45}{\milli\second} por inferência; o ensemble de nove ocupa \SI{21}{\mega\byte} e
+leva \SI{405}{\milli\second}. Para um evento cuja escala característica é de horas, esse
+custo é irrelevante --- e é essa observação, e não uma otimização de arquitetura, que
+justifica a escolha.
+\end{destaque}
+
+\subsection{Comparação}
+
+\begin{center}
+\small
+\begin{tabular}{p{3.0cm} p{2.4cm} p{3.0cm} p{3.6cm}}
+\toprule
+\textbf{Escore} & \textbf{Rótulos de anomalia} & \textbf{Hipótese principal} &
+\textbf{Onde aparece} \\
+\midrule
+Reconstrução & Não requer & Anomalia reconstrói mal & \cref{cap:dual},
+\cref{cap:mundoaberto} \\
+OCSVM        & Não requer & Normalidade é compacta & \cref{cap:mundoaberto},
+\cref{cap:closedworld} \\
+Mahalanobis  & Requer (por classe) & Gaussiana por classe & \cref{cap:mahalanobis} \\
+Ensemble binário & Requer & Classes são separáveis individualmente &
+\cref{cap:binarios}, \cref{cap:closedworld} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Agrupamento}
+
+Rejeitar é metade do problema. A outra metade --- organizar o que foi rejeitado em
+grupos coerentes que possam se tornar classes --- é agrupamento.
+
+\subsection{K-means}
+
+Minimiza a inércia
+\begin{equation}
+  J = \sum_{i=1}^{n} \big\| \vect{z}_i - \vect{c}_{\pi(i)} \big\|^2,
+  \label{eq:kmeans}
+\end{equation}
+alternando atribuição de pontos a centroides e recálculo de centroides
+\citep{Lloyd1982}. Rápido e simples, com duas limitações severas: exige $K$ conhecido a
+priori e pressupõe agrupamentos aproximadamente esféricos e de tamanhos comparáveis.
+
+\begin{destaque}[Como o \cref{cap:mundoaberto} resolve o problema do $K$]
+Em mundo aberto, $K$ é exatamente a quantidade que não se conhece --- é o número de
+classes novas. A solução adotada é original: treina-se uma floresta aleatória para
+\emph{prever} $K$ a partir de oito características do próprio conjunto a ser agrupado
+(número de pontos, índice de silhueta, Davies-Bouldin, Calinski-Harabasz, inércia, e
+três descritores geométricos). O estimador atinge $98{,}3\,\%$ de acurácia com erro
+médio de $1{,}12$ agrupamentos.
+\end{destaque}
+
+\subsection{MeanShift}
+
+Desloca iterativamente cada ponto na direção do gradiente estimado da densidade,
+convergindo para modos locais \citep{meanshift}. Não exige $K$ --- ele emerge do número
+de modos --- mas exige a largura de banda do núcleo, que controla implicitamente a
+mesma coisa. É computacionalmente mais caro que o K-means.
+
+\subsection{DBSCAN}
+
+Define agrupamentos como regiões de densidade suficiente, conectando pontos que têm ao
+menos \texttt{minPts} vizinhos em raio $\varepsilon$ \citep{dbscan}. Duas propriedades o
+distinguem: encontra agrupamentos de forma arbitrária, e classifica explicitamente
+pontos de baixa densidade como \emph{ruído}.
+
+A segunda propriedade é atraente em mundo aberto --- rejeitar é desejável --- mas tem um
+custo: em espaços de alta dimensão, a noção de densidade se degrada e o DBSCAN tende a
+classificar quase tudo como ruído. É o motivo pelo qual o \cref{cap:mundoaberto} o usa
+apenas como comparação, e não como componente do pipeline.
+
+\subsection{Combinação e refinamento}
+
+O \cref{cap:mundoaberto} não escolhe um algoritmo: executa K-means e MeanShift e
+\emph{intersecta} os resultados, mantendo apenas os pontos em que ambos concordam.
+Aplica em seguida um refinamento por limiar adaptativo, no qual pontos distantes do
+centroide são removidos com um multiplicador $k$ que depende da razão
+$R = \mu/\sigma$ das distâncias intra-agrupamento:
+\begin{equation}
+  k = \begin{cases}
+    2, & R \ge 4, \\
+    1 + \dfrac{R - 2}{2}, & 2 \le R < 4, \\
+    0, & R < 2.
+  \end{cases}
+  \label{eq:limiar-adaptativo}
+\end{equation}
+
+A intuição: quando as distâncias são concentradas ($R$ alto), o agrupamento é coeso e
+pode-se ser tolerante; quando são dispersas ($R$ baixo), o agrupamento é duvidoso e
+convém ser agressivo na remoção. Uma salvaguarda impede que mais de um terço dos pontos
+seja descartado.
+
+\section{Avaliar agrupamentos sem rótulos}
+
+Três índices internos são usados neste livro.
+
+\begin{definicao}{Índice de silhueta}
+Para cada ponto $i$, sejam $a(i)$ a distância média aos pontos do próprio agrupamento e
+$b(i)$ a menor distância média aos pontos de outro agrupamento. Então
+\begin{equation}
+  s(i) = \frac{b(i) - a(i)}{\max\{a(i), b(i)\}} \in [-1, 1],
+  \label{eq:silhueta}
+\end{equation}
+e o índice global é a média sobre todos os pontos \citep{Rousseeuw1987}. Valores
+próximos de $1$ indicam agrupamentos bem separados; próximos de $0$, sobreposição;
+negativos, atribuição incorreta.
+\end{definicao}
+
+\begin{definicao}{Índice de Davies-Bouldin}
+\begin{equation}
+  \text{DB} = \frac{1}{K}\sum_{i=1}^{K} \max_{j \ne i}
+  \frac{\sigma_i + \sigma_j}{d(\vect{c}_i, \vect{c}_j)},
+  \label{eq:db}
+\end{equation}
+onde $\sigma_i$ é a dispersão média do agrupamento $i$. \emph{Menor é melhor.}
+\end{definicao}
+
+\begin{definicao}{Índice de Calinski-Harabasz}
+Razão entre dispersão entre agrupamentos e dispersão intra-agrupamento, normalizada
+pelos graus de liberdade \citep{Calinski1974}. \emph{Maior é melhor.}
+\end{definicao}
+
+\begin{exemplo}{Os três índices concordando}
+O \cref{cap:mahalanobis} compara o espaço latente de um autoencoder com o de um
+classificador multiclasse:
+
+\begin{center}
+\small
+\begin{tabular}{lrr}
+\toprule
+\textbf{Índice} & \textbf{Latente do AE} & \textbf{Latente multiclasse} \\
+\midrule
+Silhueta (maior é melhor)          & $-0{,}0149$ & $0{,}2299$ \\
+Calinski-Harabasz (maior é melhor) & $687{,}8008$ & $2818{,}2310$ \\
+Davies-Bouldin (menor é melhor)    & $4{,}5592$  & $1{,}7460$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Os três índices, que medem coisas diferentes e podem discordar, apontam na mesma
+direção. Quando isso acontece, a conclusão é robusta.
+\end{exemplo}
+
+\begin{destaque}[Índices internos não substituem rótulos]
+Todo índice interno mede coerência geométrica, não correção semântica. Um agrupamento
+com silhueta $0{,}9$ pode separar perfeitamente dois poços em vez de duas anomalias.
+É por isso que o pipeline do \cref{cap:mundoaberto} termina com validação por
+especialista, e por isso que o \cref{cap:agente} propõe usar um modelo de linguagem
+para \emph{nomear} os agrupamentos --- transformando geometria em hipótese
+interpretável.
+\end{destaque}
+
+\section{Visualização}
+
+Três técnicas de redução de dimensionalidade são usadas para inspeção.
+
+\begin{description}[leftmargin=0pt,style=nextline,itemsep=0.4em]
+
+\item[PCA.] Projeção linear nas direções de maior variância. Preserva distâncias globais
+e é determinística e interpretável. Falha quando a estrutura é não linear.
+
+\item[t-SNE.] Preserva vizinhanças locais minimizando a divergência entre distribuições
+de similaridade no espaço original e no reduzido \citep{maaten2008visualizing}.
+Excelente para revelar agrupamentos; \emph{as distâncias entre agrupamentos no gráfico
+não têm significado}, e o resultado depende da perplexidade e da semente aleatória.
+
+\item[UMAP.] Baseia-se em geometria riemanniana e topologia algébrica; preserva melhor a
+estrutura global que o t-SNE e é mais rápido. Compartilha, contudo, a mesma limitação:
+é uma ferramenta de inspeção, não de medida.
+
+\end{description}
+
+\begin{destaque}[Regra de uso]
+Nenhuma conclusão quantitativa deste livro se apoia em uma projeção bidimensional.
+As projeções aparecem para \emph{ilustrar} uma conclusão já estabelecida por índices
+numéricos. A inversão dessa ordem --- olhar a projeção, ver agrupamentos, concluir que
+existem --- é um dos erros mais comuns na aplicação de aprendizado não supervisionado.
+\end{destaque}
+
+\section{O ciclo completo}
+
+Reunindo as peças, o aprendizado de mundo aberto pode ser enunciado como um ciclo de
+seis estágios, que é exatamente a estrutura do \cref{cap:mundoaberto}:
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.78\textwidth]{general_method.png}
+\caption{O ciclo de aprendizado de mundo aberto aplicado à operação de poços. O fluxo é
+fechado: o conhecimento validado ao fim de uma volta passa a integrar a base de
+classificadores usada na volta seguinte.}
+\label{fig:novidades-ciclo}
+\end{figure}
+
+\begin{enumerate}[leftmargin=*,itemsep=0.3em]
+  \item \textbf{Representar.} Mapear a janela bruta em um espaço latente
+        ($\vect{z} = g_{\phi}(\mat{X})$).
+  \item \textbf{Classificar.} Aplicar os classificadores da base de conhecimento atual.
+  \item \textbf{Rejeitar.} Marcar como desconhecido aquilo que nenhum classificador
+        reivindica com confiança suficiente.
+  \item \textbf{Agrupar.} Organizar o material rejeitado em grupos coerentes,
+        estimando o número de grupos.
+  \item \textbf{Validar.} Submeter os grupos a um especialista --- humano ou, como
+        propõe a \cref{parte:explicabilidade}, um agente de linguagem que produza uma
+        hipótese nomeada e justificada.
+  \item \textbf{Incorporar.} Treinar um novo classificador binário para cada grupo
+        validado e adicioná-lo ao ensemble, sem retreinar os existentes.
+\end{enumerate}
+
+O sexto estágio merece destaque. Como os classificadores são binários e independentes,
+acrescentar uma classe custa \emph{um} treinamento, e não o retreinamento de todo o
+sistema. Essa propriedade --- consequência direta da escolha arquitetural do
+\cref{cap:binarios} --- é o que torna o ciclo operacionalmente viável.
+
+A \cref{fig:novidades-ciclo} representa o mesmo processo em forma de diagrama, e a
+representação circular não é ornamental: ela afirma que não existe um estado final. Cada
+volta amplia o conjunto de classes conhecidas, e o mundo aberto de hoje é o mundo fechado
+de amanhã --- até que a próxima anomalia inédita apareça.
+
+\begin{destaque}[Prática]
+Os cadernos \texttt{2\_visualization\_techniques} e \texttt{5\_clustering\_methods},
+descritos no \cref{cap:pratica}, cobrem os dois estágios centrais deste ciclo
+\citep{Lopes2026Intro3W}. O primeiro mostra, com quatro configurações de t-SNE e quatro
+de UMAP sobre os mesmos dados, por que a projeção é uma escolha e não uma medida. O
+segundo aplica $K$-médias, DBSCAN e MeanShift com silhueta e índice de Rand ajustado, e
+reproduz em escala reduzida a dificuldade que estrutura o \cref{cap:mundoaberto}.
+\end{destaque}
+
+\resumocapitulo{%
+A hipótese de mundo fechado é uma escolha, não uma necessidade. O reconhecimento em
+conjunto aberto permite recusar-se a classificar; o aprendizado de mundo aberto vai
+além e transforma o recusado em novo conhecimento. O risco de espaço aberto explica
+formalmente por que fronteiras de decisão ilimitadas --- hiperplanos, \ing{softmax} ---
+falham nesse cenário: elas declaram pertinência com confiança máxima em regiões
+arbitrariamente distantes de qualquer dado visto. Quatro famílias de escore de novidade
+impõem limitação de formas distintas: erro de reconstrução, OCSVM, distância de
+Mahalanobis e rejeição por ensemble de classificadores binários. O material rejeitado é
+organizado por agrupamento --- K-means, MeanShift, DBSCAN --- cuja qualidade se avalia
+por índices internos de silhueta, Davies-Bouldin e Calinski-Harabasz. Índices internos e
+projeções bidimensionais medem coerência geométrica, jamais correção semântica; a
+validação exige um especialista, e é essa lacuna que a Parte IV se propõe a preencher.}
+
+\begin{exercicios}
+\item Considere um classificador linear binário em $\R^2$ com fronteira
+      $w_1 x_1 + w_2 x_2 + b = 0$. Mostre que a região classificada como positiva tem
+      área infinita e conclua que seu risco de espaço aberto, conforme a
+      \cref{eq:open-space-risk}, é ilimitado. Em seguida, mostre que uma esfera de raio
+      finito tem risco limitado.
+
+\item Demonstre que, quando $\mat{\Sigma} = \sigma^2\mat{I}$, a distância de Mahalanobis
+      reduz-se à distância euclidiana dividida por $\sigma$. Interprete geometricamente o
+      papel de $\mat{\Sigma}^{-1}$ no caso geral.
+
+\item Explique por que os escores de $K$ classificadores binários independentes não somam
+      um, e por que isso é exatamente a propriedade necessária para expressar ``nenhuma
+      das anteriores''. Em seguida, discuta o que acontece quando dois classificadores
+      reivindicam a mesma janela com escores altos.
+
+\item Implemente o limiar adaptativo da \cref{eq:limiar-adaptativo} e aplique-o a
+      agrupamentos sintéticos com diferentes razões $R = \mu/\sigma$. Verifique
+      empiricamente se a salvaguarda de um terço é acionada e em que condições.
+
+\item Gere dois conjuntos bidimensionais: um com dois agrupamentos gaussianos bem
+      separados, outro com dois anéis concêntricos. Aplique K-means, MeanShift e DBSCAN
+      a ambos e calcule os três índices internos. Discuta em quais casos os índices
+      concordam com a estrutura verdadeira e em quais não.
+
+\item O estimador de $K$ do \cref{cap:mundoaberto} usa oito características, entre elas
+      os próprios índices de silhueta, Davies-Bouldin e Calinski-Harabasz. Explique por
+      que isso não é circular. Proponha duas características adicionais que poderiam
+      melhorar o estimador.
+
+\item Discuta a seguinte objeção ao ciclo de seis estágios: ``se o especialista precisa
+      validar cada grupo, o sistema não é autônomo e o ganho é ilusório''. Formule uma
+      resposta quantitativa em termos do número de decisões que o especialista precisaria
+      tomar com e sem o sistema.
+\end{exercicios}
+
+\begin{leituras}
+\item \citet{Scheirer2013} --- a formalização do conjunto aberto e do risco de espaço
+      aberto.
+\item \citet{Pimentel2014review} --- revisão abrangente de detecção de novidade,
+      organizada por família de método.
+\item \citet{Smola2004} --- fundamentação da OCSVM.
+\item \citet{Rousseeuw1987}, \citet{Calinski1974} --- índices de validação de
+      agrupamento.
+\item \citet{dbscan} e \citet{meanshift} --- os algoritmos originais.
+\item \citet{maaten2008visualizing} --- t-SNE, com discussão honesta de suas limitações.
+\end{leituras}

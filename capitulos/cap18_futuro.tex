@@ -1,0 +1,341 @@
+\chapter{O que ainda não sabemos}
+\label{cap:futuro}
+
+\begin{objetivos}
+Ao final deste capítulo, você será capaz de:
+\begin{itemize}[leftmargin=*,itemsep=0.2em]
+  \item enunciar com precisão as limitações que atravessam todo o trabalho apresentado;
+  \item distinguir limitações de dados, de método e de avaliação;
+  \item formular questões de pesquisa a partir de resultados negativos e de artefatos
+        identificados;
+  \item avaliar criticamente afirmações sobre sistemas de detecção de anomalias em
+        contextos industriais;
+  \item planejar uma agenda de trabalho que ataque os gargalos na ordem correta.
+\end{itemize}
+\end{objetivos}
+
+\section{Uma advertência sobre o que foi medido}
+
+Este livro apresentou muitos números. Antes de propor o que vem depois, é necessário
+delimitar o que esses números sustentam.
+
+\begin{destaque}[A ressalva que atravessa tudo]
+Quatro classes receberam, do agente, nomes contendo ``perda de telemetria''
+(\cref{cap:resultados-agente}). Isso revelou que, no 3W, o início de muitas anomalias
+coincide com sensores de fundo reportando valores ausentes ou zerados.
+
+A implicação é desconfortável: \textbf{parte do desempenho reportado em todos os
+capítulos pode decorrer da detecção de falha de instrumentação, e não da detecção da
+anomalia}. Não há como quantificar essa fração com os experimentos realizados.
+
+Nenhuma matriz de confusão revelou isso. Foi necessário que um sistema descrevesse em
+linguagem natural o que via.
+\end{destaque}
+
+Essa ressalva não invalida os resultados --- o sistema do \cref{cap:dual} opera em campo,
+com dados reais, e detecta eventos verificados --- mas define a primeira prioridade da
+agenda: \emph{medir o confundimento antes de perseguir mais acurácia}.
+
+\section{Limitações de dados}
+
+\begin{enumerate}[leftmargin=*,itemsep=0.4em]
+
+\item \textbf{Confundimento de telemetria.} Descrito acima. Corrigível por um protocolo
+que remova instâncias em que a anomalia coincide com valores ausentes, e repita toda a
+avaliação. A perda de acurácia esperada é a medida do confundimento.
+
+\item \textbf{Um único conjunto de dados.} Quase tudo foi avaliado no 3W. A exceção ---
+o sistema dual, avaliado em poços reais de um operador --- é justamente a que não permite
+publicação dos dados.
+
+\item \textbf{Amostras pequenas por classe.} A classe 9 tem $n = 11$ no estudo de
+novidade e $n = 14$ no de classificação. Intervalos de confiança de Wilson com essas
+amostras são largos o bastante para tornar várias comparações inconclusivas.
+
+\item \textbf{Rótulos de qualidade heterogênea.} A análise do poço A3 no
+\cref{cap:segmentacao} mostrou que a discordância entre modelo e anotação podia ser
+atribuída à anotação. Não se sabe quantos outros casos assim existem.
+
+\item \textbf{Classes definidas por sintoma.} As classes 4 e 5, discutidas em quatro
+capítulos. Não é um problema de método.
+
+\item \textbf{Possível contaminação.} O 3W é público desde 2019 e pode ter integrado
+corpora de pré-treinamento. O \cref{cap:resultados-agente} apresentou três argumentos
+contra essa explicação, nenhum deles conclusivo.
+
+\end{enumerate}
+
+\begin{destaque}[Cinco das seis limitações são do conjunto de dados, não do método]
+Isso é característico da área. A comunidade de detecção de anomalias industriais dispõe
+de poucos conjuntos públicos, e o 3W --- apesar de todas as ressalvas --- é um dos
+melhores existentes.
+
+Avançar exige mais dados públicos de qualidade, com anotação por especialista e taxonomia
+por mecanismo. É trabalho menos glamouroso que propor arquiteturas, e provavelmente mais
+impactante.
+\end{destaque}
+
+\section{Limitações de método}
+
+\subsection{Segmentação}
+
+A U-Net exige anotação por amostra, muito mais cara que anotação por janela. O
+\cref{cap:segmentacao} obteve $0{,}863$ de acurácia com esse custo. Não se sabe qual
+seria o desempenho de abordagens fracamente supervisionadas, que aprendem a segmentar a
+partir de rótulos de janela.
+
+A revocação SoftED de $0{,}678$ significa que cerca de um terço dos eventos não é
+detectado dentro da tolerância temporal. A detecção antecipada de $0{,}222$ indica que o
+modelo raramente antecipa o especialista --- e antecipar é o que teria valor operacional.
+
+\subsection{Novidade}
+
+A média $\bm{\mu}$ e a covariância $\bm{\Sigma}$ do Mahalanobis são estimadas uma vez, e
+não acompanham deriva. Um esquema de atualização incremental é necessário, mas introduz o
+risco de absorver degradação progressiva --- o modo de falha silencioso do
+\cref{cap:operacao}.
+
+O limiar no percentil 95 é uma escolha, não uma derivação. A justificativa dada no
+\cref{cap:mahalanobis} --- que a hipótese de normalidade multivariada não se sustenta ---
+explica por que não se usa $\chi^2$, mas não estabelece que 95 seja ótimo.
+
+A classe 7 permanece em $52{,}3\,\%$. O diagnóstico é claro: a janela de duzentos passos
+não comporta um fenômeno de semanas. A solução exige representação multiescala.
+
+\subsection{Agente}
+
+\begin{itemize}[leftmargin=*,itemsep=0.3em]
+  \item \textbf{Sem ablação.} Não se sabe quais das treze métricas importam. Um estudo de
+        ablação é o experimento de menor custo e maior retorno informativo pendente.
+  \item \textbf{Sem comparação com atribuição.} SHAP e gradientes integrados produzem
+        explicações de natureza diferente; não foram comparados.
+  \item \textbf{Sem ajuste fino, sem exemplos, sem múltiplas passagens, sem ferramentas.}
+        Como o \cref{cap:agente} registrou, os resultados devem ser lidos como piso.
+  \item \textbf{Sem calibração.} A confiança declarada pelo agente não foi verificada
+        contra frequências empíricas.
+  \item \textbf{Sem informação de localização.} A confusão entre as classes 8 e 9 decorre
+        disso, e é corrigível.
+\end{itemize}
+
+\subsection{Reprodutibilidade do modelo de linguagem}
+
+O \cref{cap:llm} prometeu que este capítulo discutiria alternativas. A questão é séria:
+o modelo é servido por interface de programação de terceiros, pode ser atualizado ou
+descontinuado sem aviso, e a temperatura de $0{,}2$ reduz mas não elimina a
+estocasticidade. Os resultados não são estritamente reproduzíveis.
+
+\begin{table}[htbp]
+\centering
+\caption{Alternativas para reprodutibilidade da camada de linguagem.}
+\label{tab:fut-repro}
+\small
+\begin{tabular}{p{3.0cm}p{4.4cm}p{4.6cm}}
+\toprule
+\textbf{Alternativa} & \textbf{Ganho} & \textbf{Custo} \\
+\midrule
+Modelo aberto local, versão fixa &
+Reprodutibilidade estrita; dados não saem do perímetro &
+Infraestrutura de GPU; desempenho tipicamente inferior \\
+\addlinespace
+Ajuste fino sobre modelo aberto menor &
+Adaptação ao domínio; modelo próprio e versionável &
+Exige dados rotulados --- o que o sistema procura evitar \\
+\addlinespace
+Registro completo de entradas e saídas &
+Auditoria posterior; permite reanálise &
+Não permite repetir o experimento \\
+\addlinespace
+Amostragem múltipla com agregação &
+Reduz variância; mede consistência &
+Multiplica o custo por chamada \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{destaque}[Não há escolha dominante]
+Cada linha da \cref{tab:fut-repro} troca uma propriedade desejável por outra. A
+recomendação prática é combinar a terceira linha --- registro completo, que é barata e
+compatível com qualquer das outras --- com a alternativa que o contexto de governança
+exigir.
+
+Em ambiente industrial com restrição de dados, a primeira linha tende a ser mandatória,
+e o custo de desempenho deve ser aceito.
+\end{destaque}
+
+\section{Limitações de avaliação}
+
+\begin{enumerate}[leftmargin=*,itemsep=0.4em]
+
+\item \textbf{Nenhuma avaliação com operadores.} Todas as afirmações sobre carga
+cognitiva, fadiga de alarme e utilidade das justificativas são argumentadas, não medidas.
+A política de triagem do \cref{cap:resultados-agente} --- que reduziria à metade o volume
+de revisão --- é uma projeção.
+
+\item \textbf{Nenhuma avaliação fim-a-fim.} Os componentes foram medidos isoladamente. A
+arquitetura de referência do \cref{cap:sintese} nunca foi executada como um todo.
+
+\item \textbf{Ausência de linha de base humana.} Não se sabe qual é a acurácia de um
+especialista sobre os mesmos segmentos, o que impede afirmar que o sistema é útil e não
+apenas mensurável.
+
+\item \textbf{Comparações com a literatura são aproximadas.} Como o \cref{cap:binarios}
+registrou, protocolos, partições e definições de classe diferem entre trabalhos.
+
+\end{enumerate}
+
+\begin{destaque}[A limitação mais séria é a terceira]
+Sem linha de base humana, ``$89{,}7\,\%$ de detecção de novidade'' é um número sem
+referencial. Pode ser excelente ou trivial.
+
+Estabelecer essa linha de base é caro --- exige tempo de especialista --- e é a lacuna
+que mais compromete a interpretação de todo o trabalho.
+\end{destaque}
+
+\section{Uma agenda}
+
+\subsection{Ordenada por razão informação/custo}
+
+\begin{table}[htbp]
+\centering
+\caption{Agenda de trabalho, ordenada por razão entre informação obtida e custo.}
+\label{tab:fut-agenda}
+\small
+\begin{tabular}{p{5.2cm}p{2.0cm}p{4.8cm}}
+\toprule
+\textbf{Experimento} & \textbf{Custo} & \textbf{Informação obtida} \\
+\midrule
+Ablação das treze métricas & Baixo &
+Quais métricas importam; guia para adicionar novas \\
+\addlinespace
+Métricas de localização por sensor & Baixo &
+Resolve a confusão entre classes 8 e 9 \\
+\addlinespace
+Remoção do confundimento de telemetria & Baixo &
+Quantifica quanto do desempenho é artefato \\
+\addlinespace
+Calibração da confiança declarada & Baixo &
+Viabiliza uso da confiança na política de triagem \\
+\addlinespace
+Múltiplas passagens com agregação & Médio &
+Mede consistência; provável ganho em top-1 \\
+\addlinespace
+Representação multiescala & Médio &
+Ataca a classe 7 diretamente \\
+\addlinespace
+Avaliação fim-a-fim da arquitetura & Médio &
+Único número que descreve o sistema real \\
+\addlinespace
+Segmentação fracamente supervisionada & Alto &
+Elimina o custo de anotação por amostra \\
+\addlinespace
+Linha de base humana & Alto &
+Referencial para todos os números do livro \\
+\addlinespace
+Redefinição das classes sintomáticas & Alto &
+Corrige a taxonomia; beneficia toda a comunidade \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Quatro questões de pesquisa}
+
+\begin{description}[leftmargin=0pt,style=nextline,itemsep=0.5em]
+
+\item[A assimetria é universal?] Métodos geométricos e modelos de linguagem, sistemas de
+natureza completamente distinta, exibem a mesma assimetria entre afirmar identidade e
+reconhecer incompatibilidade. Ela se manifesta em outros domínios? Existe uma formulação
+teórica que a preveja?
+
+\item[A convergência de nomes é uma métrica de confiança válida?] O
+\cref{cap:resultados-agente} propôs medir a concentração das descrições geradas como
+indicador não supervisionado de confiabilidade. A proposta é plausível e não foi
+validada. Se funcionar, resolve o problema de estimar confiança sem rótulos.
+
+\item[Quanto da vantagem do latente supervisionado é transferível?] O
+\cref{cap:mahalanobis} mostrou que representar com um classificador em vez de um
+autoencoder eleva a detecção de novidade em quarenta e seis pontos. Isso depende de haver
+classes conhecidas suficientes. Qual é o mínimo? A vantagem persiste com três classes?
+Com duas?
+
+\item[Sistemas que descrevem auditam melhor os dados?] O artefato de telemetria do 3W só
+se tornou visível pela descrição em linguagem natural. Isso sugere um uso não previsto de
+modelos de linguagem: auditoria automática de conjuntos de dados. A hipótese pode ser
+testada injetando artefatos conhecidos e verificando se são descritos.
+
+\end{description}
+
+\section{Encerramento}
+
+\begin{destaque}[O que este livro sustenta]
+Um sistema de monitoramento pode --- e deve --- dizer ``não sei''.
+
+Dizer isso corretamente é mais fácil do que dizer o que algo é: $95{,}4\,\%$ contra
+$87\,\%$ nos métodos numéricos, $89{,}7\,\%$ contra $35{,}1\,\%$ na camada de linguagem.
+
+O espaço em que a pergunta é feita importa mais que o método: a mesma distância detecta
+$67{,}5\,\%$ ou $98{,}2\,\%$ da mesma anomalia.
+
+E um sistema que descreve o que vê, em linguagem que o especialista lê, transforma um
+grupo anônimo em uma hipótese verificável --- além de revelar problemas nos dados que
+nenhuma métrica agregada exporia.
+
+Nada disso substitui o especialista. Tudo isso muda o que ele recebe no início do turno.
+\end{destaque}
+
+\resumocapitulo{%
+Os resultados deste livro devem ser lidos sob uma ressalva que atravessa todos os
+capítulos: no 3W, o início de muitas anomalias coincide com falha de telemetria, e parte
+do desempenho reportado pode decorrer da detecção desse artefato --- fração que os
+experimentos realizados não permitem quantificar. Cinco das seis limitações de dados são
+do conjunto, não do método, o que aponta a escassez de dados públicos de qualidade como
+gargalo da área. Entre as limitações de método, destacam-se a revocação SoftED de
+$0{,}678$ e a detecção antecipada de $0{,}222$ na segmentação; a estimação estática de
+$\bm{\mu}$ e $\bm{\Sigma}$ no Mahalanobis; a classe 7 presa em $52{,}3\,\%$ por
+insuficiência de escala temporal; e, no agente, a ausência de ablação, de calibração e de
+métricas de localização. A reprodutibilidade da camada de linguagem não tem solução
+dominante: cada alternativa troca uma propriedade desejável por outra, e o registro
+completo de entradas e saídas é a única compatível com todas as demais. A limitação de
+avaliação mais séria é a ausência de linha de base humana, sem a qual os números do livro
+carecem de referencial. A agenda proposta ordena dez experimentos por razão entre
+informação e custo, com a ablação das treze métricas em primeiro lugar, e formula quatro
+questões de pesquisa --- entre elas, se a assimetria entre reconhecer incompatibilidade e
+afirmar identidade é uma propriedade universal.}
+
+\begin{exercicios}
+\item Projete e execute o estudo de ablação das treze métricas do \cref{cap:agente}.
+      Ordene-as por contribuição marginal. O resultado é consistente com a intuição
+      física?
+
+\item Implemente o protocolo de remoção do confundimento de telemetria e reavalie os
+      resultados dos \cref{cap:binarios,cap:mahalanobis,cap:resultados-agente}. Quanta
+      acurácia se perde em cada um? A ordenação entre métodos se mantém?
+
+\item Verifique a calibração da confiança declarada pelo agente construindo um diagrama
+      de confiabilidade. Se ela estiver mal calibrada, proponha e avalie uma correção.
+
+\item Ataque a classe 7 com uma representação multiescala --- por exemplo, concatenando
+      latentes de janelas de duzentos, dois mil e vinte mil passos. Quanto se ganha? O
+      que se perde nas demais classes?
+
+\item Estime experimentalmente o número mínimo de classes conhecidas necessário para que
+      o latente supervisionado supere o latente do autoencoder na detecção de novidade.
+
+\item Teste a hipótese de auditoria automática: injete um artefato conhecido em um
+      conjunto de dados limpo e verifique se o agente o descreve. Varie a intensidade do
+      artefato e determine o limiar de detecção.
+
+\item Projete o protocolo de uma avaliação com operadores que meça, e não apenas
+      argumente, a redução de carga de revisão prometida pela política de triagem do
+      \cref{cap:resultados-agente}. Que ameaças à validade ele precisa controlar?
+\end{exercicios}
+
+\begin{leituras}
+\item \citet{Pimentel2014review} --- levantamento que contextualiza as limitações
+      discutidas neste capítulo.
+\item \citet{Salles2024softed} --- a métrica cujos valores de revocação e detecção
+      antecipada apontam as lacunas da segmentação.
+\item \citet{VazVargas2026_3w2} --- a evolução do 3W, e o caminho pelo qual várias das
+      limitações de dados podem ser atacadas.
+\item \citet{Sharma2025xaiagents}, \citet{Belay2026agenticAD} e \citet{Zhang2026llmrules}
+      --- direções contemporâneas para a camada de linguagem.
+\end{leituras}

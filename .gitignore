@@ -1,0 +1,37 @@
+# --- Artefatos de compilacao LaTeX -----------------------------------------
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.idx
+*.ilg
+*.ind
+*.lof
+*.log
+*.lol
+*.lot
+*.out
+*.spl
+*.synctex.gz
+*.toc
+*.xdv
+
+# Nomes de trabalho auxiliares usados em validacao
+maintest.*
+
+# --- Sistema operacional ----------------------------------------------------
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# --- Editores ---------------------------------------------------------------
+.vscode/
+*.bak
+*~
+
+# O PDF compilado (main.pdf) e versionado deliberadamente.
+!main.pdf
+
+# Copias locais do PDF com outros nomes
+Aprendizado de Mundo Aberto em Poços de Petróleo.pdf

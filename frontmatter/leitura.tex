@@ -1,0 +1,120 @@
+\chapter*{Como ler este livro}
+\addcontentsline{toc}{chapter}{Como ler este livro}
+\markboth{Como ler este livro}{Como ler este livro}
+
+\section*{A arquitetura do argumento}
+
+O livro está organizado em cinco partes que correspondem a cinco momentos de uma
+mesma investigação, e a estrutura cabe em um parágrafo.
+A Parte~I ensina o necessário. A Parte~II apresenta a base --- três
+estratégias que, juntas, constituem o primeiro sistema completo de aprendizado de
+mundo aberto para poços de petróleo. A Parte~III mostra como essa base foi revista
+quando suas limitações ficaram claras. A Parte~IV acrescenta a camada que faltava:
+explicação. A Parte~V amarra tudo e discute o que falta.
+
+\section*{Trilhas de leitura}
+
+\begin{description}[leftmargin=0pt,style=nextline,itemsep=0.7em]
+
+\item[Leitura completa (curso de um semestre).]
+Capítulos 1 a 18 na ordem. Os \cref{cap:introducao,cap:dominio,cap:dados} cobrem
+domínio e dados; \cref{cap:aprendizado,cap:profundo,cap:novidades} cobrem método;
+os demais são aplicação. Uma disciplina de quinze semanas comporta um capítulo por
+semana com três semanas de folga para os projetos.
+
+\item[Leitura para quem já sabe aprendizado de máquina.]
+Comece pelo \cref{cap:dominio} (o vocabulário de poços é indispensável e não é óbvio),
+leia o \cref{cap:dados} (o conjunto 3W tem particularidades que confundem quem chega
+de outros domínios), passe rapidamente pelo \cref{cap:novidades} e vá para a
+\cref{parte:base}.
+
+\item[Leitura para quem quer implantar.]
+\cref{cap:dominio}, \cref{cap:dual} (o sistema que efetivamente está em campo),
+\cref{cap:sintese} (arquitetura de referência) e \cref{cap:operacao} (implantação,
+deriva, governança). Volte aos demais conforme a necessidade.
+
+\item[Leitura para quem só quer os resultados.]
+\cref{cap:dual}, \cref{cap:binarios}, \cref{cap:mundoaberto},
+\cref{cap:segmentacao}, \cref{cap:mahalanobis} e \cref{cap:resultados-agente}
+contêm todas as tabelas. O \cref{cap:sintese} consolida.
+
+\end{description}
+
+\section*{Convenções tipográficas}
+
+Ao longo do texto você encontrará seis elementos recorrentes.
+
+\begin{objetivos}
+Abre cada capítulo. Lista, em forma de verbos de ação, o que se espera que o leitor
+saiba fazer ao terminá-lo.
+\end{objetivos}
+
+\medskip
+\noindent
+As \textbf{caixas de definição}, em azul, introduzem conceitos formais e são numeradas
+por capítulo (por exemplo, \emph{Definição 6.2}), de modo que podem ser referenciadas
+cruzadamente. As \textbf{caixas de exemplo}, em verde, aplicam o conceito imediatamente
+anterior a um caso concreto, quase sempre extraído dos dados reais discutidos no livro,
+e seguem a mesma numeração.
+
+\begin{resultadochave}
+Destaca um número ou achado que sustenta o argumento do capítulo. É o que você deve
+levar consigo se ler apenas as caixas.
+\end{resultadochave}
+
+\begin{destaque}[Caixa de atenção]
+Marca uma armadilha conceitual, uma limitação relevante ou uma decisão de projeto cuja
+motivação não é evidente.
+\end{destaque}
+
+\medskip
+\noindent
+Cada capítulo termina com um \textbf{resumo}, uma lista de \textbf{exercícios} ---
+mesclando questões conceituais, exercícios de cálculo e propostas de implementação ---
+e sugestões de \textbf{leituras recomendadas}.
+
+
+\section*{Nomenclatura das classes de anomalia}
+
+Todo o livro utiliza a numeração canônica do conjunto de dados 3W, apresentada em
+detalhe no \cref{cap:dados}. Por conveniência, ela é reproduzida aqui:
+
+\begin{center}
+\small
+\begin{tabular}{cl}
+\toprule
+\textbf{Classe} & \textbf{Evento} \\
+\midrule
+0 & Estado normal \\
+1 & Aumento abrupto de BSW \\
+2 & Fechamento espúrio da DHSV \\
+3 & Golfadas severas \\
+4 & Instabilidade de fluxo \\
+5 & Perda rápida de produtividade \\
+6 & Restrição rápida no PCK \\
+7 & Incrustação no PCK \\
+8 & Hidrato na linha de produção \\
+9 & Hidrato na linha de serviço \\
+\midrule
+--- & Falha de ICV \emph{(dado proprietário; não pertence ao 3W)} \\
+--- & Operação de válvula \emph{(dado proprietário; não pertence ao 3W)} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section*{Sobre reprodutibilidade}
+
+O conjunto de dados 3W é público. Os dados proprietários de poços da Petrobras
+utilizados nos estudos de caso não o são, e portanto os resultados que dependem
+exclusivamente deles não podem ser reproduzidos por terceiros. Sempre que um resultado
+depende de dados fechados, isso é dito explicitamente. O \cref{cap:reproducao} reúne
+hiperparâmetros, ambiente computacional e procedimentos de avaliação de todos os
+experimentos discutidos.
+
+O leitor que quiser executar código, e não apenas lê-lo, deve começar pelo
+\cref{cap:pratica}. Ele descreve um recurso didático público, hospedado no próprio
+repositório do 3W \citep{Petrobras3W,Lopes2026Intro3W}, que percorre em cinco cadernos
+Jupyter todo o caminho da \cref{parte:fundamentos}: tratamento de dados, visualização,
+autoencoders, classificadores supervisionados e agrupamento. As caixas de
+\textbf{prática} espalhadas pela \cref{parte:fundamentos} apontam, capítulo a capítulo,
+qual caderno exercita qual conceito.
