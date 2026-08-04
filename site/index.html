@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aprendizado de Mundo Aberto em Poços de Petróleo</title>
+<meta name="description" content="Livro em português sobre detecção, segmentação e explicação de eventos indesejáveis em poços de petróleo.">
+<meta name="author" content="Lucas Gouveia Omena Lopes; Thales Miranda de Almeida Vieira; Eduardo Toledo de Lima Junior; William Wagner Matos Lira">
+<meta property="og:title" content="Aprendizado de Mundo Aberto em Poços de Petróleo">
+<meta property="og:description" content="Da detecção baseada em regras à explicabilidade por agentes de linguagem.">
+<meta property="og:type" content="book">
+<meta property="og:locale" content="pt_BR">
+<style>
+  :root {
+    --tinta: #1a1a1a;
+    --suave: #5c5c5c;
+    --linha: #e0ddd7;
+    --papel: #faf9f7;
+    --realce: #7a2e1d;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--papel);
+    color: var(--tinta);
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 18px;
+    line-height: 1.65;
+  }
+  .envelope { max-width: 46rem; margin: 0 auto; padding: 3.5rem 1.5rem 5rem; }
+  header { border-bottom: 1px solid var(--linha); padding-bottom: 2rem; margin-bottom: 2.5rem; }
+  h1 { font-size: 2.1rem; line-height: 1.2; margin: 0 0 .6rem; font-weight: normal; }
+  .subtitulo { font-size: 1.15rem; color: var(--suave); font-style: italic; margin: 0 0 1.6rem; }
+  .autores { font-size: .95rem; line-height: 1.5; margin: 0 0 .35rem; }
+  .filiacao { font-size: .85rem; color: var(--suave); margin: 0; }
+  h2 {
+    font-size: 1.25rem; font-weight: normal; margin: 2.8rem 0 .9rem;
+    padding-bottom: .35rem; border-bottom: 1px solid var(--linha);
+  }
+  a { color: var(--realce); }
+  .baixar {
+    display: inline-block; margin: .5rem 0 .4rem;
+    padding: .85rem 1.6rem; background: var(--realce); color: #fff;
+    text-decoration: none; border-radius: 3px;
+    font-family: system-ui, -apple-system, sans-serif; font-size: 1rem;
+  }
+  .baixar:hover { background: #5e2416; }
+  .nota { font-size: .85rem; color: var(--suave); margin: .3rem 0 0; }
+  ol.hipoteses { padding-left: 1.3rem; }
+  ol.hipoteses li { margin-bottom: .4rem; }
+  table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: .93rem; }
+  th, td { text-align: left; padding: .6rem .5rem; border-bottom: 1px solid var(--linha); vertical-align: top; }
+  th { font-weight: normal; color: var(--suave); font-size: .85rem; text-transform: uppercase; letter-spacing: .04em; }
+  td:first-child { white-space: nowrap; padding-right: 1.2rem; }
+  footer {
+    margin-top: 3.5rem; padding-top: 1.5rem; border-top: 1px solid var(--linha);
+    font-size: .85rem; color: var(--suave);
+  }
+  code {
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    font-size: .85em; background: #efece7; padding: .1em .35em; border-radius: 2px;
+  }
+  @media (max-width: 34rem) {
+    body { font-size: 17px; }
+    .envelope { padding: 2.5rem 1.2rem 3.5rem; }
+    h1 { font-size: 1.7rem; }
+    td:first-child { white-space: normal; }
+  }
+</style>
+</head>
+<body>
+<div class="envelope">
+
+<header>
+  <h1>Aprendizado de Mundo Aberto em Poços de Petróleo</h1>
+  <p class="subtitulo">Da detecção baseada em regras à explicabilidade por agentes de linguagem</p>
+  <p class="autores">
+    Lucas Gouveia Omena Lopes &middot; Thales Miranda de Almeida Vieira &middot;
+    Eduardo Toledo de Lima Junior &middot; William Wagner Matos Lira
+  </p>
+  <p class="filiacao">Laboratório de Computação Científica e Visualização &mdash; Universidade Federal de Alagoas</p>
+</header>
+
+<p><a class="baixar" href="main.pdf">Ler o livro (PDF)</a></p>
+<p class="nota">235 páginas &middot; 18 capítulos em cinco partes &middot; cinco apêndices</p>
+
+<h2>O que é este livro</h2>
+
+<p>Um livro em português sobre detecção, segmentação e explicação de eventos indesejáveis
+em poços de petróleo. Ele não é uma coletânea de métodos: é a narrativa de um problema
+sendo atacado por sucessivas aproximações ao longo de vários anos, e do que cada
+aproximação revelou sobre a anterior.</p>
+
+<p>O fio condutor é a passagem de três hipóteses que a prática desmente:</p>
+
+<ol class="hipoteses">
+  <li>que o conjunto de classes conhecidas é fechado;</li>
+  <li>que detectar um evento é o mesmo que localizá-lo no tempo;</li>
+  <li>que uma decisão correta sem justificativa é uma decisão utilizável.</li>
+</ol>
+
+<h2>Organização</h2>
+
+<table>
+  <thead>
+    <tr><th>Parte</th><th>Conteúdo</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>I &mdash; Fundamentos</td><td>Domínio, dados, aprendizado, redes profundas e detecção de novidades</td></tr>
+    <tr><td>II &mdash; A base</td><td>Sistema dual em operação, <i>ensemble</i> binário e aprendizado de mundo aberto</td></tr>
+    <tr><td>III &mdash; A evolução</td><td>Classificação em mundo fechado, segmentação com U-Net e distância de Mahalanobis no espaço latente</td></tr>
+    <tr><td>IV &mdash; A explicabilidade</td><td>Modelos de linguagem, o agente de diagnóstico e seus resultados</td></tr>
+    <tr><td>V &mdash; Síntese e prática</td><td>Arquitetura de referência, requisitos de operação e agenda de pesquisa</td></tr>
+  </tbody>
+</table>
+
+<p>Os apêndices reúnem glossário, notação, formulário, condições de reprodução e um
+roteiro prático executável.</p>
+
+<h2>Código de apoio</h2>
+
+<p>O Apêndice E mapeia cada conceito da Parte I a cadernos Jupyter executáveis do recurso
+<i>Introduction to Machine Learning Applied to Multivariate Time Series</i>, que integra o
+repositório oficial do projeto 3W:</p>
+
+<ul>
+  <li><a href="https://github.com/petrobras/3W">Repositório 3W</a></li>
+  <li><a href="https://github.com/petrobras/3W/tree/main/resources/introduction_to_ml_applied_to_mts">Recurso didático</a></li>
+</ul>
+
+<h2>Licença e reuso</h2>
+
+<p>O texto, as figuras originais e o código-fonte <span class="nota">LaTeX</span> estão sob
+<a href="https://creativecommons.org/licenses/by/4.0/deed.pt-BR">CC&nbsp;BY&nbsp;4.0</a>.
+Parte do material de terceiros reproduzido no livro está sujeita a regimes distintos,
+descritos em <code>LICENSE.md</code>; a licença CC&nbsp;BY&nbsp;4.0 não se estende a esse
+material. Os dados proprietários de poços utilizados em parte dos estudos de caso não são
+distribuídos com a obra.</p>
+
+<footer>
+  <p>&copy; 2026 os autores. Compilado a partir do repositório do projeto.</p>
+</footer>
+
+</div>
+</body>
+</html>

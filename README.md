@@ -8,7 +8,7 @@ Laboratório de Computação Científica e Visualização — Universidade Feder
 
 [![Licença: CC BY 4.0](https://img.shields.io/badge/licen%C3%A7a-CC%20BY%204.0-blue.svg)](LICENSE.md)
 
-### ➜ **[Ler o livro (PDF, 221 páginas)](main.pdf)**
+### ➜ **[Ler o livro (PDF, 235 páginas)](main.pdf)**
 
 ---
 
@@ -25,7 +25,7 @@ O fio condutor é a passagem de três hipóteses que a prática desmente:
 2. que detectar um evento é o mesmo que localizá-lo no tempo;
 3. que uma decisão correta sem justificativa é uma decisão utilizável.
 
-**221 páginas · 18 capítulos em cinco partes · cinco apêndices.**
+**235 páginas · 18 capítulos em cinco partes · cinco apêndices.**
 
 | Parte | Conteúdo |
 |---|---|

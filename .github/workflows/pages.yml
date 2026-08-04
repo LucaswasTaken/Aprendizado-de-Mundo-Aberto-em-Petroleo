@@ -1,0 +1,52 @@
+name: Publicar no GitHub Pages
+
+# Sem gatilho em push: a publicacao e sempre um ato deliberado, porque o site
+# fica publico na internet mesmo quando o repositorio e privado.
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compilar com latexmk
+        uses: xu-cheng/latex-action@v3
+        with:
+          root_file: main.tex
+          latexmk_shell_escape: false
+          args: -pdf -bibtex -file-line-error -interaction=nonstopmode
+
+      - name: Montar o site
+        run: |
+          test -f main.pdf || { echo "main.pdf nao foi gerado"; exit 1; }
+          mkdir -p _site
+          cp site/index.html _site/
+          cp main.pdf _site/
+          paginas=$(grep -o 'Output written on main.pdf ([0-9]*' main.log | grep -o '[0-9]*$')
+          echo "Publicando $paginas paginas"
+          sed -i "s/235 páginas/${paginas} páginas/" _site/index.html
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - id: deploy
+        uses: actions/deploy-pages@v4
