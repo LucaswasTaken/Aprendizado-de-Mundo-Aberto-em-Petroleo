@@ -258,6 +258,21 @@ onde $T$ é a temperatura medida. Valores negativos ou próximos de zero indicam
 dentro ou junto da envoltória de formação. A curva pressão--temperatura de referência é a
 de \citet{Safamirzaei2015}.
 
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.92\textwidth]{figure_5.eps}
+\caption{Envoltória de formação de hidrato no plano temperatura--pressão. A curva separa
+a zona de operação normal da zona de formação: para uma dada pressão, temperaturas à
+esquerda da curva colocam o sistema em risco.}
+\label{fig:closed-envoltoria}
+\end{figure}
+
+A \cref{fig:closed-envoltoria} apresenta essa envoltória. Note que a curva é monotônica e
+suave --- e é justamente essa simplicidade que a torna um instrumento de validação útil.
+Ela não tem parâmetros ajustados aos dados, não conhece o 3W e não pode ter aprendido
+nenhum atalho do conjunto. Se o classificador concorda com ela, a concordância significa
+alguma coisa.
+
 \begin{exemplo}{Usando a \cref{eq:motiee} na prática}
 Considere um trecho de linha operando a $P = \SI{7}{\mega\pascal}$ com gás de densidade
 relativa $q = 0{,}65$ e temperatura medida $T = \SI{14}{\celsius}$.

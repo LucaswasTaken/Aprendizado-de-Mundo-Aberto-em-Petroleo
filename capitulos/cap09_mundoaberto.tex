@@ -467,6 +467,51 @@ Grupos sobreviventes são avaliados pelos índices internos do \cref{cap:novidad
 silhueta, Davies-Bouldin e Calinski-Harabasz. Um grupo só é promovido a classe virtual
 se apresentar coesão e separação adequadas segundo os três.
 
+\subsection{O que o agrupamento acerta, quando acerta}
+
+A acurácia agregada esconde uma variabilidade grande entre combinações de classes
+desconhecidas. Vale examinar um caso favorável para saber o que o método produz quando
+as condições lhe são proprícias.
+
+\begin{figure}[htbp]
+\centering
+\begin{minipage}{0.49\textwidth}
+  \centering
+  \includegraphics[width=\textwidth]{best_original.png}
+\end{minipage}\hfill
+\begin{minipage}{0.49\textwidth}
+  \centering
+  \includegraphics[width=\textwidth]{best_clustering.png}
+\end{minipage}
+\caption{Ocultando as classes 3, 6 e 8 e tratando-as como desconhecidas. À esquerda, a
+distribuição original dos dados, colorida pelos rótulos verdadeiros; à direita, os três
+agrupamentos recuperados por $K$-médias sem acesso a esses rótulos.}
+\label{fig:aberto-melhor-caso}
+\end{figure}
+
+A \cref{fig:aberto-melhor-caso} mostra esse caso: escondem-se três das nove classes
+conhecidas, treina-se o sistema com as seis restantes e verifica-se o que o agrupamento
+faz com o material rejeitado. A correspondência entre os dois painéis é boa --- medida
+$F_1$ de $0{,}71$, $0{,}97$ e $0{,}76$ para as classes 3, 6 e 8 --- e o número de grupos
+foi estimado corretamente.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.78\textwidth]{confusion_matrix_kmeans.png}
+\caption{Matriz de confusão normalizada do agrupamento por $K$-médias, agregada sobre as
+$\binom{9}{3} = 168$ combinações possíveis de três classes ocultas. A diagonal domina,
+mas os erros não estão distribuídos de modo uniforme.}
+\label{fig:aberto-matriz-kmeans}
+\end{figure}
+
+Um caso favorável, contudo, não é evidência. Por isso o experimento foi repetido para
+\emph{todas} as $168$ combinações de três classes escolhidas entre nove, e a
+\cref{fig:aberto-matriz-kmeans} agrega o resultado. A leitura importante não é a
+diagonal, e sim o padrão fora dela: os erros concentram-se nos mesmos pares que já
+haviam aparecido na \cref{fig:aberto-latente} e na rejeição da anomalia de ICV. Não é
+ruído do algoritmo --- é sobreposição real de assinatura entre classes vizinhas, e nenhum
+método de agrupamento a desfaz sozinho.
+
 \section{Etapa 6: classes virtuais}
 
 \begin{definicao}{Classe virtual}
@@ -478,6 +523,32 @@ especialista.
 A promoção a classe virtual é a etapa que fecha o ciclo, e ela é barata precisamente por
 causa da propriedade de extensibilidade incremental estabelecida no \cref{cap:binarios}:
 treina-se um novo classificador binário, e nenhum dos existentes é tocado.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{classifier_with_ICV_with_10_classes.png}
+\caption{O mesmo cenário da \cref{fig:aberto-icv-classificadores}, agora com dez
+classificadores. O décimo foi treinado exclusivamente sobre as janelas antes rejeitadas
+e reivindica a maior parte delas; as reivindicações espúrias das classes 2 e 5
+retrocedem.}
+\label{fig:aberto-dez-classes}
+\end{figure}
+
+A \cref{fig:aberto-dez-classes} é o fecho experimental do ciclo, e deve ser lida em par
+com a \cref{fig:aberto-icv-classificadores}. São os mesmos dados de ICV apresentados ao
+mesmo conjunto de classificadores, com uma única diferença: um décimo classificador foi
+acrescentado, treinado apenas com o material que o próprio sistema havia separado como
+desconhecido. O que era detecção dispersa entre duas classes erradas torna-se uma
+reivindicação concentrada e correta --- a validação de que $0{,}98$ de acurácia na
+décima classe não custou desempenho nas nove anteriores.
+
+\begin{destaque}[O que esta figura não prova]
+O décimo classificador aprendeu a reconhecer a falha de ICV, mas ninguém lhe disse que
+aquilo \emph{era} uma falha de ICV. Para o sistema, a classe continua anônima: um
+agrupamento coerente, reprodutível e agora reconhecível, sem nome nem causa.
+
+Nomear é outro problema, e é exatamente onde começa a \cref{parte:explicabilidade}.
+\end{destaque}
 
 \begin{resultadochave}
 Sobre o conjunto de janelas rejeitadas, o ciclo de agrupamento e refinamento atinge

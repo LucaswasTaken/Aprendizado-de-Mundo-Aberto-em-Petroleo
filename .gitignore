@@ -17,6 +17,9 @@
 *.toc
 *.xdv
 
+# Conversao automatica de EPS feita pelo epstopdf
+*-eps-converted-to.pdf
+
 # Nomes de trabalho auxiliares usados em validacao
 maintest.*
 

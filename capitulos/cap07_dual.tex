@@ -422,8 +422,65 @@ pico do erro de reconstrução durante o evento.}
 \end{tabular}
 \end{table}
 
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{fig8.png}
+\caption{Poço 1, primeiro evento. De cima para baixo: os sensores PDG, PT e TPT, o estado
+das válvulas e a comparação entre a classificação dos dois modelos (\emph{LSTM status} e
+\emph{analytical status}) e a classificação humana posterior (\emph{class}). Adaptado de
+\citet{aranha2023system}.}
+\label{fig:dual-poco1a}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{fig9.png}
+\caption{Poço 1, segundo evento, no mesmo dia. Adaptado de \citet{aranha2023system}.}
+\label{fig:dual-poco1b}
+\end{figure}
+
+A \cref{fig:dual-poco1a,fig:dual-poco1b} apresentam os dois eventos do poço 1, e a
+comparação entre elas contém a lição mais útil do capítulo sobre a divisão de trabalho
+entre as duas camadas.
+
+No primeiro evento, às 01:16, \textbf{apenas o diagrama analítico detectou}. A rede não
+teve chance: o fechamento espúrio da DHSV alterou o estado das válvulas, e o sistema
+entrou em modo de análise --- justamente o comportamento projetado para evitar alarmes
+durante manobras. O operador corrigiu com ciclagem de válvulas entre 01:39 e 01:52.
+
+No segundo evento, às 08:48, \textbf{ambos detectaram}, e o diagrama classificou
+corretamente a causa como fechamento espúrio da DHSV ou da M1.
+
+\begin{destaque}[Por que isto justifica a arquitetura dual]
+O primeiro evento é o argumento inteiro deste capítulo em uma linha: houve uma anomalia
+real que a rede neural, por construção, não podia enxergar. A regra explícita enxergou.
+
+Um sistema apenas aprendido teria perdido esse evento. Um sistema apenas analítico teria
+perdido a classificação mais fina que a rede oferece em outros casos. A redundância não
+é conservadorismo --- é a única configuração em que a janela cega de um componente é
+coberta pelo outro.
+\end{destaque}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{fig10.png}
+\caption{Poço 2, retroanálise do evento de 6 de junho de 2018. Adaptado de
+\citet{aranha2023system}.}
+\label{fig:dual-poco2}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{fig11.png}
+\caption{Poço 3, evento de 18 de outubro de 2022, com o ciclo completo: detecção,
+fechamento pelo operador, ciclagem, reabertura e retorno à normalidade. Adaptado de
+\citet{aranha2023system}.}
+\label{fig:dual-poco3}
+\end{figure}
+
 \begin{exemplo}{O poço 3, minuto a minuto}
-O caso do poço 3 é o mais instrutivo, porque tem começo, meio e fim documentados.
+O caso do poço 3, mostrado na \cref{fig:dual-poco3}, é o mais instrutivo, porque tem
+começo, meio e fim documentados.
 
 Trata-se de um injetor de água e gás alternados (WAG) em lâmina d'água de
 \SI{1946}{\meter}. Às \textbf{02:10} de 18 de outubro de 2022, DHSV e M1 fecharam sem
@@ -449,7 +506,9 @@ do 3W}, não estava programado no diagrama de decisão e não teria sido detecta
 nenhum classificador supervisionado treinado no catálogo padrão.
 
 Foi detectado pelo autoencoder, com $\text{ACC}_b = 0{,}9998$, simplesmente porque não
-se parecia com a normalidade daquele poço.
+se parecia com a normalidade daquele poço. A \cref{fig:dual-poco2} mostra a retroanálise:
+o desvio é visível nos três sensores muito antes de a intervenção ter sido decidida em
+campo.
 
 É a demonstração mais direta do argumento deste livro: o componente que não sabe o nome
 de nada é o único capaz de reagir ao que ainda não tem nome. O que lhe falta ---
