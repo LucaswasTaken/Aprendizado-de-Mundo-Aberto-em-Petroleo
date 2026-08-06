@@ -2,21 +2,25 @@
 \label{cap:profundo}
 
 \begin{objetivos}
-Ao final deste capítulo, você será capaz de:
+Este capítulo é um panorama de referência, não um curso de aprendizado profundo: ele
+apresenta apenas o que é necessário para acompanhar as arquiteturas usadas no restante
+do livro. Ao final, você será capaz de:
 \begin{itemize}[leftmargin=*,itemsep=0.2em]
-  \item descrever a estrutura e o mecanismo de treinamento de um perceptron de múltiplas
-        camadas e explicar por que ele é inadequado a séries temporais longas;
-  \item explicar o funcionamento das células LSTM e GRU e o problema do gradiente
-        evanescente que elas resolvem;
+  \item descrever a estrutura de um perceptron de múltiplas camadas e explicar por que
+        ele é inadequado a séries temporais longas;
+  \item explicar, no nível das equações de estado, o que as células LSTM e GRU fazem e
+        que problema de gradiente elas atenuam;
   \item aplicar convoluções unidimensionais a sinais e calcular o campo receptivo de uma
         pilha convolucional;
-  \item construir um autoencoder, interpretar seu espaço latente e usar o erro de
-        reconstrução como escore de anomalia;
+  \item descrever a estrutura de um autoencoder, interpretar seu espaço latente e usar o
+        erro de reconstrução como escore de anomalia;
   \item distinguir autoencoder, autoencoder variacional e rede de agrupamento profundo
         quanto ao que cada um otimiza;
   \item descrever a arquitetura U-Net e justificar por que suas conexões de atalho
         importam para segmentação;
-  \item enunciar o mecanismo de atenção e situar o Transformer no contexto deste livro.
+  \item enunciar a equação da atenção e situar o Transformer no contexto deste livro ---
+        nenhum modelo aqui treinado é um Transformer, e a arquitetura não é desenvolvida
+        em detalhe.
 \end{itemize}
 \end{objetivos}
 

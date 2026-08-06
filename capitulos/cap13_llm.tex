@@ -2,16 +2,20 @@
 \label{cap:llm}
 
 \begin{objetivos}
-Ao final deste capítulo, você será capaz de:
+Este capítulo não ensina a construir um modelo de linguagem nem desenvolve a
+arquitetura \ing{transformer} em detalhe; ele apresenta o mínimo necessário para
+julgar o que essa tecnologia pode e não pode fazer no problema do livro. Ao final,
+você será capaz de:
 \begin{itemize}[leftmargin=*,itemsep=0.2em]
-  \item descrever a arquitetura \ing{transformer} e o mecanismo de atenção que a
-        sustenta;
+  \item enunciar a equação da atenção e explicar as duas propriedades que ela trouxe ---
+        paralelização e caminho curto entre posições;
   \item explicar o que é uma mistura de especialistas e por que ela reduz o custo de
         inferência;
-  \item projetar prompts com saída estruturada e validá-los;
+  \item reconhecer os elementos de um \ing{prompt} com saída estruturada e os critérios
+        para validá-la;
   \item reconhecer os modos de falha característicos de modelos de linguagem ---
-        alucinação, sensibilidade ao prompt, ausência de calibração --- e desenhar
-        salvaguardas;
+        alucinação, sensibilidade ao prompt, ausência de calibração --- e as
+        salvaguardas correspondentes;
   \item posicionar corretamente o papel de um modelo de linguagem em um sistema de
         monitoramento industrial.
 \end{itemize}
