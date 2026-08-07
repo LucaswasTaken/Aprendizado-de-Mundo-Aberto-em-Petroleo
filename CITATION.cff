@@ -22,6 +22,12 @@ authors:
   - family-names: "Lira"
     given-names: "William Wagner Matos"
     affiliation: "Laboratorio de Computacao Cientifica e Visualizacao, Universidade Federal de Alagoas"
+  - family-names: "Aranha"
+    given-names: "Pedro Esteves"
+    affiliation: "Petrobras"
+  - family-names: "Vargas"
+    given-names: "Ricardo Manoel Vaz"
+    affiliation: "Petrobras"
 year: 2026
 publisher:
   name: "Laboratorio de Computacao Cientifica e Visualizacao, Universidade Federal de Alagoas"

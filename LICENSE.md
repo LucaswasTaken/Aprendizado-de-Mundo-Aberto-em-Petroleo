@@ -3,7 +3,8 @@
 ## Texto, figuras originais e codigo-fonte LaTeX
 
 Copyright (c) 2026 Lucas Gouveia Omena Lopes, Thales Miranda de Almeida Vieira,
-Eduardo Toledo de Lima Junior e William Wagner Matos Lira.
+Eduardo Toledo de Lima Junior, William Wagner Matos Lira, Pedro Esteves Aranha
+e Ricardo Manoel Vaz Vargas.
 
 Licenciado sob a **Creative Commons Atribuicao 4.0 Internacional (CC BY 4.0)**.
 
