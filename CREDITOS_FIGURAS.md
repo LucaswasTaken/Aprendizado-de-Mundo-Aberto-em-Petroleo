@@ -37,7 +37,7 @@ editores. Quem desejar reutilizá-las deve obter autorização junto ao detentor
 | `esquema_vazio.png` | 2 | SPE | OK |
 | `correlation.png` | 3 | SPE | OK |
 | `autoencoder.png` | 5 | CC BY 4.0 | OK |
-| `DCN_latent.png` | 5 | Tese | CONFIRMAR |
+| `DCN_latent.png` | 5 | Tese | OK |
 | `distribution_comparison.png` | 6 | Tese | OK |
 | `SVM_Decision.png` | 6 | Tese | OK |
 | `general_method.png` | 6 | CC BY 4.0 | OK |
