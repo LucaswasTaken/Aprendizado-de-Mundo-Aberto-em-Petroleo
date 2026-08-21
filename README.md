@@ -2,7 +2,7 @@
 
 **Da detecção baseada em regras à explicabilidade por agentes de linguagem**
 
-Lucas Gouveia Omena Lopes · Thales Miranda de Almeida Vieira · Eduardo Toledo de Lima Junior · William Wagner Matos Lira · Pedro Esteves Aranha · Ricardo Emmanuel Vaz Vargas
+Lucas Gouveia Omena Lopes · Thales Miranda de Almeida Vieira · Eduardo Toledo de Lima Junior · William Wagner Matos Lira · Pedro Esteves Aranha · Ricardo Emanuel Vaz Vargas
 
 Laboratório de Computação Científica e Visualização — Universidade Federal de Alagoas · Petrobras
 
