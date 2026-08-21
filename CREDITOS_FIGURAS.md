@@ -36,11 +36,11 @@ editores. Quem desejar reutilizá-las deve obter autorização junto ao detentor
 |---|---|---|---|
 | `esquema_vazio.png` | 2 | SPE | OK |
 | `correlation.png` | 3 | SPE | OK |
-| `autoencoder.png` | 5 | CC BY 4.0 | CONFIRMAR |
+| `autoencoder.png` | 5 | CC BY 4.0 | OK |
 | `DCN_latent.png` | 5 | Tese | CONFIRMAR |
-| `distribution_comparison.png` | 6 | Tese | CONFIRMAR |
-| `SVM_Decision.png` | 6 | Tese | CONFIRMAR |
-| `general_method.png` | 6 | CC BY 4.0 | CONFIRMAR |
+| `distribution_comparison.png` | 6 | Tese | OK |
+| `SVM_Decision.png` | 6 | Tese | OK |
+| `general_method.png` | 6 | CC BY 4.0 | OK |
 
 ### Parte II — Sistema dual
 
@@ -54,7 +54,7 @@ editores. Quem desejar reutilizá-las deve obter autorização junto ao detentor
 | `fig9.png` | 7 | SPE | OK |
 | `fig10.png` | 7 | SPE | OK |
 | `fig11.png` | 7 | SPE | OK |
-| `binary_diagram.png` | 8 | Tese | CONFIRMAR |
+| `binary_diagram.png` | 8 | Tese | OK |
 
 ### Parte III — Mundo aberto
 
@@ -80,7 +80,7 @@ editores. Quem desejar reutilizá-las deve obter autorização junto ao detentor
 
 | Arquivo | Cap. | Regime | Situação |
 |---|---|---|---|
-| `operator_mockup_interface.png` | 17 | CC BY 4.0 | CONFIRMAR |
+| `operator_mockup_interface.png` | 17 | CC BY 4.0 | OK |
 
 ## Pendências
 
