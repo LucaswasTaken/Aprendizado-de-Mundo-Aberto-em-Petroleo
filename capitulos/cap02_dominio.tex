@@ -6,8 +6,8 @@ Ao final deste capítulo, você será capaz de:
 \begin{itemize}[leftmargin=*,itemsep=0.2em]
   \item descrever os componentes de um poço submarino de produção, do reservatório à
         unidade flutuante, e nomear as válvulas que compõem a árvore de natal molhada;
-  \item explicar a função dos sensores PDG e TPT e justificar por que exatamente essas
-        quatro variáveis dominam os métodos deste livro;
+  \item explicar a função dos sensores PDG e TPT e justificar por que o subconjunto
+        recorrente de quatro variáveis aparece na maior parte dos métodos deste livro;
   \item caracterizar cada uma das nove classes de anomalia do conjunto 3W em termos de
         mecanismo físico e assinatura esperada nos sensores;
   \item distinguir eventos de causa-raiz de eventos sintomáticos, e explicar por que
@@ -117,7 +117,7 @@ observadas é pequeno, e elas são fortemente correlacionadas}.
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=0.42\textwidth]{esquema_vazio.png}
+\includegraphics[width=0.42\textwidth]{esquema_poco_submarino.png}
 \caption{Disposição típica de válvulas e sensores em um poço submarino. Os medidores
 PDG, TPT e PT ocupam posições fixas ao longo do caminho do fluido, e cada válvula ---
 DHSV, M1, M2, W1, W2, XO, PXO e a reguladora --- define um estado operacional distinto.
@@ -166,17 +166,20 @@ Contudo, a maior parte dos trabalhos discutidos neste livro utiliza o subconjunt
 \{P-PDG, T-PDG, P-TPT, T-TPT\}, por três razões: são as variáveis presentes em
 praticamente todas as instâncias, são as menos afetadas por convenções de instalação
 específicas de cada poço, e carregam a informação física essencial dos eventos de
-interesse.
+interesse. Esse núcleo não é uma regra universal: o sistema dual acrescenta um quinto
+sinal, e os experimentos dos \cref{cap:binarios,cap:closedworld} usam oito quando a
+disponibilidade permite. A \cref{tab:dados-janelas} registra essas diferenças.
 
 \begin{exemplo}{O gradiente entre fundo e cabeça}
 A diferença $P_{\text{PDG}} - P_{\text{TPT}}$ é, aproximadamente, a perda de carga ao
 longo da coluna de produção --- soma da componente hidrostática com a componente
-friccional. Quando o fluido fica mais denso (aumento de BSW, por exemplo), a
-componente hidrostática cresce e o gradiente aumenta. Quando a vazão cai, a componente
-friccional diminui e o gradiente diminui.
+friccional e, quando relevante, da aceleração. Em uma geometria e um regime de escoamento
+fixados, maior densidade tende a aumentar a componente hidrostática, enquanto menor vazão
+tende a reduzir a friccional. Em escoamento multifásico, inclinação, holdup, sentido do
+fluxo e posição efetiva dos sensores podem alterar essa leitura.
 
-Um único par de sensores permite, portanto, inferir mudanças em duas propriedades
-distintas do escoamento. É por essa razão que o agente de linguagem do
+Um único par de sensores fornece, portanto, indícios combinados sobre propriedades
+distintas do escoamento, sem identificá-las isoladamente. É por essa razão que o agente de linguagem do
 \cref{cap:agente} calcula explicitamente um descritor de \emph{relação entre P-PDG e
 P-TPT} --- ``mesma direção'', ``divergentes'' ou ``um estável'' --- e o entrega ao
 modelo como evidência. A informação está na relação, não em cada sinal isolado.

@@ -54,12 +54,15 @@ A cadeia tem quatro etapas, nesta ordem.
 
 \begin{enumerate}[leftmargin=*,itemsep=0.4em]
 
-\item \textbf{Padronização por escore-$z$.} Cada sensor é centrado e escalado pela sua
-própria média e desvio padrão. Sem isso, pressões de centenas de bar dominariam
-temperaturas de dezenas de graus em qualquer comparação.
+\item \textbf{Padronização por escore-$z$.} Cada sensor é centrado e escalado pela média
+e pelo desvio padrão de sua referência. O conjunto usado para ajustar esses parâmetros
+deve ser registrado para impedir vazamento e definir o que significa ``regime normal''.
 
-\item \textbf{Normalização Min-Max para $[0,1]$.} Aplicada após a padronização, garante
-faixa comparável entre poços de níveis operacionais distintos.
+\item \textbf{Normalização Min-Max para $[0,1]$.} Acomoda a entrada ao intervalo usado
+pelo restante da cadeia. Se seus limites forem ajustados sobre as mesmas amostras da
+etapa anterior, a composição é equivalente à normalização Min-Max direta; para ter
+efeito adicional, as duas etapas precisam usar referências de ajuste distintas e
+exclusivas do treinamento.
 
 \item \textbf{Remoção de ruído por \ing{wavelet}.} Transformada de Daubechies db4, nível
 3, com limiarização suave.
@@ -337,7 +340,8 @@ percentual, escore-$z$, inclinação, direção, magnitude, velocidade, comporta
 de oscilação, razão de ruído, amplitude e os dois níveis médios --- acrescidas de duas
 métricas entre sensores, entre as quais a relação entre P-PDG e P-TPT. Métricas
 contínuas e categóricas são fornecidas simultaneamente, para que o modelo reconheça casos
-de fronteira. O pré-processamento aplica padronização, normalização Min-Max, remoção de
+de fronteira. O pré-processamento aplica padronização e normalização Min-Max com
+referências de ajuste que precisam ser registradas, além de remoção de
 ruído por \ing{wavelet} db4 nível 3 com limiarização suave, e usa apenas instâncias de
 poços reais. Os perfis de classe, depurados por remoção de extremos em duas passagens com
 $k = 3{,}0$ e depois $k = 1{,}5$, contêm comportamento macro, comportamento local,
@@ -347,7 +351,8 @@ candidatas ordenadas com justificativa e confiança, em JSON validado. Não há 
 nem agregação de múltiplas passagens: os resultados do próximo capítulo são um piso.}
 
 \begin{exercicios}
-\item Implemente as treze métricas e aplique-as a instâncias de cada classe do 3W.
+\item \textbf{Projeto de extensão.} Implemente as treze métricas e aplique-as a
+      instâncias de cada classe do 3W.
       Construa uma matriz de correlação entre elas: quais são redundantes? Proponha um
       subconjunto mínimo que preserve a capacidade discriminativa.
 
@@ -368,8 +373,9 @@ nem agregação de múltiplas passagens: os resultados do próximo capítulo sã
       entre a resposta de P-PDG e a de P-TPT. Que classes ela ajudaria a discriminar?
       Implemente-a e verifique empiricamente.
 
-\item Escreva o prompt completo descrito neste capítulo e submeta o mesmo segmento vinte
-      vezes com temperatura $0{,}2$. Meça a variabilidade da saída. Repita com
+\item \textbf{Atividade com serviço externo.} Escreva o prompt completo descrito neste
+      capítulo, registre modelo, revisão, data e parâmetros, e submeta o mesmo segmento
+      vinte vezes com temperatura $0{,}2$. Meça a variabilidade da saída. Repita com
       temperatura $0{,}0$ e $0{,}7$ e discuta o compromisso entre consistência e
       diversidade de hipóteses.
 

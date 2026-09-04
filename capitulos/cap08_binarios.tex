@@ -253,7 +253,8 @@ trabalho.}
 \begin{resultadochave}
 O ensemble um-contra-todos atinge acurácia global de $\bm{0{,}87}$, contra $0{,}86$ do
 classificador multiclasse e $0{,}65$ da OCSVM. A diferença para o multiclasse é de um
-ponto percentual --- estatisticamente marginal.
+ponto percentual; sem as predições pareadas ou um teste de não inferioridade, não é
+possível afirmar superioridade nem equivalência.
 \end{resultadochave}
 
 Esse resultado precisa ser lido com precisão, porque é fácil lê-lo errado nos dois
@@ -262,16 +263,19 @@ sentidos.
 A leitura pessimista seria: ``o ensemble não é melhor, logo não vale o custo''. Ela
 ignora que o ensemble \emph{faz outra coisa}. O classificador multiclasse não pode
 rejeitar; o ensemble pode. O empate em desempenho de mundo fechado significa que
-\textbf{a capacidade de rejeição foi obtida sem custo em acurácia} --- o que é o
-resultado desejável, não um resultado decepcionante.
+\textbf{a capacidade de rejeição foi acrescentada sem perda observada na acurácia
+agregada} neste experimento --- um resultado compatível com o objetivo, mas que não
+demonstra não inferioridade.
 
 A leitura otimista seria: ``o ensemble é superior''. Um ponto percentual sobre esse
 conjunto não sustenta essa afirmação.
 
-\begin{destaque}[O que a tabela realmente demonstra]
-Que a rejeição é gratuita, em termos de acurácia de mundo fechado. A demonstração de que
-ela \emph{funciona} está no \cref{cap:closedworld}, no experimento em que a classe 8 é
-escondida e $89\,\%$ de suas instâncias são corretamente sinalizadas como desconhecidas.
+\begin{destaque}[O que a tabela realmente sustenta]
+Que a acurácia agregada de mundo fechado permaneceu próxima à do classificador
+multiclasse enquanto a arquitetura passou a expressar rejeição. A evidência de que essa
+rejeição funciona para uma classe omitida está no \cref{cap:closedworld}, no experimento
+em que a classe 8 é escondida e $89\,\%$ de suas instâncias são sinalizadas como
+desconhecidas.
 \end{destaque}
 
 \subsection{Onde as duas abordagens divergem}
@@ -300,7 +304,8 @@ Comparar classe a classe é mais informativo que comparar médias.
 O padrão é coerente com a taxonomia por assinatura do \cref{cap:dominio}. O ensemble
 binário vence nas classes com assinatura própria e bem delimitada (6 e 3); o
 multiclasse vence nas classes sintomáticas ou de assinatura compartilhada (5, 4) e na
-classe 8. A explicação plausível: quando a assinatura é distintiva, um modelo dedicado a
+classe 8. Essa associação é pós-hoc e deve ser testada com medidas de separabilidade ou
+ablação. Uma explicação plausível é que, quando a assinatura é distintiva, um modelo dedicado a
 ela é melhor; quando a assinatura é ambígua, a informação de \emph{contraste} entre
 classes --- que só o multiclasse possui --- ajuda a desambiguar.
 
@@ -343,7 +348,8 @@ correspondentemente distintas. Um classificador binário treinado sobre esse ró
 sendo solicitado a aprender uma categoria que não é internamente coerente.
 
 \begin{destaque}[Um problema de rótulo, não de modelo]
-Nenhuma arquitetura resolve uma taxonomia inconsistente. As classes 4 e 5 vão
+Se a taxonomia for internamente inconsistente, mudar apenas a arquitetura não resolve o
+problema. As classes 4 e 5 tendem a
 apresentar desempenho ruim em todos os capítulos deste livro: $0{,}69$ e $0{,}79$ aqui;
 $67{,}5\,\%$ de detecção de novidade para a classe 5 no \cref{cap:mahalanobis} contra
 mais de $96\,\%$ das demais; $18{,}5\,\%$ de acerto na primeira escolha do agente para a
@@ -356,9 +362,10 @@ saída honesta, ``esta é a classe 4'' não é.
 
 \subsection{Sobre a comparação com a literatura}
 
-As duas últimas colunas da \cref{tab:binarios-porclasse} exigem cautela. Os valores
+As duas últimas colunas da \cref{tab:binarios-porclasse} servem apenas como contexto e
+não como comparação controlada. Os valores
 binários de \citet{Marins2021} --- $0{,}97$ a $1{,}00$ --- são superiores aos deste
-capítulo em todas as classes. Três diferenças de protocolo explicam boa parte da
+capítulo em todas as classes. Três diferenças de protocolo podem contribuir para a
 discrepância:
 
 \begin{enumerate}[leftmargin=*,itemsep=0.3em]
@@ -413,11 +420,13 @@ incremental, otimização por classe e diagnóstico interpretável, ao custo de 
 esforço computacional e de desbalanceamento severo em cada tarefa binária. Com busca
 aleatória de cem combinações por classe e divisão temporal $80/20$, o ensemble atinge
 acurácia global de $0{,}87$, contra $0{,}86$ do multiclasse e $0{,}65$ de uma OCSVM
-aplicada ao espaço bruto: a capacidade de rejeição foi obtida sem custo em acurácia. A
+aplicada ao espaço bruto: não houve perda observada na acurácia agregada, embora o
+experimento não estabeleça não inferioridade. A
 comparação classe a classe revela um padrão coerente --- o ensemble vence onde a
 assinatura é distintiva, o multiclasse vence onde ela é ambígua --- que antecipa a
 arquitetura híbrida proposta ao final do livro. As classes sintomáticas 4 e 5 falham em
-ambas as abordagens, indicando um problema de taxonomia e não de modelo.}
+ambas as abordagens, resultado compatível com uma limitação da taxonomia, mas que não
+exclui limitações dos modelos.}
 
 \begin{exercicios}
 \item Demonstre formalmente que, se $K$ classificadores binários independentes produzem
@@ -432,8 +441,10 @@ ambas as abordagens, indicando um problema de taxonomia e não de modelo.}
       subamostragem, superamostragem e ponderação na perda --- quanto ao efeito sobre
       revocação e precisão.
 
-\item Implemente o ensemble e reproduza a \cref{tab:binarios-porclasse}. Em seguida,
-      repita o experimento com divisão aleatória de janelas em vez de divisão temporal e
+\item \textbf{Projeto de reprodução.} Com acesso ao 3W, implemente o ensemble e busque
+      reproduzir a \cref{tab:binarios-porclasse}. Registre versão dos dados, divisão,
+      sementes e divergências em relação aos valores publicados. Em seguida, repita o
+      experimento com divisão aleatória de janelas em vez de divisão temporal e
       quantifique o ganho artificial de acurácia. Discuta o que isso implica para a
       leitura da literatura da área.
 

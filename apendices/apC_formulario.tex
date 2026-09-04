@@ -155,20 +155,20 @@ k(R) =
 
 \section{Formação de hidrato}
 
-Temperatura de formação de hidrato pela correlação de Motiee, com $P$ em unidades de
-pressão e $\gamma$ a densidade relativa do gás (\cref{cap:closedworld}):
+Temperatura de formação de hidrato pela correlação de Motiee, com
+$x=\log_{10}(P/\mathrm{psia})$, saída em graus Fahrenheit e $\gamma$ a densidade
+relativa do gás (\cref{cap:closedworld}):
 
 \begin{equation}
-T_{\text{hid}} = a_0 + a_1 \log_{10} P + a_2 (\log_{10} P)^2
-+ a_3 \gamma + a_4 \gamma \log_{10} P + a_5 \gamma^2
+T_{\text{hid}} = -238{,}24469 + 78{,}99667x - 5{,}352544x^2
++ 349{,}473877\gamma - 150{,}854675\gamma^2 - 27{,}604065x\gamma
 \label{eq:for-motiee}
 \end{equation}
 
-Índice de risco analítico, com $T$ a temperatura medida:
+Margem térmica percentual, com $T$ e $T_{\text{hid}}$ na mesma escala de temperatura:
 
 \begin{equation}
-C_{\text{hid}} = \max\!\left(0,\;
-\frac{T_{\text{hid}} - T}{T_{\text{hid}}}\right) \times 100\,\%
+C_{\text{hid}} = 100\,\frac{T-T_{\text{hid}}}{T}
 \label{eq:for-chid}
 \end{equation}
 

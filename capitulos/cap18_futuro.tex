@@ -24,25 +24,27 @@ Quatro classes receberam, do agente, nomes contendo ``perda de telemetria''
 (\cref{cap:resultados-agente}). Isso revelou que, no 3W, o início de muitas anomalias
 coincide com sensores de fundo reportando valores ausentes ou zerados.
 
-A implicação é desconfortável: \textbf{parte do desempenho reportado em todos os
-capítulos pode decorrer da detecção de falha de instrumentação, e não da detecção da
+A implicação é desconfortável: \textbf{parte do desempenho reportado nos experimentos
+com o 3W pode decorrer da detecção de falha de instrumentação, e não da detecção da
 anomalia}. Não há como quantificar essa fração com os experimentos realizados.
 
-Nenhuma matriz de confusão revelou isso. Foi necessário que um sistema descrevesse em
-linguagem natural o que via.
+As análises por matriz de confusão apresentadas não evidenciaram esse padrão; as
+descrições em linguagem natural o tornaram visível e motivam um teste controlado.
 \end{destaque}
 
-Essa ressalva não invalida os resultados --- o sistema do \cref{cap:dual} opera em campo,
-com dados reais, e detecta eventos verificados --- mas define a primeira prioridade da
-agenda: \emph{medir o confundimento antes de perseguir mais acurácia}.
+Essa ressalva não invalida automaticamente os resultados --- o \cref{cap:dual} reporta
+estudos de caso de campo com dados reais e eventos verificados --- mas define a primeira
+prioridade da agenda: \emph{medir o confundimento antes de perseguir mais acurácia}.
 
 \section{Limitações de dados}
 
 \begin{enumerate}[leftmargin=*,itemsep=0.4em]
 
-\item \textbf{Confundimento de telemetria.} Descrito acima. Corrigível por um protocolo
+\item \textbf{Possível confundimento de telemetria.} Descrito acima. Testável por um protocolo
 que remova instâncias em que a anomalia coincide com valores ausentes, e repita toda a
-avaliação. A perda de acurácia esperada é a medida do confundimento.
+avaliação. A diferença de desempenho pareada, com intervalo de confiança, estimará a
+contribuição desse sinal; a remoção também pode alterar a composição e a dificuldade da
+amostra.
 
 \item \textbf{Um único conjunto de dados.} Quase tudo foi avaliado no 3W. A exceção ---
 o sistema dual, avaliado em poços reais de um operador --- é justamente a que não permite
@@ -204,14 +206,14 @@ que mais compromete a interpretação de todo o trabalho.
 \toprule
 \textbf{Experimento} & \textbf{Custo} & \textbf{Informação obtida} \\
 \midrule
+Remoção do confundimento de telemetria & Baixo &
+Quantifica quanto do desempenho é artefato \\
+\addlinespace
 Ablação das treze métricas & Baixo &
 Quais métricas importam; guia para adicionar novas \\
 \addlinespace
 Métricas de localização por sensor & Baixo &
-Resolve a confusão entre classes 8 e 9 \\
-\addlinespace
-Remoção do confundimento de telemetria & Baixo &
-Quantifica quanto do desempenho é artefato \\
+Testa a hipótese sobre a confusão entre classes 8 e 9 \\
 \addlinespace
 Calibração da confiança declarada & Baixo &
 Viabiliza uso da confiança na política de triagem \\
@@ -297,11 +299,12 @@ dominante: cada alternativa troca uma propriedade desejável por outra, e o regi
 completo de entradas e saídas é a única compatível com todas as demais. A limitação de
 avaliação mais séria é a ausência de linha de base humana, sem a qual os números do livro
 carecem de referencial. A agenda proposta ordena dez experimentos por razão entre
-informação e custo, com a ablação das treze métricas em primeiro lugar, e formula quatro
+informação e custo, com a avaliação do possível confundimento de telemetria em primeiro
+lugar, e formula quatro
 questões de pesquisa --- entre elas, se a assimetria entre reconhecer incompatibilidade e
 afirmar identidade é uma propriedade universal.}
 
-\begin{exercicios}
+\begin{projetospesquisa}
 \item Projete e execute o estudo de ablação das treze métricas do \cref{cap:agente}.
       Ordene-as por contribuição marginal. O resultado é consistente com a intuição
       física?
@@ -327,7 +330,7 @@ afirmar identidade é uma propriedade universal.}
 \item Projete o protocolo de uma avaliação com operadores que meça, e não apenas
       argumente, a redução de carga de revisão prometida pela política de triagem do
       \cref{cap:resultados-agente}. Que ameaças à validade ele precisa controlar?
-\end{exercicios}
+\end{projetospesquisa}
 
 \begin{leituras}
 \item \citet{Pimentel2014review} --- levantamento que contextualiza as limitações

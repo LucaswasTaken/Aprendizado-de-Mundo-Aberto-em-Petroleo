@@ -27,10 +27,11 @@ de telemetria --- pressões, temperaturas, vazões --- amostrados a cada poucos 
 
 Tudo o que se sabe sobre o estado do poço vem desses canais. Se um deles congela, se
 um transdutor deriva, se um evento se manifesta em uma escala temporal mais lenta do
-que a janela de observação do operador, o conhecimento simplesmente não existe. A
+que a janela de observação do operador, a observação pode ficar ausente, enviesada ou
+insuficiente para identificar o estado. A
 consequência é direta: \emph{o monitoramento de poços é, antes de tudo, um problema de
-inferência a partir de observação parcial}, e essa é exatamente a classe de problema
-para a qual o aprendizado de máquina foi construído.
+inferência a partir de observação parcial}, uma das classes de problema em que o
+aprendizado de máquina pode ser útil.
 
 \subsection{A escala do problema}
 
@@ -95,18 +96,35 @@ investimento. Um sistema de monitoramento que antecipa a identificação de um e
 algumas horas pode transformar uma intervenção submarina em um ajuste de \ing{choke}
 feito da sala de controle.
 
+\begin{exemplo}{Estimativa de NPT em um cenário hipotético}
+Considere um poço que produziria $q=\num{10000}$ barris por dia, preço de referência
+$p=\num{70}$ dólares por barril, doze dias de NPT e quatro dias de intervenção com custo
+diário $c=\num{500000}$ dólares. Desprezando impostos, descontos e custos variáveis, o
+custo de oportunidade é
+\[
+      C_{\text{produção}} = q\,p\,d
+      = \num{10000}\times\num{70}\times 12
+      = \text{US\$}\,\num{8400000}.
+\]
+O custo direto é $C_{\text{intervenção}}=c\times4=\text{US\$}\,\num{2000000}$, e a
+estimativa total é \textbf{US\$\,10,4 milhões}. Se uma ação antecipada reduzisse ambos
+os períodos em $30\,\%$, sob a hipótese simplificadora de custos proporcionais ao
+tempo, a economia estimada seria $0{,}30\times 10{,}4 =
+\textbf{US\$\,3,12 milhões}$. O cálculo é uma análise de cenário, não uma previsão: seu
+resultado muda linearmente com $q$, $p$, $d$ e $c$.
+\end{exemplo}
+
 \begin{exemplo}{Da janela de detecção ao valor}
 Considere o caso do hidrato, discutido em profundidade no \cref{cap:closedworld}.
-A literatura de referência sobre o conjunto de dados 3W reporta que o tempo típico
-entre o início da formação de hidrato e sua manifestação inequívoca nos indicadores de
-superfície varia de trinta minutos a cinco horas \citep{VARGAS2019}. Um método que
-identifique a assinatura do evento a partir de uma janela de quinze minutos de
-histórico opera dentro da menor dessas escalas; um método que exija duas horas de
-histórico opera fora dela na maior parte dos casos.
+O intervalo disponível para agir depende do processo e da implantação; a fonte do 3W
+consultada nesta revisão não fornece uma faixa temporal que permita fixá-lo. Ainda
+assim, o comprimento da janela determina quanto histórico o sistema precisa acumular
+antes de produzir uma decisão e deve ser comparado ao intervalo operacional disponível.
 
 Esse é o motivo pelo qual, no \cref{cap:closedworld}, dedicamos uma tabela inteira ao
-efeito do comprimento da janela sobre a acurácia. Não se trata de ajuste fino de
-hiperparâmetro: trata-se de decidir se o sistema serve ou não serve.
+efeito do comprimento da janela sobre a acurácia. A escolha não é apenas ajuste de
+hiperparâmetro: ela combina desempenho observado e restrição operacional, que precisa
+ser definida para cada implantação.
 \end{exemplo}
 
 Há ainda um custo que não aparece em planilha: o \termo{custo de credibilidade}{alarm

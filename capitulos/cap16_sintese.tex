@@ -18,9 +18,9 @@ Ao final deste capítulo, você será capaz de:
 
 Este livro contou uma história em quatro atos.
 
-No primeiro, um sistema dual --- regras e autoencoder --- entrou em operação em mais de
-duzentos e cinquenta poços e detectou eventos que ninguém havia catalogado. Ele
-funcionava, e não sabia dizer o que via.
+No primeiro, a avaliação publicada do sistema dual --- regras e autoencoder --- reportou
+operação em mais de duzentos e cinquenta poços e estudos de caso com eventos fora do
+catálogo. O sistema detectava desvios, mas não sabia dizer o que via.
 
 No segundo, o ensemble de classificadores binários trocou a pergunta ``qual das nove
 classes?'' pela pergunta ``é esta? sim ou não'', e com isso tornou expressável a resposta
@@ -76,7 +76,7 @@ Anotação por amostra \\
 \cref{cap:mahalanobis} &
 Representar com classificador, não com autoencoder &
 Novidade $52 \to 98{,}2\,\%$ &
-Trocar uma linha \\
+Reusar o latente treinado \\
 \addlinespace
 \cref{cap:resultados-agente} &
 Descrever em linguagem natural &
@@ -86,14 +86,15 @@ Serviço externo \\
 \end{tabular}
 \end{table}
 
-\begin{destaque}[Os dois maiores ganhos foram os mais baratos]
+\begin{destaque}[Ganhos grandes vieram de mudanças conceituais simples]
 Trocar o autoencoder pelo latente do classificador multiclasse elevou a detecção de
-novidade em quarenta e seis pontos percentuais. Em termos de implementação, é extrair a
-saída de uma camada diferente.
+novidade em quarenta e seis pontos percentuais neste protocolo. A alteração de inferência
+é pequena, mas depende do custo anterior de treinar e validar o classificador.
 
 Segmentar em vez de detectar elevou a acurácia em trinta e seis pontos e reduziu a
 variância entre poços em mais da metade. Exigiu uma arquitetura nova, mas nenhuma
-sofisticação --- a U-Net é de 2015.
+novidade arquitetural --- a U-Net é de 2015 --- e aumentou o custo de anotação por
+amostra.
 
 Em contraste, o ciclo de mundo aberto do \cref{cap:mundoaberto} --- estimação automática
 de $K$, interseção entre dois algoritmos de agrupamento, limiar adaptativo com três
@@ -194,10 +195,11 @@ Agente de linguagem & $35{,}1\,\%$ & $89{,}7\,\%$ \\
 \end{center}
 
 \begin{destaque}[Duas leituras de uma mesma tabela]
-\textbf{Por coluna}: reconhecer incompatibilidade é mais fácil que afirmar identidade,
-para \emph{ambas} as famílias de método. Isso é uma propriedade do problema. Basta uma
-evidência contraditória para descartar uma hipótese; afirmar identidade exige
-convergência de todas as evidências.
+\textbf{Por coluna}: nas avaliações apresentadas, reconhecer incompatibilidade obteve
+taxas maiores que afirmar identidade para \emph{ambas} as famílias de método. Uma
+explicação plausível é que uma evidência contraditória basta para descartar uma hipótese,
+enquanto afirmar identidade exige convergência; protocolos e amostras diferentes,
+contudo, impedem tratar a diferença bruta como comparação causal.
 
 \textbf{Por linha}: os métodos numéricos são melhores nas duas tarefas, mas a diferença é
 de cinquenta e dois pontos percentuais na primeira e de apenas seis na segunda. É onde a
@@ -232,7 +234,7 @@ U-Net + latente do multiclasse + Mahalanobis.}
 \addlinespace
 6 & Restrição PCK & Decisor ($99{,}0\,\%$) & Segunda opinião; nomear novidade \\
 \addlinespace
-7 & Incrustação & Fraco ($52{,}3\,\%$) & \textbf{Decisor auxiliar} ($94{,}9\,\%$); rejeita $100\,\%$ dos erros \\
+7 & Incrustação & Fraco ($52{,}3\,\%$) & \textbf{Segunda opinião priorizada}; rejeitou $100\,\%$ dos erros na amostra \\
 \addlinespace
 8 & Hidrato prod. & Decisor ($99{,}0\,\%$) & Segunda opinião; nomear novidade \\
 \addlinespace
@@ -340,8 +342,9 @@ Confirmar ou corrigir isso é trabalho de minutos. Era trabalho de horas.
 
 \section{Sete princípios}
 
-O percurso deste livro sustenta sete afirmações que transcendem o problema de poços
-submarinos.
+O percurso deste livro sugere sete princípios para teste além do problema de poços
+submarinos. Alguns decorrem da formulação matemática; outros são generalizações
+empíricas que ainda exigem validação em novos domínios.
 
 \begin{enumerate}[leftmargin=*,itemsep=0.5em]
 
@@ -349,9 +352,9 @@ submarinos.
 distância detecta $67{,}5\,\%$ ou $98{,}2\,\%$ da mesma anomalia, conforme o espaço.
 Antes de trocar o método, verifique o espaço.
 
-\item \textbf{Reconhecer incompatibilidade é mais fácil que afirmar identidade.} Vale
-para métodos geométricos e para modelos de linguagem. Projete sistemas que explorem essa
-assimetria em vez de ignorá-la.
+\item \textbf{Reconhecer incompatibilidade pode ser mais fácil que afirmar identidade.}
+Essa assimetria foi observada nos métodos geométricos e no modelo de linguagem avaliados.
+Projete sistemas que a meçam e, quando confirmada, a explorem.
 
 \item \textbf{Escores acoplados não podem expressar rejeição.} A restrição
 $\sum_k \hat{p}_k = 1$ é uma decisão de projeto com consequência epistemológica, e quase
@@ -360,17 +363,19 @@ sempre é tomada sem que se note.
 \item \textbf{Reportar desempenho desagregado é o que permite projetar arquiteturas.} A
 divisão de trabalho da \cref{tab:sint-papeis} é invisível em qualquer média global.
 
-\item \textbf{Reduzir a variância vale mais que aumentar a média.} Um sistema com
-acurácia $0{,}86 \pm 0{,}08$ é implantável; um com $0{,}86 \pm 0{,}19$ não é, porque o
-operador não sabe quando confiar.
+\item \textbf{Reduzir a variância pode ser tão importante quanto aumentar a média.}
+Entre sistemas com acurácia média de $0{,}86$, aquele com desvio $0{,}08$ é mais
+previsível entre poços do que outro com desvio $0{,}19$. Isso favorece a avaliação
+operacional, mas não basta para declarar nenhum deles implantável.
 
 \item \textbf{Resultados negativos são informação.} O empate entre autoencoder, VAE e DCN
 no \cref{cap:mundoaberto} foi o que apontou o gargalo que o \cref{cap:mahalanobis}
 resolveu.
 
-\item \textbf{Um sistema que descreve o que vê audita o conjunto de dados.} O artefato de
-telemetria do 3W só se tornou visível quando quatro classes receberam nomes contendo
-``perda de telemetria''. Nenhuma matriz de confusão o revelou.
+\item \textbf{Um sistema que descreve o que vê pode ajudar a auditar os dados.} Nesta
+análise, a hipótese de artefato de telemetria ganhou visibilidade quando quatro classes
+receberam nomes contendo ``perda de telemetria''; as matrizes de confusão examinadas não
+a haviam evidenciado.
 
 \end{enumerate}
 
@@ -385,7 +390,8 @@ incompatibilidade é mais fácil que afirmar identidade, para ambas as famílias
 e a vantagem dos métodos numéricos sobre o agente é de cinquenta e dois pontos na
 classificação e de apenas seis na detecção de novidade. A avaliação desagregada por
 classe permitiu derivar --- e não postular --- uma divisão de trabalho: métodos numéricos
-decidem nas classes 1, 2, 3, 6, 8 e 9; o agente é decisor auxiliar na classe 7, onde o
+decidem nas classes 1, 2, 3, 6, 8 e 9; o agente fornece segunda opinião priorizada na
+classe 7, onde o
 método geométrico atinge apenas $52{,}3\,\%$; é cético na classe 9; e as classes
 sintomáticas 4 e 5 devem ser tratadas como sinalizadores, não como classes. A arquitetura
 de referência resultante tem oito camadas, da validação determinística do dado ao ciclo
@@ -398,9 +404,11 @@ justificativas verificáveis. Sete princípios generalizáveis encerram o capít
       Formule uma regra de seleção de método por classe e estime o desempenho global de
       um sistema que a aplique.
 
-\item Implemente a arquitetura de referência de oito camadas e meça o desempenho
-      fim-a-fim sobre o 3W. Compare com cada componente isolado. O ganho da integração é
-      aditivo, subaditivo ou superaditivo?
+\item \textbf{Projeto integrador.} Especifique e implemente uma versão da arquitetura de
+      referência de oito camadas e meça o desempenho fim a fim sobre o 3W. Como os
+      artefatos completos dos estudos originais não acompanham esta edição, registre as
+      decisões que precisou reconstruir. Compare com cada componente isolado. O ganho da
+      integração é aditivo, subaditivo ou superaditivo?
 
 \item O princípio 5 afirma que reduzir variância vale mais que aumentar média. Formalize
       essa intuição: sob que função de utilidade do operador ela é verdadeira? Construa um

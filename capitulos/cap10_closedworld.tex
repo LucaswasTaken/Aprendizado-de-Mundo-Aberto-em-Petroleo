@@ -4,12 +4,13 @@
 \begin{objetivos}
 Ao final deste capítulo, você será capaz de:
 \begin{itemize}[leftmargin=*,itemsep=0.2em]
-  \item conduzir e interpretar um experimento de mundo aberto por classe escondida;
+      \item descrever e interpretar um experimento de mundo aberto por classe escondida;
   \item analisar o compromisso entre comprimento de janela, acurácia e tempo de resposta
         operacional;
-  \item validar um classificador contra um modelo físico independente e interpretar as
-        discrepâncias;
-  \item estimar o custo computacional de um ensemble e avaliar sua viabilidade em campo;
+  \item interpretar a validação de um classificador contra um modelo físico independente
+        e analisar as discrepâncias;
+  \item estimar o custo computacional de um ensemble e discutir sua viabilidade no
+        ambiente avaliado;
   \item posicionar corretamente as limitações de um resultado positivo.
 \end{itemize}
 \end{objetivos}
@@ -17,11 +18,11 @@ Ao final deste capítulo, você será capaz de:
 \section{Do princípio à evidência}
 
 O \cref{cap:binarios} estabeleceu que um ensemble de classificadores binários
-\emph{pode} rejeitar, e mostrou que essa capacidade não custa acurácia. Faltava a parte
-difícil: demonstrar que ela \emph{funciona} quando confrontada com uma classe que o
-sistema realmente nunca viu.
+\emph{pode} rejeitar, sem perda observada na acurácia agregada daquele experimento.
+Faltava confrontá-lo com uma classe que o sistema realmente nunca viu e medir se a
+rejeição continuava útil nesse protocolo.
 
-Este capítulo apresenta essa demonstração, junto com três investigações que a
+Este capítulo apresenta essa evidência para uma classe escondida, junto com três investigações que a
 acompanham: a varredura sistemática do comprimento de janela, a validação contra um
 modelo termodinâmico independente e a análise do custo computacional. É o
 aprofundamento do \cref{cap:binarios} --- mesmos classificadores, perguntas mais duras.
@@ -116,9 +117,9 @@ trabalho da área deve vir acompanhado da identificação da classe escondida.
 
 \subsection{Um compromisso que não é técnico}
 
-Quanto tempo de sinal é necessário para reconhecer um hidrato? A pergunta parece
-técnica, mas sua resposta é operacional: cada segundo de janela é um segundo de atraso
-na detecção.
+Quanto tempo de sinal é necessário para reconhecer um hidrato? Em uma janela causal,
+$T$ define o histórico mínimo necessário após o início da aquisição; o atraso adicional
+depende do passo entre janelas, do alinhamento do evento e da frequência de inferência.
 
 A \cref{tab:closed-janelas} apresenta a varredura completa, de \SI{150}{\second} a
 \SI{7500}{\second}, para o classificador binário de hidrato.
@@ -186,12 +187,12 @@ torna explícita.
 
 \begin{table}[htbp]
 \centering
-\caption{Compromisso entre tempo de resposta e acurácia para três comprimentos de janela
-representativos.}
+\caption{Compromisso entre histórico mínimo e acurácia para três comprimentos de janela
+representativos; o atraso efetivo depende do passo e do alinhamento.}
 \label{tab:closed-tempo}
 \begin{tabular}{rcc}
 \toprule
-$\bm{T}$ \textbf{(s)} & \textbf{Tempo de resposta} & \textbf{Acurácia} \\
+$\bm{T}$ \textbf{(s)} & \textbf{Histórico mínimo} & \textbf{Acurácia} \\
 \midrule
 150  & $2{,}5$ minutos & $86{,}6\,\%$ \\
 300  & $5$ minutos     & $89{,}1\,\%$ \\
@@ -202,13 +203,13 @@ $\bm{T}$ \textbf{(s)} & \textbf{Tempo de resposta} & \textbf{Acurácia} \\
 
 \begin{resultadochave}
 Reduzir a janela de \SI{900}{\second} para \SI{150}{\second} --- de quinze para dois
-minutos e meio de atraso --- custa apenas $3{,}6$ pontos percentuais de acurácia.
+minutos e meio de histórico --- custa $3{,}6$ pontos percentuais de acurácia neste teste.
 \end{resultadochave}
 
-Esse número precisa ser confrontado com a física do problema. Segundo \citet{VARGAS2019},
-o tempo característico de resposta a um evento de hidrato varia de \textbf{trinta
-minutos a cinco horas}. Ou seja: mesmo a configuração mais lenta da tabela detecta o
-evento em uma fração do tempo disponível para agir.
+Esse número precisa ser confrontado, em cada implantação, com o intervalo disponível
+para agir. A faixa de trinta minutos a cinco horas antes atribuída a
+\citet{VARGAS2019} não foi confirmada na fonte consultada nesta revisão e, por isso, não
+é usada aqui como evidência.
 
 \begin{destaque}[A conclusão que inverte a intuição]
 O gargalo do sistema não é o tempo de detecção. É a confiabilidade do diagnóstico.
@@ -241,15 +242,22 @@ binário --- cujos resultados são então confrontados antes de gerar o alerta. 
 \label{fig:closed-arquitetura}
 \end{figure}
 
-A correlação de \citet{montie1991} estima a temperatura de formação de hidrato
-$T_{\text{hid}}$ a partir da pressão $P$ e da densidade relativa do gás $q$:
+A correlação empírica de \citet[p.~98--99]{montie1991} estima a temperatura de formação
+de hidrato $T_{\text{hid}}$ a partir da pressão absoluta $P$ e da densidade relativa do
+gás $q$. Na forma publicada, define-se $x=\log_{10}(P/\mathrm{psia})$, e a saída é dada
+em graus Fahrenheit:
 \begin{equation}
 \begin{split}
-  T_{\text{hid}} = {} & -238{,}245 + 78{,}99\,P - 5{,}35\,P^2 \\
-                      & + 349{,}4738\,q - 151{,}05\,q^2 - 27{,}60\,Pq.
+      T_{\text{hid},\,{}^\circ\mathrm{F}} = {} & -238{,}24469 + 78{,}99667\,x
+            - 5{,}352544\,x^2 \\
+      & + 349{,}473877\,q - 150{,}854675\,q^2 - 27{,}604065\,xq.
 \end{split}
 \label{eq:motiee}
 \end{equation}
+Trata-se de uma correlação de triagem para gás natural doce baseada em gravidade
+específica, não de um modelo composicional. Por isso, seu uso fora da faixa de pressão e
+composição coberta pela fonte exige validação contra dados de equilíbrio ou simulador
+termodinâmico.
 
 A partir dela define-se um índice de proximidade da condição de hidrato,
 \begin{equation}
@@ -276,18 +284,17 @@ nenhum atalho do conjunto. Se o classificador concorda com ela, a concordância 
 alguma coisa.
 
 \begin{exemplo}{Usando a \cref{eq:motiee} na prática}
-Considere um trecho de linha operando a $P = \SI{7}{\mega\pascal}$ com gás de densidade
-relativa $q = 0{,}65$ e temperatura medida $T = \SI{14}{\celsius}$.
+Considere um trecho de linha operando a $P = \SI{7}{\mega\pascal}$, ou aproximadamente
+$1015\,\text{psia}$, com gás de densidade relativa $q = 0{,}65$ e temperatura medida
+$T = \SI{18}{\celsius}$.
 
-Aplicando a \cref{eq:motiee}, obtém-se uma temperatura de formação
-$T_{\text{hid}}$ da ordem de \SI{12}{\celsius}. Pela \cref{eq:chid},
-$C_{\text{hid}} \approx 100 \times (14 - 12)/14 \approx 14\,\%$ --- ou seja, o sistema
-opera com margem térmica de aproximadamente catorze por cento acima da condição de
-formação.
+Com $x=\log_{10}(1015)\approx3{,}007$, a \cref{eq:motiee} fornece
+$T_{\text{hid}}\approx60{,}4\,{}^\circ\mathrm{F}\approx\SI{15,8}{\celsius}$. Pela
+\cref{eq:chid}, $C_{\text{hid}} \approx 100 \times (18 - 15{,}8)/18 \approx 12\,\%$.
 
-Uma queda de dois graus na temperatura da linha, perfeitamente possível durante uma
-parada, levaria $C_{\text{hid}}$ a zero. É esse tipo de raciocínio de margem que o
-modelo analítico oferece e que um classificador, por si só, não comunica.
+Uma queda de aproximadamente $2{,}2$ graus na temperatura da linha levaria
+$C_{\text{hid}}$ a zero. É esse tipo de raciocínio de margem que o modelo analítico
+oferece e que um classificador, por si só, não comunica.
 \end{exemplo}
 
 \subsection{Resultado da comparação}
@@ -390,20 +397,19 @@ Ensemble de nove           & $\approx \SI{21}{\mega\byte}$  & $\approx \SI{405}{
 
 \begin{resultadochave}
 O ensemble completo ocupa cerca de \SI{21}{\mega\byte} e responde em cerca de
-\SI{405}{\milli\second} --- para um evento cujo tempo característico de resposta é de
-trinta minutos a cinco horas.
+\SI{405}{\milli\second} para uma janela de \SI{900}{\second}.
 \end{resultadochave}
 
-A margem é de três a quatro ordens de grandeza. Cabe em um computador industrial
+A inferência é mais de três ordens de grandeza menor que a janela avaliada. Cabe em um computador industrial
 embarcado, e o custo de multiplicar por nove --- que parecia uma objeção séria no
-\cref{cap:binarios} --- revela-se irrelevante.
+\cref{cap:binarios} --- não é limitante no hardware e na frequência avaliados.
 
 \begin{destaque}[Uma observação sobre argumentos de eficiência]
-Este é um caso em que a quantificação encerra o debate. Objeções de custo computacional
+Este é um caso em que a quantificação delimita o debate. Objeções de custo computacional
 devem ser sempre confrontadas com a escala de tempo do processo monitorado. Em
-monitoramento de poços, com constantes de tempo de minutos a horas, praticamente
-qualquer modelo que caiba na memória disponível é rápido o bastante. A engenharia deve
-ser gasta em outro lugar.
+monitoramento de hidrato no cenário avaliado, a inferência é rápida em relação à janela;
+rede, aquisição, concorrência entre poços e requisitos de disponibilidade ainda precisam
+ser medidos na implantação.
 \end{destaque}
 
 \section{Limitações}
@@ -436,14 +442,15 @@ se suas instâncias são reconhecidas como desconhecidas: $89\,\%$ delas são, c
 $0\,\%$ que um classificador multiclasse obteria por construção. A varredura do
 comprimento de janela, de \SI{150}{\second} a \SI{7500}{\second}, mostra ganho modesto e
 não monótono ($0{,}866$ a $0{,}966$) e revela que reduzir a janela de quinze para dois
-minutos e meio custa apenas $3{,}6$ pontos percentuais --- irrelevante frente ao tempo
-característico de resposta ao hidrato, de trinta minutos a cinco horas. O gargalo,
-portanto, não é a latência, mas a confiabilidade. A validação contra a correlação
+minutos e meio de histórico custa $3{,}6$ pontos percentuais; o atraso operacional ainda
+depende do passo e do alinhamento. No ambiente avaliado, a inferência não é o gargalo.
+A validação contra a correlação
 termodinâmica de Motiee dá ao classificador $90{,}02\,\%$ de acurácia contra $76{,}60\,\%$
 do critério analítico, com falsos negativos de $4{,}8\,\%$ contra $20{,}1\,\%$: o modelo
 físico descreve a condição de formação, o classificador aprende a ocorrência. O custo do
 ensemble --- \SI{21}{\mega\byte} e \SI{405}{\milli\second} --- é três ordens de grandeza
-menor que a escala de tempo do processo, encerrando a objeção de eficiência.}
+menor que a escala de tempo assumida para o processo e não foi limitante no ambiente
+avaliado.}
 
 \begin{exercicios}
 \item Repita o experimento da classe escondida para cada uma das nove classes,
@@ -462,9 +469,11 @@ menor que a escala de tempo do processo, encerrando a objeção de eficiência.}
       não detectado e a um alarme falso, e determine para que razão de custos cada
       configuração é preferível.
 
-\item Implemente a \cref{eq:motiee} e a \cref{eq:chid} e aplique-as às instâncias das
-      classes 8 e 9 do 3W. Reproduza a \cref{tab:closed-analitico}. Em seguida, examine
-      os casos em que o critério analítico erra e o classificador acerta: há padrão?
+\item \textbf{Projeto de reprodução.} Com acesso às instâncias e às variáveis físicas
+      necessárias, implemente a \cref{eq:motiee} e a \cref{eq:chid} para as classes 8 e
+      9 do 3W e busque reproduzir a \cref{tab:closed-analitico}. Registre protocolo e
+      divergências. Em seguida, examine os casos em que o critério analítico erra e o
+      classificador acerta: há padrão?
 
 \item O modelo analítico e o classificador têm taxas de falso positivo semelhantes mas
       taxas de falso negativo muito distintas. Proponha três formas de combiná-los ---
@@ -485,8 +494,7 @@ menor que a escala de tempo do processo, encerrando a objeção de eficiência.}
 \item \citet{LopesTese2025} --- a tese, para o contexto completo.
 \item \citet{montie1991} e \citet{Safamirzaei2015} --- as correlações termodinâmicas
       usadas na validação independente.
-\item \citet{VARGAS2019} --- a descrição do 3W e dos tempos característicos de cada
-      evento.
+\item \citet{VARGAS2019} --- a descrição do conjunto 3W.
 \item \citet{Scheirer2013} --- a formalização do risco de espaço aberto, que dá suporte
       teórico ao experimento da classe escondida.
 \end{leituras}

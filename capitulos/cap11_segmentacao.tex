@@ -4,8 +4,8 @@
 \begin{objetivos}
 Ao final deste capítulo, você será capaz de:
 \begin{itemize}[leftmargin=*,itemsep=0.2em]
-  \item distinguir detecção de segmentação e justificar por que a segunda é
-        operacionalmente superior;
+  \item distinguir detecção de segmentação e justificar por que a segunda fornece
+        informação temporal mais útil ao operador;
   \item descrever o projeto de uma U-Net unidimensional para segmentação de séries
         temporais;
   \item explicar o papel das conexões de atalho na preservação da resolução temporal;
@@ -184,8 +184,8 @@ inutilizável, mesmo que sua média seja aceitável}, porque o operador não pod
 quanta confiança depositar no alerta.
 
 Com a U-Net, a faixa é de $0{,}720$ (F1) a $0{,}975$ (C2). O pior caso passa a ser
-melhor que o caso médio anterior. É essa propriedade --- e não a média --- que torna o
-sistema implantável.
+melhor que o caso médio anterior. Essa propriedade --- e não apenas a média --- reduz
+um obstáculo à implantação; não demonstra, por si só, prontidão operacional.
 \end{destaque}
 
 Vale ainda notar o poço A3: acurácia de $0{,}293$ com o autoencoder e $0{,}951$ com a
@@ -280,10 +280,9 @@ positivo de $0{,}11$.
 
 \paragraph{Precisão alta, revocação baixa.} Precisão de $0{,}89$ contra revocação de
 $0{,}68$: quando o sistema aponta um evento, ele quase sempre está certo; mas ele deixa
-passar cerca de um terço dos eventos. Para um sistema de alerta operacional, essa é a
-assimetria preferível --- alarmes falsos destroem a confiança do operador mais
-rapidamente do que eventos perdidos, que ainda podem ser capturados por outros meios.
-Mas $0{,}68$ é um número que precisa melhorar.
+passar cerca de um terço dos eventos. A preferência entre esse perfil e outro com mais
+falsos alarmes depende do custo e da criticidade de cada classe; não pode ser definida
+apenas pelas métricas agregadas. A revocação de $0{,}68$ é uma limitação relevante.
 
 \paragraph{Cinco poços perfeitos.} G1, A1, C2, D1 e F1 obtêm $1{,}00$ nas três métricas.
 Metade dos poços é resolvida completamente. Isso indica que o método não tem uma
@@ -321,10 +320,10 @@ afirmações só são simultaneamente verdadeiras se houver \textbf{muitas} dete
 quais apenas algumas caem perto de eventos anotados --- ou se houver um deslocamento
 sistemático maior que a tolerância entre o que o modelo detecta e o que está anotado.
 
-A segunda hipótese é a mais provável, e ela aponta para \emph{desalinhamento da
-anotação} do poço A3, não para falha do modelo. A alta acurácia de segmentação
-corrobora: o modelo encontra consistentemente uma estrutura no sinal --- ela apenas não
-está onde o rótulo diz.
+A segunda hipótese é plausível e aponta para possível \emph{desalinhamento da anotação}
+do poço A3. A alta acurácia de segmentação é compatível com essa leitura, mas uma revisão
+cega por especialista é necessária para distingui-la de erro de implementação da métrica
+ou comportamento espúrio do modelo.
 \end{destaque}
 
 Este é o tipo de achado que justifica reportar múltiplas métricas em vez de uma. Nenhuma
@@ -387,8 +386,9 @@ importante para o restante do livro, qualidade das estatísticas que alimentarã
 camada de explicabilidade. A U-Net unidimensional, com codificador de dois níveis,
 gargalo de 128 filtros e conexões de atalho que preservam a resolução temporal, eleva a
 acurácia média de $0{,}500$ para $0{,}863$ e reduz o desvio padrão entre poços de
-$0{,}187$ para $0{,}082$ --- é a redução de variância, mais que o ganho de média, que
-torna o sistema implantável. A interseção sobre união global é de $85\,\%$. A avaliação
+$0{,}187$ para $0{,}082$ --- a menor dispersão favorece a generalização entre os poços
+avaliados, mas implantação requer validação prospectiva, latência e análise de falhas.
+A interseção sobre união global é de $85\,\%$. A avaliação
 por SoftED, que atribui crédito parcial a detecções próximas do instante verdadeiro,
 dá precisão de $0{,}89$, revocação de $0{,}68$ e medida $F_1$ de $0{,}74$, com cinco dos
 dez poços resolvidos perfeitamente. O poço A3, com revocação $1{,}00$ e precisão
@@ -400,9 +400,11 @@ anotação --- um achado que só a contradição entre métricas distintas torna
       tamanho 5, duas convoluções por bloco e dois níveis de subamostragem por fator 2.
       Compare com a duração típica da transição de um fechamento de DHSV.
 
-\item Implemente a U-Net e reproduza a \cref{tab:seg-comparacao}. Em seguida, remova as
-      conexões de atalho e repita. Quantifique a degradação em acurácia e, separadamente,
-      em IoU. Qual das duas métricas é mais sensível à remoção? Por quê?
+\item \textbf{Projeto de reprodução e ablação.} Com acesso aos dados, implemente a U-Net
+      e busque reproduzir a \cref{tab:seg-comparacao}, registrando divisão, sementes e
+      divergências. Em seguida, remova as conexões de atalho e repita. Quantifique a
+      degradação em acurácia e, separadamente, em IoU. Qual das duas métricas é mais
+      sensível à remoção? Por quê?
 
 \item Um modelo obtém acurácia de $0{,}84$ e IoU de $0{,}56$ (poço B1). Construa um
       exemplo de segmentação predita e real, sobre uma série de mil amostras, compatível

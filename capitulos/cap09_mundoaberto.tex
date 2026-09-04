@@ -10,8 +10,9 @@ Ao final deste capítulo, você será capaz de:
         justificar essa escolha frente a alternativas variacionais e de
         \ing{clustering} profundo;
   \item combinar classificadores binários e OCSVM em um voto ponderado por classe;
-  \item estimar automaticamente o número de agrupamentos com uma floresta aleatória
-        treinada sobre índices internos de qualidade;
+  \item explicar o procedimento publicado para estimar automaticamente o número de
+        agrupamentos com uma floresta aleatória treinada sobre índices internos de
+        qualidade;
   \item avaliar criticamente o desempenho do ciclo completo sobre uma anomalia
         genuinamente inédita.
 \end{itemize}
@@ -357,31 +358,36 @@ A estimativa final é a média de duas delas:
 
 \begin{table}[htbp]
 \centering
-\caption{Desempenho da floresta aleatória estimadora do número de agrupamentos.}
+\caption{Indicadores do estimador do número de agrupamentos reportados por
+\citet{Lopes2025EAAI}.}
 \label{tab:aberto-rf}
 \begin{tabular}{lc}
 \toprule
-\textbf{Métrica} & \textbf{Valor} \\
+\textbf{Métrica} & \textbf{Valor publicado} \\
 \midrule
-Acurácia                 & $98{,}3\,\%$ \\
-Precisão                 & $0{,}98$ \\
-Revocação                & $0{,}86$ \\
-Medida $F_1$             & $0{,}87$ \\
+Acurácia                   & $98{,}3\,\%$ \\
+Precisão                   & $0{,}98$ \\
+Revocação                  & $0{,}86$ \\
+Medida $F_1$               & $0{,}87$ \\
 Erro médio absoluto em $K$ & $1{,}12$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\begin{destaque}[Leia a tabela com atenção]
-Acurácia de $98{,}3\,\%$ e erro médio absoluto de $1{,}12$ agrupamentos parecem
-inconsistentes --- e não são. A acurácia mede o acerto exato de $K$; o erro médio
-absoluto é dominado por poucos casos em que o estimador erra por muito.
+\begin{destaque}[Resultado publicado e verificação independente]
+A \cref{tab:aberto-rf} preserva os valores publicados e os atribui à fonte primária;
+ela não é uma reprodução independente. Se ``acurácia'' significar acerto exato de $K$
+e o MAE usar as mesmas predições, os dois indicadores não passam por uma verificação
+aritmética: os $1{,}7\,\%$ de casos incorretos teriam erro absoluto médio condicionado de
+$1{,}12/0{,}017\approx65{,}9$ grupos. Esse valor é incompatível com a escala descrita
+para a tarefa.
 
-Em termos operacionais, um erro de mais ou menos um agrupamento significa que
-ocasionalmente uma classe nova é dividida em duas ou duas são fundidas em uma. É um erro
-tolerável, porque as etapas seguintes --- refinamento e validação por índices internos
---- têm chance de corrigi-lo, e porque o humano no laço é a última instância. Um erro de
-mais ou menos cinco não seria tolerável.
+As explicações possíveis incluem denominadores distintos, outra definição de acurácia,
+MAE calculado para um componente intermediário ou erro de transcrição. Sem as predições
+por conjunto ou material suplementar, não é possível escolher entre elas. Portanto, os
+valores podem ser citados individualmente como resultados do artigo, mas não sustentam
+a conclusão de que o estimador acerta exatamente $K$ em $98{,}3\,\%$ dos casos e erra,
+em média, apenas um grupo quando falha.
 \end{destaque}
 
 \subsection{Interseção entre dois algoritmos}
@@ -607,8 +613,10 @@ método. Sobre uma anomalia genuinamente inédita, a falha de ICV, seis dos nove
 classificadores produzem escore nulo e $52\,\%$ das janelas são corretamente rejeitadas;
 os $48\,\%$ restantes são absorvidos pelas classes sintomáticas 5 e 7. O agrupamento usa
 a interseção entre K-means e MeanShift, com $K$ estimado por uma floresta aleatória
-sobre oito índices ($98{,}3\,\%$ de acurácia, erro médio de $1{,}12$), seguida de
-refinamento por limiar adaptativo $\mu + k\sigma$ com $k$ dependente da razão
+sobre oito índices. O artigo reporta $98{,}3\,\%$ de acurácia e MAE de $1{,}12$, valores
+preservados aqui com a ressalva de que suas definições conjuntas aguardam reconciliação
+a partir das predições por conjunto. O refinamento usa um limiar adaptativo
+$\mu + k\sigma$ com $k$ dependente da razão
 $R = \mu/\sigma$. A acurácia do ciclo de agrupamento é de $80{,}8\,\%$ no nível de
 amostra. Os grupos validados tornam-se classes virtuais --- que ainda não têm nome.}
 
@@ -623,14 +631,16 @@ amostra. Os grupos validados tornam-se classes virtuais --- que ainda não têm 
       corresponde à intenção declarada. Proponha e avalie uma alternativa contínua e
       diferenciável.
 
-\item A floresta aleatória atinge $98{,}3\,\%$ de acurácia com erro médio absoluto de
-      $1{,}12$. Construa uma distribuição de erros compatível com esse par de valores.
-      O que ela revela sobre o comportamento do estimador nos casos em que erra?
+\item Mostre que, se a acurácia de acerto exato de $K$ é $a$ e o erro médio absoluto é
+      $m$, então o erro absoluto médio condicionado aos casos incorretos é
+      $m/(1-a)$. Use essa identidade para propor verificações de consistência para um
+      relatório que apresente as duas métricas.
 
-\item Reproduza a \cref{tab:aberto-arquiteturas} substituindo o autoencoder por um
-      \ing{transformer} de séries temporais. A conclusão de que a escolha da
-      representação é irrelevante se mantém? Se sim, o que isso implica sobre onde
-      concentrar esforço de engenharia?
+\item \textbf{Projeto de extensão.} Com acesso aos dados e a um protocolo explicitamente
+      versionado, substitua o autoencoder por um \ing{transformer} de séries temporais e
+      compare-o com a \cref{tab:aberto-arquiteturas}. As diferenças entre representações
+      permanecem pequenas? Documente por que seus valores podem divergir dos publicados e
+      o que o resultado implica sobre onde concentrar esforço de engenharia.
 
 \item A interseção entre K-means e MeanShift descarta amostras em que os dois algoritmos
       discordam. Quantifique, sobre o 3W, a fração descartada. Discuta o compromisso

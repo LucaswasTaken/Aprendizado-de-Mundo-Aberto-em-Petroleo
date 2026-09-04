@@ -10,9 +10,9 @@ Ao final deste capítulo, você será capaz de:
         discriminativos convencionais o ignoram;
   \item comparar quatro famílias de escore de novidade --- erro de reconstrução,
         máquina de vetores de suporte de uma classe, distância de Mahalanobis e
-        rejeição por ensemble binário --- e escolher entre elas;
+        rejeição por ensemble binário --- e discutir critérios para escolher entre elas;
   \item enunciar as hipóteses que K-means, MeanShift e DBSCAN fazem sobre os dados e
-        escolher entre eles a partir dessas hipóteses;
+        comparar sua adequação a partir dessas hipóteses;
   \item avaliar a qualidade de um agrupamento sem rótulos usando os índices de silhueta,
         Davies-Bouldin e Calinski-Harabasz;
   \item interpretar projeções de PCA, t-SNE e UMAP, reconhecendo os limites de cada uma.
@@ -64,6 +64,10 @@ logística ou de uma SVM linear, produz $f(\vect{x}) = 1$ em um semiespaço \emp
 volume infinito}. Seu risco de espaço aberto é ilimitado: existem regiões
 arbitrariamente distantes de qualquer dado de treinamento em que o modelo declara,
 com confiança máxima, pertinência à classe.
+
+Essa conclusão se aplica a funções de decisão cuja região positiva é não limitada,
+como o hiperplano linear deste exemplo; não é uma propriedade automática de todo modelo
+discriminativo, pois arquitetura e regra de decisão podem produzir regiões limitadas.
 
 \begin{destaque}[A geometria da rejeição]
 A conclusão prática é que \emph{funções de decisão que declaram pertinência devem ser
@@ -124,6 +128,8 @@ controlado.
 \textbf{Desvantagem.} Escala mal com o número de amostras e é sensível à escolha do
 núcleo e de $\nu$. No \cref{cap:closedworld}, uma OCSVM aplicada diretamente aos dados
 brutos atinge apenas $0{,}65$ de acurácia global, contra $0{,}87$ do ensemble binário.
+A comparação descreve o protocolo daquele capítulo, com representações e objetivos
+distintos; não estabelece uma ordenação universal entre OCSVM e ensembles.
 A OCSVM reaparece, contudo, no \cref{cap:mundoaberto} como \emph{componente} de um voto
 ponderado --- e ali contribui, porque erra de forma diferente do ensemble.
 
@@ -255,8 +261,10 @@ Em mundo aberto, $K$ é exatamente a quantidade que não se conhece --- é o nú
 classes novas. A solução adotada é original: treina-se uma floresta aleatória para
 \emph{prever} $K$ a partir de oito características do próprio conjunto a ser agrupado
 (número de pontos, índice de silhueta, Davies-Bouldin, Calinski-Harabasz, inércia, e
-três descritores geométricos). O estimador atinge $98{,}3\,\%$ de acurácia com erro
-médio de $1{,}12$ agrupamentos.
+três descritores geométricos). \citet{Lopes2025EAAI} reportam $98{,}3\,\%$ de acurácia
+e erro médio absoluto de $1{,}12$ para essa etapa. O \cref{cap:mundoaberto} reproduz os
+demais indicadores publicados e discute por que esses dois valores não devem ser
+interpretados conjuntamente sem confirmar seus denominadores e definições.
 \end{destaque}
 
 \subsection{MeanShift}

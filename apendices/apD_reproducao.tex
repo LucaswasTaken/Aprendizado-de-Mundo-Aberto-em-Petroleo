@@ -1,9 +1,9 @@
 \chapter{Reprodução dos experimentos}
 \label{cap:reproducao}
 
-Este apêndice reúne as informações necessárias para reproduzir os experimentos
+Este apêndice reúne as informações disponíveis para reconstruir os experimentos
 descritos no livro: origem dos dados, ambiente computacional, hiperparâmetros e
-protocolos de avaliação.
+protocolos de avaliação. Ele não equivale a um pacote de reprodução completo.
 
 \section{Dados}
 
@@ -253,8 +253,18 @@ depois $k = 1{,}5$ \\
 Sem ajuste fino. Sem exemplos no prompt. Sem múltiplas passagens com agregação. Sem
 acesso a ferramentas externas.
 
-Cada uma dessas técnicas tende a melhorar o desempenho. Os resultados do
-\cref{cap:resultados-agente} devem, portanto, ser lidos como piso, e não como teto.
+Essas técnicas alterariam custo e desempenho em direções que precisam ser medidas; os
+resultados do \cref{cap:resultados-agente} descrevem apenas a configuração documentada.
+\end{destaque}
+
+\begin{destaque}[Limites de reprodução desta edição]
+O repositório desta edição não contém os scripts de treinamento e avaliação, as tabelas
+derivadas em formato legível por máquina, as sementes das execuções, os ambientes
+congelados nem os registros completos das chamadas ao serviço de linguagem. O
+identificador exato do endpoint NIM e sua revisão também não estão documentados nas
+fontes disponíveis. Assim, os parâmetros abaixo permitem reconstrução aproximada, mas
+não repetição bit a bit nem auditoria independente de todos os números. Esses itens são
+lacunas de evidência, não valores a serem inferidos.
 \end{destaque}
 
 \section{Protocolos de avaliação}
@@ -277,8 +287,9 @@ corretas e incorretas de um classificador; mede-se precisão e revocação no ju
 \item[Novidade com agente (\cref{cap:resultados-agente}).] Apresentam-se os perfis de
 todas as classes exceto a do segmento; acerto significa declarar incompatibilidade.
 
-\item[Intervalos de confiança.] Wilson a $95\,\%$ (\cref{eq:for-wilson}) em todas as
-proporções reportadas.
+\item[Intervalos de confiança.] Wilson a $95\,\%$ (\cref{eq:for-wilson}) quando as
+contagens necessárias estão disponíveis; tabelas herdadas sem $n$ não permitem
+reconstruí-los.
 
 \item[Desvio entre poços.] Sempre que a avaliação é por poço, reporta-se média e desvio
 padrão entre poços, e não apenas a média agregada.
@@ -290,8 +301,8 @@ Reportar o desvio padrão entre poços foi o que tornou visível o principal gan
 \cref{cap:segmentacao}: a acurácia subiu de $0{,}500$ para $0{,}863$, mas o desvio caiu
 de $0{,}187$ para $0{,}082$.
 
-Um sistema com desvio de $0{,}187$ entre poços não é implantável, ainda que sua média
-seja aceitável, porque o operador não tem como saber em qual regime está.
+Um sistema com desvio de $0{,}187$ entre poços exige investigação por poço antes de uma
+decisão de implantação, ainda que sua média seja aceitável.
 \end{destaque}
 
 \section{Lista de verificação para reprodução}
@@ -309,4 +320,9 @@ seja aceitável, porque o operador não tem como saber em qual regime está.
   \item Registrar entradas e saídas da camada de linguagem, dado que o modelo servido por
         interface externa não é estritamente reprodutível.
   \item Documentar o prompt como código versionado.
+  \item Exportar predições pareadas, contagens e tabelas derivadas em formato legível por
+        máquina, junto ao script que gera cada tabela do livro.
+  \item Congelar versões de dependências, identificador do modelo/endpoint e data de
+        execução; registrar \ing{top-k}, semente e política de atualização quando o
+        serviço os expuser.
 \end{enumerate}

@@ -208,8 +208,9 @@ temporal,
 \end{equation}
 \end{definicao}
 
-O IOU é mais exigente que a acurácia por amostra porque não é inflado pela classe
-majoritária: regiões corretamente identificadas como normais não entram no cálculo. É
+Ao excluir verdadeiros negativos, o IoU mede diretamente a sobreposição da classe
+positiva e não é inflado pela classe majoritária. Isso não o torna universalmente
+``mais exigente''; ele responde a uma pergunta diferente da acurácia por amostra. É
 por isso que, na tabela de segmentação do \cref{cap:segmentacao}, a acurácia global é
 $94{,}00\,\%$ enquanto o IOU global é $85\,\%$.
 
@@ -268,12 +269,21 @@ $\hat{p} \pm z\sqrt{\hat{p}(1-\hat{p})/n}$ por duas razões decisivas neste cont
 ele nunca ultrapassa $[0,1]$, e continua bem definido quando $\hat{p} = 0$ ou
 $\hat{p} = 1$ --- casos que ocorrem repetidamente nas tabelas por classe deste livro.
 
-\begin{exemplo}{Uma diferença que não é diferença}
+\begin{exemplo}{Intervalos individuais não testam uma diferença}
 No \cref{cap:resultados-agente}, o agente atinge $\text{ACC}@1 = 35{,}1\,\%$ sobre
 $n = 191$ segmentos, com intervalo de Wilson $[28{,}7\,\%;\ 42{,}1\,\%]$. Suponha que
 um método alternativo obtenha $40{,}0\,\%$ sobre a mesma amostra. O intervalo do
-segundo método seria aproximadamente $[33{,}3\,\%;\ 47{,}1\,\%]$, com sobreposição
-substancial. Concluir que o segundo método é melhor seria injustificado.
+segundo método seria aproximadamente $[33{,}3\,\%;\ 47{,}1\,\%]$. Esses dois
+intervalos descrevem cada proporção separadamente; sua sobreposição, ou ausência dela,
+não é um teste da diferença entre os métodos.
+
+Como os dois métodos foram avaliados nos mesmos segmentos, a comparação é pareada. Para
+acerto e erro binários, o teste de McNemar usa apenas os casos discordantes: $b$, em que
+somente o primeiro acerta, e $c$, em que somente o segundo acerta. Para métricas como
+$F_1$ ou acurácia balanceada, um intervalo da diferença pode ser obtido por
+\ing{bootstrap} pareado, reamostrando segmentos ou poços como unidades indivisíveis.
+Se a hipótese for ``não houve perda relevante'', é necessário definir antes uma margem
+de não inferioridade; ausência de significância não demonstra equivalência.
 
 O mesmo raciocínio aplicado às classes individuais é ainda mais severo: com $n = 15$,
 o intervalo de Wilson para $\hat{p} = 0{,}267$ vai de aproximadamente $0{,}107$ a
@@ -283,10 +293,13 @@ informativos.
 \end{exemplo}
 
 \begin{destaque}[Regra prática deste livro]
-Toda proporção reportada com $n < 200$ vem acompanhada de intervalo de $95\,\%$. Toda
-média sobre poços ou dobras vem acompanhada de desvio-padrão. Quando o desvio-padrão é
-grande em relação à média --- como o $0{,}34 \pm 0{,}42$ do \cref{cap:mundoaberto} ---
-o texto discute explicitamente o que isso significa.
+Toda proporção reportada com $n < 200$ deve vir acompanhada de $n$ e de intervalo de
+$95\,\%$ quando as contagens estiverem disponíveis. Toda média sobre poços ou dobras
+deve vir acompanhada de uma medida de dispersão. Comparações sobre os mesmos casos devem
+preservar o pareamento; intervalos individuais não substituem um teste ou intervalo da
+diferença. Quando a dispersão é grande em relação à média --- como o
+$0{,}34 \pm 0{,}42$ do \cref{cap:mundoaberto} --- o texto deve discutir explicitamente
+o que isso significa.
 \end{destaque}
 
 \section{Validação}

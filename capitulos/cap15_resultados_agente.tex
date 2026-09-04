@@ -154,7 +154,8 @@ medindo a linguagem intermediária, não o agente.
 \paragraph{Classes 4 e 5.} $18{,}5\,\%$ e $26{,}7\,\%$. Pela quarta vez neste livro, as
 classes sintomáticas aparecem no fundo da tabela. A consistência do padrão --- em
 métodos completamente distintos, de ensembles binários a modelos de linguagem --- é a
-evidência mais forte de que o problema está na taxonomia.
+evidência mais forte, neste conjunto de dados, de que a taxonomia contribui para a
+dificuldade; ela não isola essa causa de limitações de representação ou amostragem.
 
 Por essa razão, \textbf{as classes 4 e 5 foram excluídas dos Estudos 1 e 2}. Avaliar
 capacidade de validação sobre rótulos internamente incoerentes mediria a incoerência,
@@ -226,9 +227,10 @@ podem ser processados com menor escrutínio; segmentos sem selo entram na fila d
 humana.
 
 Como o agente confirma cerca de $59\,\%$ do total ($110$ de $187$), essa política reduz
-em mais da metade o volume que exige atenção detalhada, com risco controlado de
-aproximadamente $9\,\%$ de confirmações incorretas. É uma proposta de valor mensurável,
-e é diferente --- e mais defensável --- de ``a IA classifica os eventos''.
+em mais da metade o volume que exige atenção detalhada nesta amostra, na qual
+aproximadamente $9\,\%$ das confirmações foram incorretas. Antes do uso operacional,
+essa taxa precisa ser estimada prospectivamente e comparada ao custo dos erros. É uma
+proposta de triagem mensurável, diferente de ``a IA classifica os eventos''.
 \end{destaque}
 
 \subsection{Por classe}
@@ -295,7 +297,8 @@ nome e uma descrição. São 611 segmentos.
 
 \begin{table}[htbp]
 \centering
-\caption{Taxa de reconhecimento de novidade pelo agente, por classe.}
+\caption{Taxa de reconhecimento de novidade pelo agente nas sete classes não
+sintomáticas avaliadas.}
 \label{tab:ag-novidade}
 \small
 \begin{tabular}{lrc}
@@ -310,7 +313,7 @@ nome e uma descrição. São 611 segmentos.
 8 & $56/61$   & $91{,}8\,\%$ \\
 9 & $6/11$    & $54{,}5\,\%$ \\
 \midrule
-\textbf{Global} & $\bm{548/611}$ & $\bm{89{,}7\,\%}$ \\
+\textbf{Global (7 classes)} & $\bm{548/611}$ & $\bm{89{,}7\,\%}$ \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -318,8 +321,9 @@ nome e uma descrição. São 611 segmentos.
 Intervalo de confiança de Wilson a $95\,\%$: $[87{,}0;\ 91{,}9]$.
 
 \begin{resultadochave}
-O agente reconhece corretamente que um segmento não pertence a nenhuma das classes
-apresentadas em $\bm{89{,}7\,\%}$ dos casos --- contra $35{,}1\,\%$ de acerto quando
+Nas sete classes não sintomáticas, o agente reconhece corretamente que um segmento não
+pertence a nenhuma das classes apresentadas em $\bm{89{,}7\,\%}$ dos casos --- contra
+$35{,}1\,\%$ de acerto quando
 precisa nomear a classe correta.
 \end{resultadochave}
 
@@ -330,10 +334,10 @@ A mesma assimetria apareceu no \cref{cap:mundoaberto}, quando o peso ótimo da O
 decisão de rejeição ($0{,}74$) inverteu-se em relação às decisões de reconhecimento. Ela
 reaparece aqui, em um sistema de natureza completamente diferente.
 
-Isso sugere que se trata de uma propriedade do \emph{problema}, não dos métodos:
-reconhecer incompatibilidade é estruturalmente mais fácil que estabelecer identidade.
-Basta que uma evidência contradiga cada classe conhecida; para afirmar identidade, é
-preciso que todas as evidências convirjam.
+Isso levanta a hipótese de que reconhecer incompatibilidade seja mais fácil que
+estabelecer identidade: uma evidência contraditória pode descartar uma classe, enquanto
+afirmar identidade exige convergência. Como tarefas, amostras e denominadores diferem, a
+comparação não demonstra que a assimetria seja propriedade universal do problema.
 \end{destaque}
 
 \section{Os nomes gerados}
@@ -447,13 +451,15 @@ confusão dos capítulos anteriores tornou esse artefato visível.
 A objeção mais séria é a contaminação: o modelo poderia estar recuperando conhecimento
 memorizado sobre o 3W, e não raciocinando.
 
-Três observações argumentam contra essa explicação. Primeiro, se houvesse memorização, a
-acurácia de classificação seria \emph{alta}, não $35{,}1\,\%$. Segundo, os erros seguem
+Três observações tornam a memorização pura uma explicação incompleta. Primeiro, se ela
+dominasse o resultado, seria razoável esperar acurácia de classificação alta, não
+$35{,}1\,\%$. Segundo, os erros seguem
 padrões fisicamente coerentes --- a confusão entre as classes 8 e 9 corresponde a
 mecanismos idênticos, o que memorização de rótulos não produziria. Terceiro, os nomes
 gerados não reproduzem a nomenclatura do 3W; eles a reconstroem em vocabulário próprio.
 
-A contaminação provavelmente existe e provavelmente não explica os resultados.
+Essas observações não medem contaminação nem excluem sua contribuição. Sustentam apenas
+que ela, isoladamente, não explica todos os padrões observados.
 \end{destaque}
 
 \resumocapitulo{%
@@ -467,12 +473,13 @@ sustenta uma política de triagem que reduz à metade o volume de revisão human
 detecção de novidade, atinge $89{,}7\,\%$ --- a assimetria entre $35{,}1\,\%$ para
 afirmar identidade e $89{,}7\,\%$ para reconhecer incompatibilidade reaparece aqui em um
 sistema completamente distinto daquele do \cref{cap:mundoaberto}, sugerindo tratar-se de
-propriedade do problema. Os nomes gerados convergem para descrições fisicamente corretas
+um padrão a testar em avaliações controladas. Os nomes gerados convergem para descrições
+consideradas fisicamente plausíveis na análise qualitativa
 em cinco das sete classes, com destaque para a classe 2 --- \emph{Downhole Isolation
 Event with Wellhead Depressurization} ---, e a taxa de convergência é proposta como
 métrica de confiança não supervisionada. Quatro classes receberam nomes contendo
-``perda de telemetria'', revelando um artefato do 3W forte o bastante para dominar a
-descrição e exigir ressalva sobre todos os resultados do livro.}
+``perda de telemetria'', levantando a hipótese de um artefato do 3W forte o bastante para
+dominar a descrição e exigir ressalva sobre os resultados que usam esse conjunto.}
 
 \begin{exercicios}
 \item Calcule os intervalos de confiança de Wilson para todas as taxas da

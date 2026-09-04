@@ -23,9 +23,9 @@ você será capaz de:
 
 \section{A pergunta que sobrou}
 
-Ao final da \cref{parte:evolucao}, o sistema sabe onde está o evento e sabe, com
-$98{,}2\,\%$ de acerto, que ele é desconhecido. O que ele entrega ao operador é,
-literalmente, isto:
+Ao final da \cref{parte:evolucao}, o sistema delimita o evento e, no experimento com a
+anomalia de ICV, sinaliza corretamente $98{,}2\,\%$ de suas janelas como desconhecidas.
+O que ele entrega ao operador é, literalmente, isto:
 
 \begin{center}
 \ttfamily
@@ -102,18 +102,19 @@ total, mas ativa poucos por inferência.
 
 O modelo usado nesta parte do livro tem aproximadamente \textbf{397 bilhões de parâmetros
 totais} e ativa cerca de \textbf{17 bilhões} por \ing{token} --- uma fração de
-aproximadamente $4\,\%$.
+aproximadamente $4\,\%$ \citep{Qwen35_2026}.
 
 \begin{destaque}[Por que isso importa para uma aplicação industrial]
-Um modelo denso de 397 bilhões de parâmetros seria inviável de servir com latência
-aceitável. A mistura de especialistas permite capacidade de modelo grande com custo de
-inferência de modelo médio.
+Um modelo denso de 397 bilhões de parâmetros exigiria muito mais memória e computação;
+sua viabilidade dependeria de hardware, quantização, paralelismo e meta de latência. A
+mistura de especialistas reduz o custo por \ing{token} ao ativar apenas parte dos
+parâmetros.
 
 Para o problema deste livro, a consequência prática é que a camada de linguagem pode ser
 consultada em segundos, contra os \SI{405}{\milli\second} do ensemble numérico e os
-trinta minutos a cinco horas de tempo característico do processo. A camada de raciocínio
-não é o gargalo --- exatamente como o \cref{cap:closedworld} concluiu para os modelos
-numéricos.
+segundos ou minutos de histórico das janelas numéricas. Na configuração observada, a
+camada de raciocínio não dominou a latência; essa conclusão deve ser reavaliada sob carga
+e com a latência de rede da implantação.
 \end{destaque}
 
 \section{Como se instrui um modelo de linguagem}
@@ -298,10 +299,11 @@ justifica, nunca decide.}
       necessária para uma inferência. Discuta as implicações para implantação local em
       uma unidade de produção.
 
-\item Escreva um prompt que instrua um modelo a classificar um segmento anômalo de poço
-      a partir de estatísticas fornecidas, com saída em JSON validável. Aplique-o a três
-      segmentos e avalie a estabilidade das respostas ao reformular o prompt sem alterar
-      seu conteúdo semântico.
+\item \textbf{Atividade com serviço externo.} Escreva um prompt que instrua um modelo a
+      classificar um segmento anômalo de poço a partir de estatísticas fornecidas, com
+      saída em JSON validável. Registre modelo, revisão, data e parâmetros; aplique-o a
+      três segmentos e avalie a estabilidade das respostas ao reformular o prompt sem
+      alterar seu conteúdo semântico.
 
 \item Discuta a afirmação: ``a cadeia de raciocínio gerada pelo modelo é uma explicação
       de sua decisão''. Apresente um argumento contra e proponha um experimento que
@@ -324,7 +326,8 @@ justifica, nunca decide.}
 
 \begin{leituras}
 \item \citet{Vaswani2017} --- o artigo que introduz o \ing{transformer}.
-\item \citet{Qwen2025} --- a família de modelos utilizada.
+\item \citet{Qwen2025} --- os fundamentos da família Qwen3; \citet{Qwen35_2026} --- a
+      ficha oficial da versão Qwen3.5-397B-A17B utilizada nos experimentos.
 \item \citet{Lopes2026LLM} --- o trabalho que originou esta parte do livro.
 \item \citet{Liu2024oilgasLLM} e \citet{Chebbi2025energygpt} --- aplicações de modelos de
       linguagem no setor de petróleo e gás.

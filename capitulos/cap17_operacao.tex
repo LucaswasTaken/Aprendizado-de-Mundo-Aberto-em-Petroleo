@@ -17,10 +17,12 @@ Ao final deste capítulo, você será capaz de:
 
 \section{O que muda quando o sistema é ligado}
 
-Todos os números deste livro foram obtidos em avaliação controlada. A exceção é o
-\cref{cap:dual}, cujo sistema opera em mais de vinte unidades flutuantes --- e é
-justamente por isso que ele é o capítulo com o menor número de tabelas e o maior número
-de decisões de engenharia aparentemente banais.
+A maior parte dos números deste livro foi obtida em avaliação controlada. O
+\cref{cap:dual} também apresenta estudos de caso de campo e uma escala de implantação
+reportada pela fonte primária, superior a vinte unidades flutuantes; esta edição não
+auditou independentemente essa implantação. É justamente por isso que ele é o capítulo
+com o menor número de tabelas e o maior número de decisões de engenharia aparentemente
+banais.
 
 Este capítulo trata dessas decisões. Elas não aparecem em artigos, e determinam se o
 sistema é usado ou desligado.
@@ -293,6 +295,31 @@ Agente de linguagem & Segundos; custo por chamada & \textbf{Somente sobre segmen
 \bottomrule
 \end{tabular}
 \end{table}
+
+Uma estimativa de custo total de propriedade precisa fixar um horizonte $H$ e separar
+custos fixos, computação, chamadas e revisão humana. Um modelo mínimo é
+\begin{equation}
+      C_{\mathrm{TCO}}(H) = C_{\mathrm{implantação}} + C_{\mathrm{infra}}(H)
+      + \frac{N(H)}{10^6}\bigl(T_{\mathrm{in}}p_{\mathrm{in}}
+      + T_{\mathrm{out}}p_{\mathrm{out}}\bigr)
+      + N(H)r\,t_h c_h + C_{\mathrm{armazenamento}}(H),
+      \label{eq:oper-tco}
+\end{equation}
+onde $N(H)$ é o número de segmentos enviados ao agente, $T_{\mathrm{in}}$ e
+$T_{\mathrm{out}}$ são os \ing{tokens} médios por chamada, $p_{\mathrm{in}}$ e
+$p_{\mathrm{out}}$ são os preços contratados por milhão de \ing{tokens}, $r$ é a
+fração encaminhada à revisão, $t_h$ é o tempo de revisão em horas e $c_h$ é o custo da
+hora do especialista.
+
+\begin{exemplo}{Dimensionamento mensal sem congelar preços comerciais}
+Com cinquenta segmentos por dia durante trinta dias, \num{6000} \ing{tokens} de entrada
+e \num{1000} de saída por segmento, o consumo mensal é de nove milhões de \ing{tokens}
+de entrada e $1{,}5$ milhão de saída. O custo da API é, portanto,
+$9p_{\mathrm{in}}+1{,}5p_{\mathrm{out}}$. Se $41\,\%$ dos casos exigirem dez minutos de
+revisão, serão $102{,}5$ horas de especialista, com custo $102{,}5c_h$. Substituir na
+\cref{eq:oper-tco} os preços do contrato, a infraestrutura e o armazenamento produz a
+estimativa mensal; variar $N$, $r$ e $t_h$ revela qual termo domina.
+\end{exemplo}
 
 \begin{destaque}[A decisão de custo que viabiliza a camada de linguagem]
 Acionar o agente a cada janela, em duzentos e cinquenta poços, seria proibitivo em custo

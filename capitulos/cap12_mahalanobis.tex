@@ -8,8 +8,8 @@ Ao final deste capítulo, você será capaz de:
         por percentil;
   \item comparar espaços de representação --- bruto, latente de autoencoder e penúltima
         camada de classificador --- por índices internos de qualidade;
-  \item explicar por que uma representação treinada para discriminar supera uma
-        treinada para reconstruir, na tarefa de detectar o desconhecido;
+  \item explicar por que, nos experimentos apresentados, uma representação treinada
+        para discriminar supera uma treinada para reconstruir na detecção do desconhecido;
   \item interpretar razões de separação entre classes conhecidas e desconhecidas;
   \item reconhecer as hipóteses estatísticas embutidas no método e as situações em que
         elas falham.
@@ -22,9 +22,10 @@ O \cref{cap:mundoaberto} apresentou um achado que ficou sem explicação: autoen
 VAE e DCN produziram acurácias de $0{,}730$, $0{,}727$ e $0{,}725$. Três arquiteturas de
 sofisticação crescente, desempenho indistinguível.
 
-A interpretação oferecida na ocasião foi que o gargalo estava em outro lugar. Este
-capítulo mostra que a interpretação estava certa e localiza o gargalo com precisão: o
-problema não é \emph{qual} autoencoder, mas o fato de usar um autoencoder.
+A interpretação oferecida na ocasião foi que o gargalo estava em outro lugar. Os
+experimentos deste capítulo sustentam uma explicação mais específica para este conjunto:
+o problema não é \emph{qual} autoencoder, mas usar uma representação otimizada para
+reconstrução na tarefa de separar classes.
 
 \begin{destaque}[A hipótese deste capítulo]
 Um autoencoder é treinado para minimizar erro de reconstrução. Nada em seu objetivo o
@@ -35,9 +36,9 @@ Um classificador multiclasse é treinado justamente para separar. A representaç
 implícita em sua penúltima camada --- o vetor que alimenta a camada de saída --- é,
 por construção, um espaço em que as classes são linearmente separáveis.
 
-A hipótese é que \textbf{esse espaço, construído para discriminar entre classes
-conhecidas, também é melhor para reconhecer o desconhecido} --- mesmo que nada em seu
-treinamento tenha visado a isso.
+A hipótese testada é que \textbf{esse espaço, construído para discriminar entre classes
+conhecidas, também é melhor para reconhecer o desconhecido neste protocolo} --- mesmo
+que nada em seu treinamento tenha visado a isso.
 \end{destaque}
 
 \section{A distância de Mahalanobis como escore}
@@ -139,8 +140,10 @@ $52\,\%$ (\cref{cap:mundoaberto}) para $\bm{98{,}2\,\%}$.
 
 \paragraph{A progressão é sistemática.} Em nove das dez linhas, o Mahalanobis no espaço
 bruto supera os classificadores binários, e o Mahalanobis latente supera o bruto. Não é
-um ganho concentrado em casos favoráveis: é uma melhoria uniforme, o que é a assinatura
-de uma mudança correta de método e não de ajuste ao conjunto de teste.
+um ganho concentrado em poucos casos favoráveis: é um padrão consistente neste
+protocolo. Essa consistência, sozinha, não exclui seleção de hiperparâmetros, vazamento ou
+ajuste ao conjunto; uma ablação controlada deve separar objetivo de treino, arquitetura
+e dimensão da representação.
 
 \paragraph{A classe 5 e o valor de $0{,}1\,\%$.} Um detector que identifica um décimo de
 um por cento das novidades de uma classe está, para todos os efeitos, cego a ela. Ainda
@@ -151,7 +154,8 @@ sistema em todos os capítulos deste livro.
 \paragraph{A classe 7 e o limite físico.} A incrustação no PCK atinge apenas $52{,}3\,\%$
 mesmo no melhor espaço. A explicação é a escala temporal: incrustação se desenvolve ao
 longo de semanas, e uma janela de duzentos passos não contém a evidência necessária.
-Nenhuma escolha de representação corrige um problema de janela.
+Essa é uma hipótese física plausível, a ser testada variando o horizonte; o resultado
+atual não exclui limitações da representação ou da amostra.
 
 \subsection{Quanto o desconhecido se afasta}
 
@@ -353,6 +357,12 @@ de novidade é calculado sobre um segmento contaminado.
 \item \textbf{Variabilidade entre poços.} Persistente, como os desvios padrão da
 \cref{tab:mahal-classificacao} mostram.
 
+\item \textbf{Possível confundimento de telemetria.} As representações e os limiares
+foram aprendidos sobre dados em que valores ausentes, zerados ou congelados podem
+coincidir com os rótulos. Sem a ablação proposta no \cref{cap:futuro}, os resultados
+medem o protocolo observado, mas não isolam quanto da separação decorre da assinatura
+física e quanto decorre do processo de aquisição.
+
 \item \textbf{Revocação e antecedência.} SoftED de $0{,}678$ e antecedência de $0{,}222$
 permanecem inalteradas por este capítulo, que atua sobre a natureza da decisão e não
 sobre o instante em que ela é tomada.
@@ -398,10 +408,11 @@ classes 5 e 7, a antecedência de detecção e --- sobretudo --- a explicação.
       em média, mais próximas do centroide dos dados de treinamento do que os próprios
       dados de treinamento. Que geometria produz esse efeito?
 
-\item Implemente os três espaços e reproduza a \cref{tab:mahal-qualidade}. Em seguida,
-      calcule a silhueta do latente de um classificador multiclasse treinado com
-      diferentes números de classes ($3$, $5$, $7$, $9$). A qualidade do espaço melhora
-      monotonicamente com o número de classes?
+\item \textbf{Projeto de reprodução e extensão.} Com acesso aos dados, implemente os três
+      espaços e busque reproduzir a \cref{tab:mahal-qualidade}, registrando protocolo e
+      divergências. Em seguida, calcule a silhueta do latente de um classificador
+      multiclasse treinado com diferentes números de classes ($3$, $5$, $7$, $9$). A
+      qualidade do espaço melhora monotonicamente com o número de classes?
 
 \item A hipótese elíptica é violada quando a classe conhecida é multimodal. Implemente
       uma alternativa baseada em mistura de gaussianas e compare com o Mahalanobis

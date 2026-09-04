@@ -245,10 +245,12 @@ acumulados, calculam-se $\mu$ e $\sigma$ desse escore, e define-se
   \label{eq:dual-limiar}
 \end{equation}
 
-Sob normalidade aproximada, $\tau$ corresponde a aproximadamente $99{,}7\,\%$ dos casos
---- uma taxa nominal de falso positivo de $0{,}3\,\%$. A distribuição do erro de
-reconstrução não é gaussiana, mas a regra é adequada como heurística e tem a virtude de
-ser explicável a um operador em uma frase.
+Sob normalidade aproximada, a probabilidade unilateral de o escore ultrapassar $\tau$
+é de aproximadamente $0{,}135\,\%$. O valor de cerca de $0{,}27\,\%$, frequentemente
+associado à regra dos três desvios, soma as duas caudas e não se aplica a este limiar
+unilateral. Como a distribuição do erro de reconstrução não é gaussiana, porém, esses
+valores são apenas referências teóricas: a taxa de falso positivo relevante deve ser
+medida empiricamente no conjunto de validação.
 
 O valor do escore é então convertido em três níveis de risco:
 
@@ -276,6 +278,10 @@ $> 70\,\%$          & Alto  & Alerta; investigação imediata. \\
 \end{tabular}
 \end{center}
 
+Os cortes de $30\,\%$ e $70\,\%$ são regras operacionais de triagem adotadas no sistema,
+não probabilidades calibradas de ocorrência. Sua transferência para outro poço requer
+calibração com a matriz de custo e a taxa de alarmes observada localmente.
+
 \begin{destaque}[Por que graduar o alarme]
 Um alarme binário força uma escolha entre perder eventos e cansar o operador. A
 graduação em três níveis desloca essa escolha para o operador, que dispõe de contexto
@@ -302,9 +308,10 @@ Node-RED merece nota: trata-se de uma ferramenta de programação visual por flu
 amplamente usada em automação industrial, que permite a engenheiros de operação
 inspecionar e modificar o encadeamento sem tocar no código do modelo.
 
-À época da avaliação reportada aqui, o sistema estava implantado em \textbf{mais de
-vinte unidades flutuantes de produção} e \textbf{mais de duzentos e cinquenta poços
-submarinos} nas bacias de Santos e de Campos.
+À época da avaliação, \citet{aranha2023system} reportam que o sistema estava implantado
+em \textbf{mais de vinte unidades flutuantes de produção} e \textbf{mais de duzentos e
+cinquenta poços submarinos} nas bacias de Santos e de Campos. Esta edição não auditou
+independentemente a escala dessa implantação.
 
 \begin{destaque}[O que ``implantado'' significa]
 Vale a pena explicitar, porque a palavra é usada com generosidade na literatura. Aqui
@@ -342,9 +349,9 @@ para $0{,}9771$, e a medida $F_1$ de $0{,}9758$ para $0{,}9917$.
 \end{resultadochave}
 
 A leitura correta desse ganho exige cuidado. Em valor absoluto, $1{,}67$ ponto
-percentual parece pouco. Em termos operacionais, significa que aproximadamente três em
-cada cinco erros do sistema baseado em regras deixaram de ocorrer. Quando a base é um
-sistema já bom, é assim que o progresso se manifesta.
+percentual parece pouco. A redução relativa de $61\,\%$ descreve as taxas agregadas; sem
+contagens pareadas e protocolo operacional, não permite afirmar que três de cada cinco
+erros individuais deixaram de ocorrer.
 
 \subsection{Comparação com a literatura}
 
@@ -570,8 +577,9 @@ sem classificar --- e é essa lacuna que o restante da Parte II ataca.}
       tipos de estrutura podem sobreviver a essa compressão e quais necessariamente se
       perdem.
 
-\item Implemente o autoencoder descrito neste capítulo e treine-o sobre instâncias
-      normais do 3W. Compare o histograma do SMAPE de reconstrução em dados normais e
+\item \textbf{Projeto de extensão.} Com acesso ao 3W e a um ambiente de aprendizado
+      profundo, implemente o autoencoder descrito neste capítulo e treine-o sobre
+      instâncias normais. Compare o histograma do SMAPE de reconstrução em dados normais e
       anômalos e verifique empiricamente se $\mu + 3\sigma$ é uma escolha adequada de
       limiar. Teste também $\mu + 2\sigma$ e $\mu + 4\sigma$, reportando a curva ROC.
 

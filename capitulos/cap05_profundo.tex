@@ -41,17 +41,20 @@ $\sigma(z) = 1/(1 + e^{-z})$, nas saídas binárias.
 Aplicar um MLP a uma série temporal exige achatá-la em um vetor de dimensão $T \cdot S$.
 Para $T = 200$ e $S = 4$, isso resulta em \num{800} entradas --- exatamente a
 representação ``bruta'' usada como linha de base no \cref{cap:mahalanobis}. O
-procedimento funciona, mas descarta duas propriedades essenciais do sinal: a
-\emph{ordem} (permutar os instantes produziria a mesma representação para uma rede sem
-estrutura) e a \emph{invariância a translação} (o mesmo padrão em posição diferente
-ativa pesos diferentes).
+procedimento preserva a ordem apenas de forma posicional: cada instante ocupa
+coordenadas fixas, de modo que permutá-los em geral altera a saída. O que falta é o
+viés arquitetural adequado à estrutura temporal: não há compartilhamento local de
+pesos nem equivariância a translações, e o mesmo padrão em posições diferentes ativa
+parâmetros diferentes. Além disso, o número de pesos da primeira camada cresce com
+$T \cdot S$.
 
 \begin{destaque}[Por que a linha de base bruta ainda aparece]
 O \cref{cap:mahalanobis} reporta que classificadores binários sobre a representação
 bruta de \num{800} dimensões atingem $0{,}691 \pm 0{,}162$ de acurácia, contra
 $0{,}755 \pm 0{,}171$ sobre a representação latente de um classificador multiclasse. A
-diferença é real, mas modesta --- e o fato de a representação bruta chegar tão perto é
-informativo: as assinaturas dessas anomalias são, em boa medida, capturáveis por
+diferença observada é modesta e, sem uma análise pareada, não estabelece superioridade
+estatística. O fato de a representação bruta chegar tão perto ainda é informativo: as
+assinaturas dessas anomalias são, em boa medida, capturáveis por
 estatísticas de primeira ordem.
 \end{destaque}
 
@@ -155,9 +158,11 @@ após cada camada, ele cresce aproximadamente como $2^{L}$.
 \begin{exemplo}{O campo receptivo da U-Net do \cref{cap:segmentacao}}
 A arquitetura tem dois blocos de codificação com duas convoluções de núcleo 5 cada,
 seguidos de subamostragem por 2, e um gargalo com mais duas convoluções de núcleo 5.
-Sem subamostragem, seriam $6 \times 4 + 1 = 25$ amostras. Com as duas subamostragens,
-o campo receptivo efetivo no gargalo ultrapassa oitenta amostras, cobrindo boa parte da
-janela de duzentas.
+Partindo de campo $r=1$ e salto $j=1$, cada convolução atualiza
+$r\leftarrow r+4j$; cada \ing{pooling} de núcleo e passo 2 atualiza
+$r\leftarrow r+j$ e $j\leftarrow2j$. Os valores após os dois blocos são
+$(r,j)=(28,4)$; as duas convoluções do gargalo levam a $r=60$ amostras. O valor depende
+da convenção de borda, mas não ultrapassa oitenta nessa arquitetura.
 
 O cálculo importa: se o campo receptivo fosse menor que a duração característica do
 evento, a rede não poderia, em princípio, reconhecê-lo.

@@ -351,11 +351,15 @@ de instrumentação entre poços.
 
 \end{enumerate}
 
-\begin{destaque}[A ordem importa]
-Padronizar antes de normalizar para $[0,1]$, como faz o \cref{cap:agente}, não é
-redundante: o escore $z$ remove o nível e a escala específicos do poço, e a normalização
-posterior acomoda a saída ao intervalo esperado pelo modelo. Inverter a ordem
-reintroduziria a dependência do nível absoluto.
+\begin{destaque}[O conjunto de ajuste importa]
+Aplicar padronização e, em seguida, normalização Min-Max não produz dois efeitos
+distintos quando ambas são ajustadas sobre as mesmas amostras. Nesse caso, a
+transformação afim da primeira etapa é cancelada pela segunda e o resultado coincide
+com a normalização Min-Max direta. A composição só acrescenta informação quando os
+parâmetros são estimados sobre referências diferentes --- por exemplo, média e desvio
+do regime de base de cada poço, seguidos de limites globais estimados exclusivamente no
+conjunto de treinamento. Por isso, uma implementação reprodutível deve registrar não
+apenas a ordem, mas também os dados usados para ajustar cada transformação.
 \end{destaque}
 
 \begin{destaque}[Prática]
