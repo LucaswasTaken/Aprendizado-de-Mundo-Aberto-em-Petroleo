@@ -5,144 +5,258 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Aprendizado de Mundo Aberto em Poços de Petróleo</title>
 <meta name="description" content="Livro em português sobre detecção, segmentação e explicação de eventos indesejáveis em poços de petróleo.">
-<meta name="author" content="Lucas Gouveia Omena Lopes; Thales Miranda de Almeida Vieira; Eduardo Toledo de Lima Junior; William Wagner Matos Lira; Pedro Esteves Aranha; Ricardo Manoel Vaz Vargas">
+<meta name="author" content="Lucas Gouveia Omena Lopes; Thales Miranda de Almeida Vieira; Eduardo Toledo de Lima Junior; William Wagner Matos Lira; Pedro Esteves Aranha; Ricardo Emanuel Vaz Vargas">
+<meta name="theme-color" content="#f2efe8">
+<meta name="citation_title" content="Aprendizado de Mundo Aberto em Poços de Petróleo">
+<meta name="citation_author" content="Lucas Gouveia Omena Lopes">
+<meta name="citation_author" content="Thales Miranda de Almeida Vieira">
+<meta name="citation_author" content="Eduardo Toledo de Lima Junior">
+<meta name="citation_author" content="William Wagner Matos Lira">
+<meta name="citation_author" content="Pedro Esteves Aranha">
+<meta name="citation_author" content="Ricardo Emanuel Vaz Vargas">
+<meta name="citation_publication_date" content="2026">
+<meta name="citation_isbn" content="978-65-02-28836-8">
+<meta name="citation_pdf_url" content="main.pdf">
+<meta name="citation_doi" content="10.5281/zenodo.22306796">
 <meta property="og:title" content="Aprendizado de Mundo Aberto em Poços de Petróleo">
 <meta property="og:description" content="Da detecção baseada em regras à explicabilidade por agentes de linguagem.">
 <meta property="og:type" content="book">
 <meta property="og:locale" content="pt_BR">
+<meta property="og:image" content="capa.jpg">
+<meta property="book:isbn" content="978-65-02-28836-8">
+<link rel="icon" href="capa.jpg" type="image/jpeg">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Book",
+  "name": "Aprendizado de Mundo Aberto em Poços de Petróleo",
+  "alternateName": "Da detecção baseada em regras à explicabilidade por agentes de linguagem",
+  "inLanguage": "pt-BR",
+  "datePublished": "2026",
+  "isbn": "978-65-02-28836-8",
+  "url": "https://doi.org/10.5281/zenodo.22306796",
+  "license": "https://creativecommons.org/licenses/by/4.0/",
+  "author": [
+    "Lucas Gouveia Omena Lopes",
+    "Thales Miranda de Almeida Vieira",
+    "Eduardo Toledo de Lima Junior",
+    "William Wagner Matos Lira",
+    "Pedro Esteves Aranha",
+    "Ricardo Emanuel Vaz Vargas"
+  ]
+}
+</script>
 <style>
   :root {
-    --tinta: #1a1a1a;
-    --suave: #5c5c5c;
-    --linha: #e0ddd7;
-    --papel: #faf9f7;
-    --realce: #7a2e1d;
+    --tinta: #18201e;
+    --suave: #59635f;
+    --linha: #cbc8be;
+    --papel: #f7f5ef;
+    --papel-fundo: #e8e5dc;
+    --petroleo: #173f3a;
+    --realce: #a14428;
+    --branco: #fffdf8;
   }
   * { box-sizing: border-box; }
-  html { -webkit-text-size-adjust: 100%; }
+  html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
   body {
     margin: 0;
-    background: var(--papel);
+    background:
+      linear-gradient(90deg, transparent 49.8%, rgb(24 32 30 / 3%) 50%, transparent 50.2%),
+      var(--papel);
     color: var(--tinta);
-    font-family: Georgia, "Times New Roman", serif;
+    font-family: Charter, "Iowan Old Style", Georgia, serif;
     font-size: 18px;
     line-height: 1.65;
   }
-  .envelope { max-width: 46rem; margin: 0 auto; padding: 3.5rem 1.5rem 5rem; }
-  header { border-bottom: 1px solid var(--linha); padding-bottom: 2rem; margin-bottom: 2.5rem; }
-  h1 { font-size: 2.1rem; line-height: 1.2; margin: 0 0 .6rem; font-weight: normal; }
-  .subtitulo { font-size: 1.15rem; color: var(--suave); font-style: italic; margin: 0 0 1.6rem; }
-  .autores { font-size: .95rem; line-height: 1.5; margin: 0 0 .35rem; }
-  .filiacao { font-size: .85rem; color: var(--suave); margin: 0; }
+  a { color: var(--realce); text-underline-offset: .18em; }
+  a:focus-visible { outline: 3px solid var(--realce); outline-offset: 4px; }
+  .topo { border-bottom: 1px solid var(--linha); background: rgb(247 245 239 / 94%); }
+  .navegacao {
+    max-width: 72rem; margin: 0 auto; padding: .85rem 1.5rem;
+    display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+    font-family: "Aptos Narrow", "Arial Narrow", sans-serif; font-size: .82rem;
+    text-transform: uppercase; letter-spacing: .08em;
+  }
+  .marca { color: var(--petroleo); font-weight: 700; text-decoration: none; }
+  .links-topo { display: flex; gap: 1rem; }
+  .links-topo a { color: var(--suave); text-decoration: none; }
+  .hero {
+    min-height: min(49rem, calc(100vh - 3.2rem));
+    display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(17rem, .7fr);
+    align-items: center; gap: clamp(2.5rem, 7vw, 7rem);
+    max-width: 72rem; margin: 0 auto; padding: clamp(3rem, 8vw, 6rem) 1.5rem;
+  }
+  .sobretitulo {
+    margin: 0 0 1rem; color: var(--realce); font-family: "Aptos Narrow", "Arial Narrow", sans-serif;
+    font-size: .8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .12em;
+  }
+  h1 { max-width: 12ch; font-size: clamp(2.7rem, 6vw, 5.4rem); line-height: .98; margin: 0 0 1.2rem; font-weight: normal; }
+  .subtitulo { max-width: 37rem; font-size: clamp(1.1rem, 2vw, 1.38rem); color: var(--suave); font-style: italic; margin: 0 0 1.5rem; }
+  .autores { max-width: 42rem; font-size: .94rem; line-height: 1.55; margin: 0; }
+  .acoes { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; margin-top: 2rem; }
+  .botao {
+    display: inline-flex; align-items: center; justify-content: center; min-height: 2.9rem;
+    padding: .7rem 1.15rem; border: 1px solid var(--petroleo); background: var(--petroleo); color: var(--branco);
+    font-family: "Aptos", Calibri, sans-serif; font-size: .91rem; font-weight: 700; text-decoration: none;
+  }
+  .botao.secundario { background: transparent; color: var(--petroleo); }
+  .botao:hover { background: var(--realce); border-color: var(--realce); color: var(--branco); }
+  .dados { display: flex; flex-wrap: wrap; gap: .45rem 1.4rem; margin: 1.5rem 0 0; color: var(--suave); font-size: .82rem; }
+  .capa { margin: 0; justify-self: center; filter: drop-shadow(0 1.5rem 1.2rem rgb(24 32 30 / 18%)); transform: rotate(1.2deg); }
+  .capa img { display: block; width: min(100%, 22rem); height: auto; aspect-ratio: 210 / 297; object-fit: contain; background: var(--papel-fundo); }
+  .faixa { border-top: 1px solid var(--linha); }
+  .conteudo { max-width: 66rem; margin: 0 auto; padding: clamp(3.5rem, 7vw, 6rem) 1.5rem; }
+  .duas-colunas { display: grid; grid-template-columns: minmax(12rem, .55fr) minmax(0, 1.45fr); gap: clamp(2rem, 7vw, 6rem); }
   h2 {
-    font-size: 1.25rem; font-weight: normal; margin: 2.8rem 0 .9rem;
-    padding-bottom: .35rem; border-bottom: 1px solid var(--linha);
+    max-width: 14ch; font-size: clamp(1.8rem, 4vw, 3.1rem); line-height: 1.08; font-weight: normal; margin: 0;
   }
-  a { color: var(--realce); }
-  .baixar {
-    display: inline-block; margin: .5rem 0 .4rem;
-    padding: .85rem 1.6rem; background: var(--realce); color: #fff;
-    text-decoration: none; border-radius: 3px;
-    font-family: system-ui, -apple-system, sans-serif; font-size: 1rem;
-  }
-  .baixar:hover { background: #5e2416; }
-  .nota { font-size: .85rem; color: var(--suave); margin: .3rem 0 0; }
+  h3 { font-size: 1.06rem; line-height: 1.3; margin: 0 0 .3rem; }
+  .texto > p:first-child { margin-top: 0; }
   ol.hipoteses { padding-left: 1.3rem; }
   ol.hipoteses li { margin-bottom: .4rem; }
-  table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: .93rem; }
-  th, td { text-align: left; padding: .6rem .5rem; border-bottom: 1px solid var(--linha); vertical-align: top; }
-  th { font-weight: normal; color: var(--suave); font-size: .85rem; text-transform: uppercase; letter-spacing: .04em; }
-  td:first-child { white-space: nowrap; padding-right: 1.2rem; }
+  .partes { margin: 0; }
+  .parte { display: grid; grid-template-columns: 2rem 10rem 1fr; gap: 1rem; padding: 1.1rem 0; border-bottom: 1px solid var(--linha); }
+  .numero { color: var(--realce); font-family: "Aptos", Calibri, sans-serif; font-size: .78rem; font-weight: 700; }
+  .parte p { color: var(--suave); font-size: .91rem; line-height: 1.5; margin: 0; }
+  .leitor { margin-top: 2rem; background: #d8d4ca; border: 1px solid var(--linha); aspect-ratio: 16 / 10; }
+  .leitor iframe { display: block; width: 100%; height: 100%; border: 0; }
+  .alternativa { margin-top: .8rem; color: var(--suave); font-size: .85rem; }
+  .materiais { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 2.5rem; margin-top: 2rem; }
+  .material { display: block; padding: 1.1rem 0; border-bottom: 1px solid var(--linha); color: var(--tinta); text-decoration: none; }
+  .material span { display: block; color: var(--suave); font-size: .83rem; }
+  .material:hover h3 { color: var(--realce); }
+  .citacao { border-left: 3px solid var(--realce); margin: 2rem 0 0; padding: .2rem 0 .2rem 1.2rem; color: var(--suave); font-size: .9rem; }
   footer {
-    margin-top: 3.5rem; padding-top: 1.5rem; border-top: 1px solid var(--linha);
-    font-size: .85rem; color: var(--suave);
+    border-top: 1px solid var(--linha); background: var(--petroleo); color: #dce4df;
   }
-  code {
-    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
-    font-size: .85em; background: #efece7; padding: .1em .35em; border-radius: 2px;
+  .rodape { max-width: 66rem; margin: 0 auto; padding: 2.5rem 1.5rem; display: flex; justify-content: space-between; gap: 2rem; font-size: .82rem; }
+  .rodape p { margin: 0; }
+  .rodape a { color: var(--branco); }
+  @media (max-width: 48rem) {
+    .hero { min-height: auto; grid-template-columns: 1fr; }
+    .hero-texto { order: 1; }
+    .capa { order: 0; justify-self: start; transform: none; }
+    .capa img { width: min(58vw, 17rem); }
+    .duas-colunas { grid-template-columns: 1fr; }
+    .parte { grid-template-columns: 2rem 1fr; }
+    .parte p { grid-column: 2; }
+    .leitor { aspect-ratio: 4 / 5; }
   }
   @media (max-width: 34rem) {
     body { font-size: 17px; }
-    .envelope { padding: 2.5rem 1.2rem 3.5rem; }
-    h1 { font-size: 1.7rem; }
-    td:first-child { white-space: normal; }
+    .navegacao, .hero, .conteudo, .rodape { padding-left: 1.1rem; padding-right: 1.1rem; }
+    .links-topo a:first-child { display: none; }
+    .materiais { grid-template-columns: 1fr; }
+    .rodape { display: block; }
+    .rodape p + p { margin-top: .7rem; }
   }
 </style>
 </head>
 <body>
-<div class="envelope">
-
-<header>
-  <h1>Aprendizado de Mundo Aberto em Poços de Petróleo</h1>
-  <p class="subtitulo">Da detecção baseada em regras à explicabilidade por agentes de linguagem</p>
-  <p class="autores">
-    Lucas Gouveia Omena Lopes &middot; Thales Miranda de Almeida Vieira &middot;
-    Eduardo Toledo de Lima Junior &middot; William Wagner Matos Lira &middot;
-    Pedro Esteves Aranha &middot; Ricardo Manoel Vaz Vargas
-  </p>
-  <p class="filiacao">Laboratório de Computação Científica e Visualização &mdash; Universidade Federal de Alagoas &middot; Petrobras</p>
+<header class="topo">
+  <nav class="navegacao" aria-label="Navegação principal">
+    <a class="marca" href="#inicio">OWL Book</a>
+    <div class="links-topo">
+      <a href="#conteudo">Conteúdo</a>
+      <a href="#materiais">Materiais</a>
+      <a href="https://github.com/LucaswasTaken/Aprendizado-de-Mundo-Aberto-em-Petroleo">Fonte</a>
+    </div>
+  </nav>
 </header>
 
-<p><a class="baixar" href="main.pdf">Ler o livro (PDF)</a></p>
-<p class="nota">235 páginas &middot; 18 capítulos em cinco partes &middot; cinco apêndices</p>
+<main id="inicio">
+  <section class="hero" aria-labelledby="titulo">
+    <div class="hero-texto">
+      <p class="sobretitulo">Livro aberto &middot; edição 2026</p>
+      <h1 id="titulo">Aprendizado de Mundo Aberto em Poços de Petróleo</h1>
+      <p class="subtitulo">Da detecção baseada em regras à explicabilidade por agentes de linguagem</p>
+      <p class="autores">
+        Lucas Gouveia Omena Lopes &middot; Thales Miranda de Almeida Vieira &middot;
+        Eduardo Toledo de Lima Junior &middot; William Wagner Matos Lira &middot;
+        Pedro Esteves Aranha &middot; Ricardo Emanuel Vaz Vargas
+      </p>
+      <div class="acoes">
+        <a class="botao" href="#leitor">Ler agora</a>
+        <a class="botao secundario" href="main.pdf" download>Baixar PDF</a>
+      </div>
+      <p class="dados">
+        <span>{{PAGE_COUNT}} páginas</span>
+        <span>18 capítulos</span>
+        <span>5 apêndices</span>
+        <span>ISBN 978-65-02-28836-8</span>
+      </p>
+    </div>
+    <figure class="capa">
+      <img src="capa.jpg" width="980" height="1386" alt="Capa do livro Aprendizado de Mundo Aberto em Poços de Petróleo">
+    </figure>
+  </section>
 
-<h2>O que é este livro</h2>
+  <section class="faixa" id="conteudo">
+    <div class="conteudo duas-colunas">
+      <h2>Um problema, cinco aproximações</h2>
+      <div class="texto">
+        <p>Este livro acompanha a detecção, a segmentação e a explicação de eventos indesejáveis em poços de petróleo ao longo de vários anos. Cada abordagem revela os limites da anterior.</p>
+        <p>O fio condutor é a passagem de três hipóteses que a prática desmente:</p>
+        <ol class="hipoteses">
+          <li>que o conjunto de classes conhecidas é fechado;</li>
+          <li>que detectar um evento é o mesmo que localizá-lo no tempo;</li>
+          <li>que uma decisão correta sem justificativa é uma decisão utilizável.</li>
+        </ol>
+      </div>
+    </div>
+  </section>
 
-<p>Um livro em português sobre detecção, segmentação e explicação de eventos indesejáveis
-em poços de petróleo. Ele não é uma coletânea de métodos: é a narrativa de um problema
-sendo atacado por sucessivas aproximações ao longo de vários anos, e do que cada
-aproximação revelou sobre a anterior.</p>
+  <section class="faixa">
+    <div class="conteudo duas-colunas">
+      <h2>Organização do livro</h2>
+      <div class="partes">
+        <article class="parte"><span class="numero">I</span><h3>Fundamentos</h3><p>Domínio, dados, aprendizado, redes profundas e detecção de novidades.</p></article>
+        <article class="parte"><span class="numero">II</span><h3>A base</h3><p>Sistema dual em operação, <i>ensemble</i> binário e aprendizado de mundo aberto.</p></article>
+        <article class="parte"><span class="numero">III</span><h3>A evolução</h3><p>Classificação, segmentação com U-Net e distância de Mahalanobis no espaço latente.</p></article>
+        <article class="parte"><span class="numero">IV</span><h3>A explicabilidade</h3><p>Modelos de linguagem, o agente de diagnóstico e seus resultados.</p></article>
+        <article class="parte"><span class="numero">V</span><h3>Síntese e prática</h3><p>Arquitetura de referência, requisitos de operação e agenda de pesquisa.</p></article>
+      </div>
+    </div>
+  </section>
 
-<p>O fio condutor é a passagem de três hipóteses que a prática desmente:</p>
+  <section class="faixa" id="leitor">
+    <div class="conteudo">
+      <p class="sobretitulo">Edição integral</p>
+      <h2>Leia no navegador</h2>
+      <div class="leitor">
+        <iframe src="main.pdf#view=FitH" title="Livro completo em PDF" loading="lazy"></iframe>
+      </div>
+      <p class="alternativa">O visualizador depende do suporte do navegador a PDF. Também é possível <a href="main.pdf">abrir o arquivo diretamente</a>.</p>
+    </div>
+  </section>
 
-<ol class="hipoteses">
-  <li>que o conjunto de classes conhecidas é fechado;</li>
-  <li>que detectar um evento é o mesmo que localizá-lo no tempo;</li>
-  <li>que uma decisão correta sem justificativa é uma decisão utilizável.</li>
-</ol>
-
-<h2>Organização</h2>
-
-<table>
-  <thead>
-    <tr><th>Parte</th><th>Conteúdo</th></tr>
-  </thead>
-  <tbody>
-    <tr><td>I &mdash; Fundamentos</td><td>Domínio, dados, aprendizado, redes profundas e detecção de novidades</td></tr>
-    <tr><td>II &mdash; A base</td><td>Sistema dual em operação, <i>ensemble</i> binário e aprendizado de mundo aberto</td></tr>
-    <tr><td>III &mdash; A evolução</td><td>Classificação em mundo fechado, segmentação com U-Net e distância de Mahalanobis no espaço latente</td></tr>
-    <tr><td>IV &mdash; A explicabilidade</td><td>Modelos de linguagem, o agente de diagnóstico e seus resultados</td></tr>
-    <tr><td>V &mdash; Síntese e prática</td><td>Arquitetura de referência, requisitos de operação e agenda de pesquisa</td></tr>
-  </tbody>
-</table>
-
-<p>Os apêndices reúnem glossário, notação, formulário, condições de reprodução e um
-roteiro prático executável.</p>
-
-<h2>Código de apoio</h2>
-
-<p>O Apêndice E mapeia cada conceito da Parte I a cadernos Jupyter executáveis do recurso
-<i>Introduction to Machine Learning Applied to Multivariate Time Series</i>, que integra o
-repositório oficial do projeto 3W:</p>
-
-<ul>
-  <li><a href="https://github.com/petrobras/3W">Repositório 3W</a></li>
-  <li><a href="https://github.com/petrobras/3W/tree/main/resources/introduction_to_ml_applied_to_mts">Recurso didático</a></li>
-</ul>
-
-<h2>Licença e reuso</h2>
-
-<p>O texto, as figuras originais e o código-fonte <span class="nota">LaTeX</span> estão sob
-<a href="https://creativecommons.org/licenses/by/4.0/deed.pt-BR">CC&nbsp;BY&nbsp;4.0</a>.
-Parte do material de terceiros reproduzido no livro está sujeita a regimes distintos,
-descritos em <code>LICENSE.md</code>; a licença CC&nbsp;BY&nbsp;4.0 não se estende a esse
-material. Os dados proprietários de poços utilizados em parte dos estudos de caso não são
-distribuídos com a obra.</p>
+  <section class="faixa" id="materiais">
+    <div class="conteudo duas-colunas">
+      <div>
+        <p class="sobretitulo">Edição e pesquisa</p>
+        <h2>Materiais complementares</h2>
+      </div>
+      <div>
+        <div class="materiais">
+          <a class="material" href="ficha-catalografica.pdf"><h3>Ficha catalográfica</h3><span>Registro bibliográfico em PDF</span></a>
+          <a class="material" href="MANIFESTO.pdf"><h3>Manifesto</h3><span>Texto integral em PDF</span></a>
+          <a class="material" href="https://github.com/LucaswasTaken/Aprendizado-de-Mundo-Aberto-em-Petroleo"><h3>Fontes do livro</h3><span>LaTeX, bibliografia e histórico</span></a>
+          <a class="material" href="https://github.com/petrobras/3W"><h3>Projeto 3W</h3><span>Dados e cadernos de apoio</span></a>
+          <a class="material" href="https://doi.org/10.5281/zenodo.22306796"><h3>Registro no Zenodo</h3><span>DOI 10.5281/zenodo.22306796</span></a>
+          <a class="material" href="CITATION.cff"><h3>Arquivo de citação</h3><span>Metadados em Citation File Format</span></a>
+        </div>
+        <p class="citacao">LOPES, Lucas Gouveia Omena et al. <i>Aprendizado de Mundo Aberto em Poços de Petróleo</i>. 2026. DOI: <a href="https://doi.org/10.5281/zenodo.22306796">10.5281/zenodo.22306796</a>.</p>
+      </div>
+    </div>
+  </section>
+</main>
 
 <footer>
-  <p>&copy; 2026 os autores. Compilado a partir do repositório do projeto.</p>
+  <div class="rodape">
+    <p>&copy; 2026 os autores &middot; <a href="https://creativecommons.org/licenses/by/4.0/deed.pt-BR">CC BY 4.0</a></p>
+    <p>UFAL &middot; Petrobras</p>
+  </div>
 </footer>
-
-</div>
 </body>
 </html>
