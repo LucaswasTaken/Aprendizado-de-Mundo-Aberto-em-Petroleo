@@ -33,13 +33,19 @@
 {\large Pedro Esteves Aranha\par}
 {\large Ricardo Emanuel Vaz Vargas\par}
 \vfill
-{\large Laboratório de Computação Científica e Visualização\\
-Universidade Federal de Alagoas\par}
+{\large Laboratório de Computação Científica e Visualização (LCCV)\\
+Universidade Federal de Alagoas (UFAL)\par}
 \vspace{0.4cm}
 {\large Petrobras\par}
 \vspace{0.8cm}
 {\large Maceió --- 2026\par}
+\vspace{0.5cm}
+{\normalsize ISBN 978-65-02-28836-8\par}
+{\normalsize DOI \href{https://doi.org/10.5281/zenodo.22306796}{10.5281/zenodo.22306796}\par}
 \end{titlepage}
+
+\cleardoublepage
+\includepdf[pages=-,pagecommand={\thispagestyle{empty}}]{ficha catalografica.pdf}
 
 \cleardoublepage
 \input{frontmatter/prefacio}
@@ -109,5 +115,10 @@ Universidade Federal de Alagoas\par}
 \cleardoublepage
 \addcontentsline{toc}{chapter}{Índice remissivo}
 \printindex
+
+\cleardoublepage
+\phantomsection
+\addcontentsline{toc}{chapter}{Manifesto}
+\includepdf[pages=-,pagecommand={\thispagestyle{empty}}]{MANIFESTO.pdf}
 
 \end{document}

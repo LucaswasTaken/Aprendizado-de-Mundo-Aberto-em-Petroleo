@@ -1,6 +1,6 @@
 {
   "title": "Aprendizado de Mundo Aberto em Poços de Petróleo: da detecção baseada em regras à explicabilidade por agentes de linguagem",
-  "description": "<p>Livro em português sobre detecção, segmentação e explicação de eventos indesejáveis em poços de petróleo. Percorre o caminho que vai da detecção baseada em regras ao aprendizado de mundo aberto e, deste, à explicabilidade por agentes de modelos de linguagem, com resultados experimentais sobre o conjunto de dados público 3W e sobre dados reais de operação.</p><p>Inclui um roteiro prático ancorado nos cadernos didáticos do repositório 3W (<a href=\"https://github.com/petrobras/3W\">github.com/petrobras/3W</a>).</p><p>235 páginas, 18 capítulos em cinco partes, cinco apêndices.</p>",
+  "description": "<p>Livro em português sobre detecção, segmentação e explicação de eventos indesejáveis em poços de petróleo. Percorre o caminho que vai da detecção baseada em regras ao aprendizado de mundo aberto e, deste, à explicabilidade por agentes de modelos de linguagem, com resultados experimentais sobre o conjunto de dados público 3W e sobre dados reais de operação.</p><p>Inclui um roteiro prático ancorado nos cadernos didáticos do repositório 3W (<a href=\"https://github.com/petrobras/3W\">github.com/petrobras/3W</a>).</p><p>249 páginas, 18 capítulos em cinco partes, cinco apêndices. ISBN 978-65-02-28836-8.</p>",
   "upload_type": "publication",
   "publication_type": "book",
   "language": "por",
@@ -9,19 +9,33 @@
   "creators": [
     {
       "name": "Lopes, Lucas Gouveia Omena",
-      "affiliation": "Laboratório de Computação Científica e Visualização, Universidade Federal de Alagoas"
+      "affiliation": "Laboratório de Computação Científica e Visualização, Universidade Federal de Alagoas",
+      "orcid": "0000-0001-7761-7293"
     },
     {
       "name": "Vieira, Thales Miranda de Almeida",
-      "affiliation": "Universidade Federal de Alagoas"
+      "affiliation": "Universidade Federal de Alagoas",
+      "orcid": "0000-0001-7775-5258"
     },
     {
       "name": "Lima Junior, Eduardo Toledo de",
-      "affiliation": "Laboratório de Computação Científica e Visualização, Universidade Federal de Alagoas"
+      "affiliation": "Laboratório de Computação Científica e Visualização, Universidade Federal de Alagoas",
+      "orcid": "0000-0003-3894-8190"
     },
     {
       "name": "Lira, William Wagner Matos",
-      "affiliation": "Laboratório de Computação Científica e Visualização, Universidade Federal de Alagoas"
+      "affiliation": "Laboratório de Computação Científica e Visualização, Universidade Federal de Alagoas",
+      "orcid": "0000-0003-0011-5820"
+    },
+    {
+      "name": "Aranha, Pedro Esteves",
+      "affiliation": "Petrobras",
+      "orcid": "0000-0002-4225-1882"
+    },
+    {
+      "name": "Vargas, Ricardo Emanuel Vaz",
+      "affiliation": "Petrobras",
+      "orcid": "0000-0001-6243-4590"
     }
   ],
   "keywords": [

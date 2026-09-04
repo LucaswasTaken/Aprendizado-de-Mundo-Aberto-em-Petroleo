@@ -7,8 +7,14 @@ Lucas Gouveia Omena Lopes · Thales Miranda de Almeida Vieira · Eduardo Toledo 
 Laboratório de Computação Científica e Visualização — Universidade Federal de Alagoas · Petrobras
 
 [![Licença: CC BY 4.0](https://img.shields.io/badge/licen%C3%A7a-CC%20BY%204.0-blue.svg)](LICENSE.md)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22306796.svg)](https://doi.org/10.5281/zenodo.22306796)
 
-### ➜ **[Ler o livro (PDF, 235 páginas)](main.pdf)**
+### ➜ **[Ler o livro (PDF, 249 páginas)](main.pdf)**
+
+**ISBN:** 978-65-02-28836-8 · **DOI:** [10.5281/zenodo.22306796](https://doi.org/10.5281/zenodo.22306796)
+
+[Ficha catalográfica (PDF)](ficha%20catalografica.pdf) ·
+[Manifesto (PDF)](MANIFESTO.pdf) · [Manifesto (fonte)](MANIFESTO.md)
 
 ---
 
@@ -25,7 +31,7 @@ O fio condutor é a passagem de três hipóteses que a prática desmente:
 2. que detectar um evento é o mesmo que localizá-lo no tempo;
 3. que uma decisão correta sem justificativa é uma decisão utilizável.
 
-**235 páginas · 18 capítulos em cinco partes · cinco apêndices.**
+**249 páginas · 18 capítulos em cinco partes · cinco apêndices.**
 
 | Parte | Conteúdo |
 |---|---|
@@ -98,8 +104,9 @@ figuras/              figuras
 ## Como citar
 
 Use o arquivo [`CITATION.cff`](CITATION.cff) — o GitHub oferece a citação formatada no
-botão *Cite this repository*. Após o primeiro *release* arquivado no Zenodo, cite o DOI
-correspondente.
+botão *Cite this repository*. Esta edição está identificada pelo DOI
+[10.5281/zenodo.22306796](https://doi.org/10.5281/zenodo.22306796) e pelo ISBN
+978-65-02-28836-8.
 
 ## Licença
 
@@ -116,11 +123,6 @@ com a obra. O conjunto 3W é público e distribuído pela Petrobras.
 
 ## Arquivamento no Zenodo
 
-O arquivo [`.zenodo.json`](.zenodo.json) já contém os metadados do depósito. Para ativar:
-
-1. Entre no Zenodo com a conta do GitHub e habilite este repositório em *GitHub → Repositories*.
-2. Publique um *release* (por exemplo `v1.0.0`).
-3. O Zenodo cria o depósito, atribui um DOI e o mantém sincronizado a cada novo *release*.
-
-Depois disso, acrescente o selo do DOI no topo deste arquivo e o campo `doi:` em
-`CITATION.cff`.
+Esta edição está preservada no Zenodo sob o DOI
+[10.5281/zenodo.22306796](https://doi.org/10.5281/zenodo.22306796). O arquivo
+[`.zenodo.json`](.zenodo.json) mantém os metadados usados no depósito.
