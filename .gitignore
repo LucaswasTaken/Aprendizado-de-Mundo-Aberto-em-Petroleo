@@ -1,4 +1,5 @@
 # --- Artefatos de compilacao LaTeX -----------------------------------------
+build/
 *.aux
 *.bbl
 *.blg
@@ -33,8 +34,8 @@ desktop.ini
 *.bak
 *~
 
-# O PDF compilado (main.pdf) e versionado deliberadamente.
-!main.pdf
+# O PDF final em dist/ e versionado deliberadamente.
+!dist/Aprendizado-de-Mundo-Aberto-em-Petroleo.pdf
 
 # Copias locais do PDF com outros nomes
 Aprendizado de Mundo Aberto em Poços de Petróleo.pdf

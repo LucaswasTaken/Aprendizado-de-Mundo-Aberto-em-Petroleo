@@ -18,4 +18,4 @@
 
 # Estatisticas de linguagem no GitHub: o repositorio e um livro, nao codigo.
 *.tex linguist-detectable=true
-figuras/* linguist-vendored=true
+livro/figuras/** linguist-vendored=true

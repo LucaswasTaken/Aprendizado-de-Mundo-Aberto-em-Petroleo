@@ -242,6 +242,6 @@ segundo.
 
 *Este manifesto acompanha o livro **Aprendizado de Mundo Aberto em Poços de
 Petróleo: da detecção baseada em regras à explicabilidade por agentes de
-linguagem**, e está sob a mesma licença [CC BY 4.0](LICENSE.md).*
+linguagem**, e está sob a mesma licença [CC BY 4.0](../../LICENSE.md).*
 
 *Aberto a assinaturas. Para endossar, abra um pull request adicionando seu nome.*

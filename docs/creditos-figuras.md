@@ -1,7 +1,7 @@
 # Créditos de figuras
 
 Este arquivo mapeia cada figura do livro à sua origem e ao regime de direito autoral
-aplicável. Ele complementa [`LICENSE.md`](LICENSE.md) e existe para tornar explícito o
+aplicável. Ele complementa [`LICENSE.md`](../LICENSE.md) e existe para tornar explícito o
 limite da licença CC BY 4.0 declarada para a obra.
 
 **A licença CC BY 4.0 do livro cobre apenas as figuras marcadas como `CC BY 4.0` na
@@ -102,7 +102,7 @@ editores. Quem desejar reutilizá-las deve obter autorização junto ao detentor
 ## Como reutilizar
 
 Figuras marcadas `CC BY 4.0` ou `Tese`: livres, mediante atribuição aos autores conforme
-[`LICENSE.md`](LICENSE.md).
+[`LICENSE.md`](../LICENSE.md).
 
 Demais figuras: solicite autorização ao editor indicado na coluna Regime. A obtenção de
 permissão para a obra original não se estende automaticamente a esta.
