@@ -1,0 +1,124 @@
+% ===========================================================================
+%  Aprendizado de Mundo Aberto em Poços de Petróleo
+%  Da detecção baseada em regras à explicabilidade por agentes de linguagem
+%
+%  Compilação:  latexmk -pdf -outdir=build main.tex
+%           ou:  build.ps1 (Windows) / make (Linux e macOS)
+% ===========================================================================
+\documentclass[11pt,a4paper,twoside,openright]{book}
+
+\input{preambulo}
+
+\graphicspath{{figuras/}}
+
+\begin{document}
+
+% ---------------------------------------------------------------------------
+\frontmatter
+% ---------------------------------------------------------------------------
+
+\begin{titlepage}
+\centering
+\vspace*{3cm}
+{\Huge\bfseries Aprendizado de Mundo Aberto\\[0.4em] em Poços de Petróleo\par}
+\vspace{1.2cm}
+{\Large Da detecção baseada em regras à explicabilidade\\ por agentes de linguagem\par}
+\vspace{3cm}
+{\Large\bfseries Lucas Gouveia Omena Lopes\par}
+\vspace{0.6cm}
+{\large Thales Miranda de Almeida Vieira\par}
+{\large Eduardo Toledo de Lima Junior\par}
+{\large William Wagner Matos Lira\par}
+\vspace{0.6cm}
+{\large Pedro Esteves Aranha\par}
+{\large Ricardo Emanuel Vaz Vargas\par}
+\vfill
+{\large Laboratório de Computação Científica e Visualização (LCCV)\\
+Universidade Federal de Alagoas (UFAL)\par}
+\vspace{0.4cm}
+{\large Petrobras\par}
+\vspace{0.8cm}
+{\large Maceió --- 2026\par}
+\vspace{0.5cm}
+{\normalsize ISBN 978-65-02-28836-8\par}
+{\normalsize DOI \href{https://doi.org/10.5281/zenodo.22306796}{10.5281/zenodo.22306796}\par}
+\end{titlepage}
+
+\cleardoublepage
+\includepdf[pages=-,pagecommand={\thispagestyle{empty}}]{editorial/ficha-catalografica.pdf}
+
+\cleardoublepage
+\input{frontmatter/prefacio}
+\cleardoublepage
+\input{frontmatter/leitura}
+
+\cleardoublepage
+\tableofcontents
+\cleardoublepage
+\listoffigures
+\cleardoublepage
+\listoftables
+
+\cleardoublepage
+\input{frontmatter/siglas}
+\cleardoublepage
+\input{frontmatter/notacao}
+
+% ---------------------------------------------------------------------------
+\mainmatter
+% ---------------------------------------------------------------------------
+
+\part{Fundamentos}\label{parte:fundamentos}
+\input{capitulos/cap01_introducao}
+\input{capitulos/cap02_dominio}
+\input{capitulos/cap03_dados}
+\input{capitulos/cap04_aprendizado}
+\input{capitulos/cap05_profundo}
+\input{capitulos/cap06_novidades}
+
+\part{A base: da regra ao mundo aberto}\label{parte:base}
+\input{capitulos/cap07_dual}
+\input{capitulos/cap08_binarios}
+\input{capitulos/cap09_mundoaberto}
+
+\part{A evolução}\label{parte:evolucao}
+\input{capitulos/cap10_closedworld}
+\input{capitulos/cap11_segmentacao}
+\input{capitulos/cap12_mahalanobis}
+
+\part{A explicabilidade}\label{parte:explicabilidade}
+\input{capitulos/cap13_llm}
+\input{capitulos/cap14_agente}
+\input{capitulos/cap15_resultados_agente}
+
+\part{Síntese e prática}\label{parte:sintese}
+\input{capitulos/cap16_sintese}
+\input{capitulos/cap17_operacao}
+\input{capitulos/cap18_futuro}
+
+% ---------------------------------------------------------------------------
+\appendix
+% ---------------------------------------------------------------------------
+\input{apendices/apA_glossario}
+\input{apendices/apB_notacao}
+\input{apendices/apC_formulario}
+\input{apendices/apD_reproducao}
+\input{apendices/apE_pratica}
+
+% ---------------------------------------------------------------------------
+\backmatter
+% ---------------------------------------------------------------------------
+\cleardoublepage
+\addcontentsline{toc}{chapter}{Referências}
+\bibliography{referencias}
+
+\cleardoublepage
+\addcontentsline{toc}{chapter}{Índice remissivo}
+\printindex
+
+\cleardoublepage
+\phantomsection
+\addcontentsline{toc}{chapter}{Manifesto}
+\includepdf[pages=-,pagecommand={\thispagestyle{empty}}]{editorial/manifesto.pdf}
+
+\end{document}
