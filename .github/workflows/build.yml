@@ -15,34 +15,39 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Compilar com latexmk
         uses: xu-cheng/latex-action@v3
         with:
-          root_file: main.tex
+          root_file: livro/main.tex
           latexmk_shell_escape: false
-          args: -pdf -bibtex -file-line-error -interaction=nonstopmode
+          args: -pdf -bibtex -outdir=build -file-line-error -interaction=nonstopmode
 
       - name: Verificar o resultado
         run: |
-          test -f main.pdf || { echo "main.pdf nao foi gerado"; exit 1; }
-          indef=$(grep -c 'undefined' main.log || true)
+          test -f build/main.pdf || { echo "build/main.pdf nao foi gerado"; exit 1; }
+          indef=$(grep -c 'undefined' build/main.log || true)
           echo "Referencias indefinidas: $indef"
-          echo "Paginas: $(grep -o 'Output written on main.pdf ([0-9]*' main.log | grep -o '[0-9]*$')"
+          echo "Paginas: $(sed -n 's/.*main\.pdf (\([0-9][0-9]*\) pages.*/\1/p' build/main.log | tail -1)"
           if [ "$indef" -gt 0 ]; then
-            grep -n 'undefined' main.log
+            grep -n 'undefined' build/main.log
             exit 1
           fi
 
-      - name: Publicar o PDF como artefato
-        uses: actions/upload-artifact@v4
+      - name: Preparar o PDF distribuível
+        run: |
+          mkdir -p dist
+          cp build/main.pdf dist/Aprendizado-de-Mundo-Aberto-em-Petroleo.pdf
+
+      - name: Armazenar o PDF como artefato
+        uses: actions/upload-artifact@v7
         with:
           name: livro-pdf
-          path: main.pdf
+          path: dist/Aprendizado-de-Mundo-Aberto-em-Petroleo.pdf
 
       - name: Anexar o PDF ao release
         if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
-          files: main.pdf
+          files: dist/Aprendizado-de-Mundo-Aberto-em-Petroleo.pdf

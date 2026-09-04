@@ -10,8 +10,11 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-Set-Location -Path $PSScriptRoot
-$buildDir = Join-Path $PSScriptRoot 'build'
+$repoRoot = Split-Path -Parent $PSScriptRoot
+Set-Location -Path $repoRoot
+$buildDir = Join-Path $repoRoot 'build'
+$distDir = Join-Path $repoRoot 'dist'
+$distPdf = Join-Path $distDir 'Aprendizado-de-Mundo-Aberto-em-Petroleo.pdf'
 
 # MiKTeX nem sempre esta no PATH em instalacoes por usuario no Windows.
 $miktex = Join-Path $env:LOCALAPPDATA 'Programs\MiKTeX\miktex\bin\x64'
@@ -34,11 +37,11 @@ if ($Clean) {
 
 New-Item -ItemType Directory -Path $buildDir -Force | Out-Null
 
-Write-Host 'Passo 1/5  pdflatex'  ; pdflatex -output-directory=build -interaction=nonstopmode main.tex | Out-Null
+Write-Host 'Passo 1/5  pdflatex'  ; pdflatex -output-directory=build -interaction=nonstopmode livro/main.tex | Out-Null
 Write-Host 'Passo 2/5  bibtex'    ; bibtex build/main | Out-Null
 Write-Host 'Passo 3/5  makeindex' ; makeindex -o build/main.ind build/main.idx | Out-Null
-Write-Host 'Passo 4/5  pdflatex'  ; pdflatex -output-directory=build -interaction=nonstopmode main.tex | Out-Null
-Write-Host 'Passo 5/5  pdflatex'  ; pdflatex -output-directory=build -interaction=nonstopmode main.tex | Out-Null
+Write-Host 'Passo 4/5  pdflatex'  ; pdflatex -output-directory=build -interaction=nonstopmode livro/main.tex | Out-Null
+Write-Host 'Passo 5/5  pdflatex'  ; pdflatex -output-directory=build -interaction=nonstopmode livro/main.tex | Out-Null
 
 $log = Get-Content (Join-Path $buildDir 'main.log') -Raw
 
@@ -62,4 +65,5 @@ if ($erros -gt 0 -or $indef -gt 0) {
     exit 1
 }
 
-Copy-Item (Join-Path $buildDir 'main.pdf') (Join-Path $PSScriptRoot 'main.pdf') -Force
+New-Item -ItemType Directory -Path $distDir -Force | Out-Null
+Copy-Item (Join-Path $buildDir 'main.pdf') $distPdf -Force

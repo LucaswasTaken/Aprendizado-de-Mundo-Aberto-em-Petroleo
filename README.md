@@ -9,12 +9,12 @@ Laboratório de Computação Científica e Visualização — Universidade Feder
 [![Licença: CC BY 4.0](https://img.shields.io/badge/licen%C3%A7a-CC%20BY%204.0-blue.svg)](LICENSE.md)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22306796.svg)](https://doi.org/10.5281/zenodo.22306796)
 
-### ➜ **[Ler o livro (PDF, 249 páginas)](main.pdf)**
+### ➜ **[Ler o livro (PDF, 249 páginas)](dist/Aprendizado-de-Mundo-Aberto-em-Petroleo.pdf)**
 
 **ISBN:** 978-65-02-28836-8 · **DOI:** [10.5281/zenodo.22306796](https://doi.org/10.5281/zenodo.22306796)
 
-[Ficha catalográfica (PDF)](ficha%20catalografica.pdf) ·
-[Manifesto (PDF)](MANIFESTO.pdf) · [Manifesto (fonte)](MANIFESTO.md)
+[Ficha catalográfica (PDF)](livro/editorial/ficha-catalografica.pdf) ·
+[Manifesto (PDF)](livro/editorial/manifesto.pdf) · [Manifesto (fonte)](livro/editorial/manifesto.md)
 
 ---
 
@@ -46,9 +46,10 @@ prático executável.
 
 ## Baixar
 
-O PDF compilado está versionado neste repositório como [`main.pdf`](main.pdf) e é anexado
-a cada *release*. O GitHub abre o arquivo em um visualizador embutido; para baixar, use o
-botão *Download raw file*.
+O PDF compilado está versionado em
+[`dist/Aprendizado-de-Mundo-Aberto-em-Petroleo.pdf`](dist/Aprendizado-de-Mundo-Aberto-em-Petroleo.pdf)
+e é anexado a cada *release*. O GitHub abre o arquivo em um visualizador embutido; para
+baixar, use o botão *Download raw file*.
 
 ## Código de apoio
 
@@ -74,31 +75,35 @@ Requer uma distribuição TeX completa (TeX Live ou MiKTeX) com `pdflatex`, `bib
 
 ```powershell
 # Windows / PowerShell
-.\build.ps1
+.\scripts\build.ps1
 ```
 
 ```bash
 # Linux / macOS
-make
+make -f scripts/Makefile
 ```
 
 Ou diretamente:
 
 ```bash
-latexmk -pdf main.tex
+latexmk -pdf -outdir=build livro/main.tex
 ```
 
 ### Estrutura
 
 ```
-main.tex              documento principal, partes e apêndices
-preambulo.tex         pacotes, ambientes (definicao, exemplo, destaque, …) e macros
-referencias.bib       bibliografia (233 entradas)
-frontmatter/          prefácio, guia de leitura, siglas e notação
-capitulos/            cap01 … cap18
-apendices/            apA glossário · apB notação · apC formulário
-                      apD reprodução · apE roteiro prático
-figuras/              figuras
+livro/main.tex          documento principal, partes e apêndices
+livro/preambulo.tex     pacotes, ambientes e macros
+livro/referencias.bib   bibliografia (233 entradas)
+livro/frontmatter/      prefácio, guia de leitura, siglas e notação
+livro/capitulos/        capítulos 1 a 18
+livro/apendices/        glossário, notação, formulário, reprodução e prática
+livro/figuras/          figuras usadas no livro
+livro/editorial/        ficha catalográfica e manifesto
+scripts/                comandos de compilação para Windows, Linux e macOS
+dist/                   PDF final versionado
+docs/                   créditos de figuras e relatório de revisão
+build/                  artefatos locais de compilação (ignorado pelo Git)
 ```
 
 ## Como citar
@@ -115,7 +120,7 @@ Texto, figuras originais e fonte LaTeX sob [CC BY 4.0](LICENSE.md).
 > **Atenção:** parte das figuras deriva de artigos publicados em periódicos e
 > conferências com regimes de direito autoral distintos (SPE, Elsevier, Taylor & Francis,
 > OTC). A licença CC BY 4.0 não se estende a esse material. O inventário figura a figura
-> está em [`CREDITOS_FIGURAS.md`](CREDITOS_FIGURAS.md); consulte-o antes de redistribuir
+> está em [`docs/creditos-figuras.md`](docs/creditos-figuras.md); consulte-o antes de redistribuir
 > figuras específicas.
 
 Os dados proprietários de poços usados em parte dos estudos de caso não são distribuídos

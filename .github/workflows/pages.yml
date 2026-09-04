@@ -23,30 +23,36 @@ jobs:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+
+      - name: Configurar o GitHub Pages
+        uses: actions/configure-pages@v6
+        with:
+          enablement: true
 
       - name: Compilar com latexmk
         uses: xu-cheng/latex-action@v3
         with:
-          root_file: main.tex
+          root_file: livro/main.tex
           latexmk_shell_escape: false
-          args: -pdf -bibtex -file-line-error -interaction=nonstopmode
+          args: -pdf -bibtex -outdir=build -file-line-error -interaction=nonstopmode
 
       - name: Instalar gerador da capa
         run: sudo apt-get update && sudo apt-get install --yes poppler-utils
 
       - name: Montar o site
         run: |
-          test -f main.pdf || { echo "main.pdf nao foi gerado"; exit 1; }
-          paginas=$(grep -o 'Output written on main.pdf ([0-9]*' main.log | grep -o '[0-9]*$')
+          test -f build/main.pdf || { echo "build/main.pdf nao foi gerado"; exit 1; }
+          paginas=$(sed -n 's/.*main\.pdf (\([0-9][0-9]*\) pages.*/\1/p' build/main.log | tail -1)
           test -n "$paginas" || { echo "contagem de paginas nao encontrada"; exit 1; }
 
           mkdir -p _site
           cp site/index.html _site/
-          cp main.pdf _site/
-          cp 'ficha catalografica.pdf' _site/ficha-catalografica.pdf
-          cp MANIFESTO.pdf CITATION.cff _site/
-          pdftoppm -f 1 -l 1 -singlefile -jpeg -r 150 main.pdf _site/capa
+          cp build/main.pdf _site/main.pdf
+          cp livro/editorial/ficha-catalografica.pdf _site/ficha-catalografica.pdf
+          cp livro/editorial/manifesto.pdf _site/manifesto.pdf
+          cp CITATION.cff _site/
+          pdftoppm -f 1 -l 1 -singlefile -jpeg -r 150 build/main.pdf _site/capa
           touch _site/.nojekyll
 
           sed -i "s/{{PAGE_COUNT}}/${paginas}/g" _site/index.html
@@ -54,11 +60,9 @@ jobs:
           test -s _site/capa.jpg || { echo "capa nao foi gerada"; exit 1; }
           echo "Publicando $paginas paginas"
 
-      - uses: actions/configure-pages@v5
-
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: _site
 
       - id: deploy
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

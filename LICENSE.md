@@ -50,7 +50,7 @@ periodicos e conferencias com regimes de direito autoral distintos:
 
 A licenca CC BY 4.0 declarada acima **nao se estende** ao material de terceiros. O
 inventario figura a figura, com a origem e o regime aplicavel a cada uma, esta em
-[`CREDITOS_FIGURAS.md`](CREDITOS_FIGURAS.md). Consulte-o antes de redistribuir ou adaptar
+[`docs/creditos-figuras.md`](docs/creditos-figuras.md). Consulte-o antes de redistribuir ou adaptar
 figuras especificas.
 
 ## Dados

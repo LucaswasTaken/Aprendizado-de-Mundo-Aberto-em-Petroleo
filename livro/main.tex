@@ -2,14 +2,14 @@
 %  Aprendizado de Mundo Aberto em Poços de Petróleo
 %  Da detecção baseada em regras à explicabilidade por agentes de linguagem
 %
-%  Compilação:  latexmk -pdf -outdir=build main.tex
-%           ou:  build.ps1 (Windows) / make (Linux e macOS)
+%  Compilação:  latexmk -pdf -outdir=build livro/main.tex
+%           ou:  scripts/build.ps1 (Windows) / make -f scripts/Makefile
 % ===========================================================================
 \documentclass[11pt,a4paper,twoside,openright]{book}
 
-\input{preambulo}
+\input{livro/preambulo}
 
-\graphicspath{{figuras/}}
+\graphicspath{{livro/figuras/}}
 
 \begin{document}
 
@@ -45,12 +45,12 @@ Universidade Federal de Alagoas (UFAL)\par}
 \end{titlepage}
 
 \cleardoublepage
-\includepdf[pages=-,pagecommand={\thispagestyle{empty}}]{editorial/ficha-catalografica.pdf}
+\includepdf[pages=-,pagecommand={\thispagestyle{empty}}]{livro/editorial/ficha-catalografica.pdf}
 
 \cleardoublepage
-\input{frontmatter/prefacio}
+\input{livro/frontmatter/prefacio}
 \cleardoublepage
-\input{frontmatter/leitura}
+\input{livro/frontmatter/leitura}
 
 \cleardoublepage
 \tableofcontents
@@ -60,57 +60,57 @@ Universidade Federal de Alagoas (UFAL)\par}
 \listoftables
 
 \cleardoublepage
-\input{frontmatter/siglas}
+\input{livro/frontmatter/siglas}
 \cleardoublepage
-\input{frontmatter/notacao}
+\input{livro/frontmatter/notacao}
 
 % ---------------------------------------------------------------------------
 \mainmatter
 % ---------------------------------------------------------------------------
 
 \part{Fundamentos}\label{parte:fundamentos}
-\input{capitulos/cap01_introducao}
-\input{capitulos/cap02_dominio}
-\input{capitulos/cap03_dados}
-\input{capitulos/cap04_aprendizado}
-\input{capitulos/cap05_profundo}
-\input{capitulos/cap06_novidades}
+\input{livro/capitulos/cap01_introducao}
+\input{livro/capitulos/cap02_dominio}
+\input{livro/capitulos/cap03_dados}
+\input{livro/capitulos/cap04_aprendizado}
+\input{livro/capitulos/cap05_profundo}
+\input{livro/capitulos/cap06_novidades}
 
 \part{A base: da regra ao mundo aberto}\label{parte:base}
-\input{capitulos/cap07_dual}
-\input{capitulos/cap08_binarios}
-\input{capitulos/cap09_mundoaberto}
+\input{livro/capitulos/cap07_dual}
+\input{livro/capitulos/cap08_binarios}
+\input{livro/capitulos/cap09_mundoaberto}
 
 \part{A evolução}\label{parte:evolucao}
-\input{capitulos/cap10_closedworld}
-\input{capitulos/cap11_segmentacao}
-\input{capitulos/cap12_mahalanobis}
+\input{livro/capitulos/cap10_closedworld}
+\input{livro/capitulos/cap11_segmentacao}
+\input{livro/capitulos/cap12_mahalanobis}
 
 \part{A explicabilidade}\label{parte:explicabilidade}
-\input{capitulos/cap13_llm}
-\input{capitulos/cap14_agente}
-\input{capitulos/cap15_resultados_agente}
+\input{livro/capitulos/cap13_llm}
+\input{livro/capitulos/cap14_agente}
+\input{livro/capitulos/cap15_resultados_agente}
 
 \part{Síntese e prática}\label{parte:sintese}
-\input{capitulos/cap16_sintese}
-\input{capitulos/cap17_operacao}
-\input{capitulos/cap18_futuro}
+\input{livro/capitulos/cap16_sintese}
+\input{livro/capitulos/cap17_operacao}
+\input{livro/capitulos/cap18_futuro}
 
 % ---------------------------------------------------------------------------
 \appendix
 % ---------------------------------------------------------------------------
-\input{apendices/apA_glossario}
-\input{apendices/apB_notacao}
-\input{apendices/apC_formulario}
-\input{apendices/apD_reproducao}
-\input{apendices/apE_pratica}
+\input{livro/apendices/apA_glossario}
+\input{livro/apendices/apB_notacao}
+\input{livro/apendices/apC_formulario}
+\input{livro/apendices/apD_reproducao}
+\input{livro/apendices/apE_pratica}
 
 % ---------------------------------------------------------------------------
 \backmatter
 % ---------------------------------------------------------------------------
 \cleardoublepage
 \addcontentsline{toc}{chapter}{Referências}
-\bibliography{referencias}
+\bibliography{livro/referencias}
 
 \cleardoublepage
 \addcontentsline{toc}{chapter}{Índice remissivo}
@@ -119,6 +119,6 @@ Universidade Federal de Alagoas (UFAL)\par}
 \cleardoublepage
 \phantomsection
 \addcontentsline{toc}{chapter}{Manifesto}
-\includepdf[pages=-,pagecommand={\thispagestyle{empty}}]{editorial/manifesto.pdf}
+\includepdf[pages=-,pagecommand={\thispagestyle{empty}}]{livro/editorial/manifesto.pdf}
 
 \end{document}
